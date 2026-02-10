@@ -42,7 +42,9 @@ type NormalizedSubmission = {
   quotaTotale: number | null;
 };
 
-function getEnv(name: string) {
+const GROUP_NAMESPACE_UUID = "6ba7b811-9dad-11d1-80b4-00c04fd430c8";
+
+function getEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
     throw new Error(`Missing ${name}`);
@@ -50,7 +52,7 @@ function getEnv(name: string) {
   return value;
 }
 
-function verifySignature(rawBody: string, signatureHeader: string | null) {
+function verifySignature(rawBody: string, signatureHeader: string | null): boolean {
   const secret = process.env.TALLY_WEBHOOK_SECRET;
   if (!secret) return true;
   if (!signatureHeader) return false;
@@ -77,7 +79,7 @@ function normalize(value: unknown): string {
   return String(value).trim();
 }
 
-function parseDate(value: string | undefined | null) {
+function parseDate(value: string | undefined | null): Date | null {
   if (!value) return null;
   const trimmed = value.trim();
   if (!trimmed) return null;
@@ -86,12 +88,12 @@ function parseDate(value: string | undefined | null) {
   return null;
 }
 
-function formatDateOnly(date: Date | null) {
+function formatDateOnly(date: Date | null): string | null {
   if (!date) return null;
   return date.toISOString().slice(0, 10);
 }
 
-function parseBool(value: string) {
+function parseBool(value: string): boolean | null {
   const v = value.trim().toLowerCase();
   if (!v) return null;
   if (["true", "si", "sì", "yes", "1", "on"].includes(v)) return true;
@@ -99,17 +101,17 @@ function parseBool(value: string) {
   return null;
 }
 
-function optionId(option: TallyOption) {
+function optionId(option: TallyOption): string {
   return normalize(option.id || option.optionId);
 }
 
-function optionText(option: TallyOption, fallback: string) {
+function optionText(option: TallyOption, fallback: string): string {
   const valueText =
     typeof option.value === "string" ? option.value : normalize(option.value);
   return normalize(option.text || option.label || valueText || fallback);
 }
 
-function mapOptionValue(options: TallyOption[], raw: unknown) {
+function mapOptionValue(options: TallyOption[], raw: unknown): string {
   const rawNorm = normalize(raw);
   if (!rawNorm) return "";
 
@@ -119,7 +121,7 @@ function mapOptionValue(options: TallyOption[], raw: unknown) {
   return rawNorm;
 }
 
-function extractFieldValue(field: TallyField) {
+function extractFieldValue(field: TallyField): string {
   const options = Array.isArray(field.options) ? field.options : [];
   const raw = field.value;
 
@@ -143,38 +145,50 @@ function extractFieldValue(field: TallyField) {
 }
 
 function parseArrivalDeparture(answers: Record<string, string>) {
-  const range =
+  const arrivalRaw =
     answers["Date of arrival and departure"] ||
     answers["Date of arrival and departure "] ||
+    answers["Arrival"] ||
+    answers["Date of arrival"] ||
     "";
-  const explicitDeparture = answers["Departure"] || "";
+
+  const departureRaw =
+    answers["Departure"] || answers["Date of departure"] || "";
 
   let arrival: Date | null = null;
   let departure: Date | null = null;
 
-  if (range) {
-    const parts = range.split(/\s*-\s*|\s+to\s+/i).map((p) => p.trim());
-    if (parts.length >= 2) {
-      arrival = parseDate(parts[0]);
-      departure = parseDate(parts[1]);
+  if (arrivalRaw) {
+    const hasRangeSeparator = /\s+-\s+|\s+to\s+/i.test(arrivalRaw);
+    if (hasRangeSeparator) {
+      const parts = arrivalRaw
+        .split(/\s+-\s+|\s+to\s+/i)
+        .map((p) => p.trim())
+        .filter(Boolean);
+      if (parts.length >= 2) {
+        arrival = parseDate(parts[0]);
+        departure = parseDate(parts[1]);
+      }
+    } else {
+      arrival = parseDate(arrivalRaw);
     }
   }
 
-  if (!departure && explicitDeparture) {
-    departure = parseDate(explicitDeparture);
+  if (!departure && departureRaw) {
+    departure = parseDate(departureRaw);
   }
 
   return { arrival, departure };
 }
 
-function calcNights(arrival: Date | null, departure: Date | null) {
+function calcNights(arrival: Date | null, departure: Date | null): number | null {
   if (!arrival || !departure) return null;
   const ms = departure.getTime() - arrival.getTime();
   if (ms <= 0) return null;
   return Math.ceil(ms / (1000 * 60 * 60 * 24));
 }
 
-function extractAnswers(payload: any) {
+function extractAnswers(payload: any): Record<string, string> {
   const answers: Record<string, string> = {};
 
   const fields: TallyField[] = payload?.data?.fields ?? payload?.fields ?? [];
@@ -193,10 +207,40 @@ function extractAnswers(payload: any) {
   return answers;
 }
 
-function looksLikeUuid(value: string) {
+function looksLikeUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     value
   );
+}
+
+function uuidToBytes(uuid: string): Buffer {
+  const hex = uuid.replace(/-/g, "");
+  return Buffer.from(hex, "hex");
+}
+
+function bytesToUuid(bytes: Buffer): string {
+  const hex = bytes.toString("hex");
+  return [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    hex.slice(12, 16),
+    hex.slice(16, 20),
+    hex.slice(20, 32),
+  ].join("-");
+}
+
+function uuidV5FromString(name: string, namespace: string): string {
+  const nsBytes = uuidToBytes(namespace);
+  const nameBytes = Buffer.from(name, "utf8");
+  const hash = crypto
+    .createHash("sha1")
+    .update(Buffer.concat([nsBytes, nameBytes]))
+    .digest();
+
+  const out = Buffer.from(hash.subarray(0, 16));
+  out[6] = (out[6] & 0x0f) | 0x50;
+  out[8] = (out[8] & 0x3f) | 0x80;
+  return bytesToUuid(out);
 }
 
 async function logWebhookEvent(
@@ -211,7 +255,7 @@ async function logWebhookEvent(
     payload: any;
     normalized?: any;
   }
-) {
+): Promise<void> {
   const { error } = await supabase.from("webhook_events").insert({
     source: "tally",
     event_type: "form_submission",
@@ -230,7 +274,76 @@ async function logWebhookEvent(
   }
 }
 
-async function resolveGruppoId(supabase: any, rawValue: string) {
+async function findGroupByColumn(
+  supabase: any,
+  column: string,
+  value: string
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("gruppi")
+    .select("id")
+    .ilike(column, value)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    const code = error.code ?? "";
+    if (code === "PGRST116" || code === "42703" || code === "PGRST204") {
+      return null;
+    }
+    console.error(`Group lookup by ${column} failed`, error);
+    return null;
+  }
+
+  return data?.id ?? null;
+}
+
+async function ensureGroupById(
+  supabase: any,
+  groupId: string,
+  label: string
+): Promise<string | null> {
+  const payloadCandidates: Array<Record<string, unknown>> = [
+    { id: groupId },
+    { id: groupId, nome: label },
+    { id: groupId, name: label },
+    { id: groupId, label },
+    { id: groupId, gruppo_label: label },
+  ];
+
+  for (const payload of payloadCandidates) {
+    const { error } = await supabase
+      .from("gruppi")
+      .upsert(payload, { onConflict: "id" });
+
+    if (!error) {
+      const { data: byId } = await supabase
+        .from("gruppi")
+        .select("id")
+        .eq("id", groupId)
+        .maybeSingle();
+      if (byId?.id) return byId.id;
+      continue;
+    }
+
+    const code = error.code ?? "";
+    if (["42703", "PGRST204", "23502"].includes(code)) {
+      continue;
+    }
+
+    console.error("Group upsert failed", { payload, error });
+  }
+
+  const { data: finalCheck } = await supabase
+    .from("gruppi")
+    .select("id")
+    .eq("id", groupId)
+    .maybeSingle();
+
+  return finalCheck?.id ?? null;
+}
+
+async function resolveGruppoId(supabase: any, rawValue: string): Promise<string | null> {
   const value = rawValue.trim();
   if (!value) return null;
 
@@ -245,60 +358,24 @@ async function resolveGruppoId(supabase: any, rawValue: string) {
     console.error("Group lookup by id failed", byIdError);
   }
 
-  if (looksLikeUuid(value)) {
-    const { data: createdByUuid, error: createdByUuidError } = await supabase
-      .from("gruppi")
-      .insert({ id: value, nome: value })
-      .select("id")
-      .single();
+  const byNome = await findGroupByColumn(supabase, "nome", value);
+  if (byNome) return byNome;
 
-    if (createdByUuid?.id) return createdByUuid.id;
+  const byName = await findGroupByColumn(supabase, "name", value);
+  if (byName) return byName;
 
-    if (createdByUuidError && createdByUuidError.code !== "23505") {
-      console.error("Group create by uuid failed", createdByUuidError);
-    }
+  const byLabel = await findGroupByColumn(supabase, "label", value);
+  if (byLabel) return byLabel;
 
-    const { data: recheckById } = await supabase
-      .from("gruppi")
-      .select("id")
-      .eq("id", value)
-      .maybeSingle();
+  const byGruppoLabel = await findGroupByColumn(supabase, "gruppo_label", value);
+  if (byGruppoLabel) return byGruppoLabel;
 
-    if (recheckById?.id) return recheckById.id;
-  }
+  const deterministicId = looksLikeUuid(value)
+    ? value
+    : uuidV5FromString(value.toLowerCase(), GROUP_NAMESPACE_UUID);
 
-  const { data: byName, error: byNameError } = await supabase
-    .from("gruppi")
-    .select("id")
-    .ilike("nome", value)
-    .limit(1)
-    .maybeSingle();
-
-  if (byName?.id) return byName.id;
-  if (byNameError && byNameError.code !== "PGRST116") {
-    console.error("Group lookup by name failed", byNameError);
-  }
-
-  const { data: createdByName, error: createdByNameError } = await supabase
-    .from("gruppi")
-    .insert({ nome: value })
-    .select("id")
-    .single();
-
-  if (createdByName?.id) return createdByName.id;
-
-  if (createdByNameError && createdByNameError.code !== "23505") {
-    console.error("Group create by name failed", createdByNameError);
-  }
-
-  const { data: recheckByName } = await supabase
-    .from("gruppi")
-    .select("id")
-    .ilike("nome", value)
-    .limit(1)
-    .maybeSingle();
-
-  if (recheckByName?.id) return recheckByName.id;
+  const ensured = await ensureGroupById(supabase, deterministicId, value);
+  if (ensured) return ensured;
 
   console.warn("Unable to resolve gruppo_id. Using null.", { value });
   return null;
@@ -464,8 +541,7 @@ async function handlePost(req: Request) {
   }
 
   const gruppoId = await resolveGruppoId(supabase, normalized.gruppoLabel);
-  const submittedAtIso =
-    parseDate(normalized.submittedAtTally)?.toISOString() || null;
+  const submittedAtIso = parseDate(normalized.submittedAtTally)?.toISOString() || null;
 
   const fullInsert = {
     nome: normalized.nome,
