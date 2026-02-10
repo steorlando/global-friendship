@@ -2,6 +2,22 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+type TallyOption = {
+  id?: string;
+  optionId?: string;
+  text?: string;
+  label?: string;
+  value?: unknown;
+};
+
+type TallyField = {
+  key?: string;
+  name?: string;
+  label?: string;
+  value?: unknown;
+  options?: TallyOption[];
+};
+
 type NormalizedSubmission = {
   nome: string;
   cognome: string;
@@ -57,7 +73,7 @@ function verifySignature(rawBody: string, signatureHeader: string | null) {
 
 function normalize(value: unknown) {
   if (value === undefined || value === null) return "";
-  if (Array.isArray(value)) return value.join(", ");
+  if (Array.isArray(value)) return value.map(normalize).join(", ");
   return String(value).trim();
 }
 
@@ -83,23 +99,47 @@ function parseBool(value: string) {
   return null;
 }
 
-function extractAnswers(payload: any) {
-  const answers: Record<string, string> = {};
+function optionId(option: TallyOption) {
+  return normalize(option.id || option.optionId);
+}
 
-  const fields = payload?.data?.fields ?? payload?.fields;
-  if (Array.isArray(fields)) {
-    for (const field of fields) {
-      const label = normalize(field?.label || field?.name || field?.key);
-      const value = normalize(field?.value);
-      if (label) answers[label] = value;
+function optionText(option: TallyOption, fallback: string) {
+  const valueText =
+    typeof option.value === "string" ? option.value : normalize(option.value);
+  return normalize(option.text || option.label || valueText || fallback);
+}
+
+function mapOptionValue(options: TallyOption[], raw: unknown) {
+  const rawNorm = normalize(raw);
+  if (!rawNorm) return "";
+
+  const match = options.find((opt) => optionId(opt) === rawNorm);
+  if (match) return optionText(match, rawNorm);
+
+  return rawNorm;
+}
+
+function extractFieldValue(field: TallyField) {
+  const options = Array.isArray(field.options) ? field.options : [];
+  const raw = field.value;
+
+  if (Array.isArray(raw)) {
+    if (options.length > 0) {
+      return raw.map((v) => mapOptionValue(options, v)).filter(Boolean).join(", ");
     }
+    return raw.map((v) => normalize(v)).filter(Boolean).join(", ");
   }
 
-  for (const [key, value] of Object.entries(payload ?? {})) {
-    if (!(key in answers)) answers[key] = normalize(value);
+  if (raw && typeof raw === "object") {
+    const objectText = normalize((raw as Record<string, unknown>).text);
+    if (objectText) return objectText;
   }
 
-  return answers;
+  if (options.length > 0) {
+    return mapOptionValue(options, raw);
+  }
+
+  return normalize(raw);
 }
 
 function parseArrivalDeparture(answers: Record<string, string>) {
@@ -132,6 +172,25 @@ function calcNights(arrival: Date | null, departure: Date | null) {
   const ms = departure.getTime() - arrival.getTime();
   if (ms <= 0) return null;
   return Math.ceil(ms / (1000 * 60 * 60 * 24));
+}
+
+function extractAnswers(payload: any) {
+  const answers: Record<string, string> = {};
+
+  const fields: TallyField[] = payload?.data?.fields ?? payload?.fields ?? [];
+  if (Array.isArray(fields)) {
+    for (const field of fields) {
+      const label = normalize(field?.label || field?.name || field?.key);
+      if (!label) continue;
+      answers[label] = extractFieldValue(field);
+    }
+  }
+
+  for (const [key, value] of Object.entries(payload ?? {})) {
+    if (!(key in answers)) answers[key] = normalize(value);
+  }
+
+  return answers;
 }
 
 function looksLikeUuid(value: string) {
@@ -305,7 +364,8 @@ function normalizeSubmission(
   );
 
   const submittedAtTally =
-    answers["Submitted at"] || normalize(payload?.submittedAt || payload?.createdAt);
+    answers["Submitted at"] ||
+    normalize(payload?.data?.createdAt || payload?.createdAt || payload?.submittedAt);
 
   const { arrival, departure } = parseArrivalDeparture(answers);
   const nights = calcNights(arrival, departure);
@@ -358,8 +418,8 @@ async function handlePost(req: Request) {
 
   if (!verifySignature(rawBody, signatureHeader)) {
     await logWebhookEvent(supabase, {
-      submissionId: normalize(payload?.["Submission ID"] || payload?.["\ufeff\"Submission ID\""]),
-      respondentId: normalize(payload?.["Respondent ID"]),
+      submissionId: normalize(payload?.data?.submissionId || payload?.submissionId),
+      respondentId: normalize(payload?.data?.respondentId || payload?.respondentId),
       email: normalize(payload?.["e-mail"] || payload?.email),
       status: "invalid_signature",
       errorCode: "401",
@@ -375,12 +435,15 @@ async function handlePost(req: Request) {
   const normalized = normalizeSubmission(payload, answers);
 
   const submissionId =
+    normalize(payload?.data?.submissionId || payload?.submissionId) ||
     normalize(payload?.["Submission ID"]) ||
     normalize(payload?.['\ufeff"Submission ID"']) ||
     normalize(answers['\ufeff"Submission ID"']) ||
     normalize(answers["Submission ID"]);
   const respondentId =
-    normalize(payload?.["Respondent ID"]) || normalize(answers["Respondent ID"]);
+    normalize(payload?.data?.respondentId || payload?.respondentId) ||
+    normalize(payload?.["Respondent ID"]) ||
+    normalize(answers["Respondent ID"]);
 
   if (!normalized.email || !normalized.nome || !normalized.cognome) {
     await logWebhookEvent(supabase, {
@@ -401,6 +464,8 @@ async function handlePost(req: Request) {
   }
 
   const gruppoId = await resolveGruppoId(supabase, normalized.gruppoLabel);
+  const submittedAtIso =
+    parseDate(normalized.submittedAtTally)?.toISOString() || null;
 
   const fullInsert = {
     nome: normalized.nome,
@@ -422,7 +487,7 @@ async function handlePost(req: Request) {
     allergie: normalized.allergie || null,
     note: normalized.note || null,
     privacy_accettata: normalized.privacyAccettata,
-    submitted_at_tally: normalized.submittedAtTally || null,
+    submitted_at_tally: submittedAtIso,
     gruppo_label: normalized.gruppoLabel || null,
     dati_tally: payload,
   };
