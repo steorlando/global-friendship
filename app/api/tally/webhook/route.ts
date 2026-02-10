@@ -1,6 +1,30 @@
+import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import crypto from "crypto";
+
+type NormalizedSubmission = {
+  nome: string;
+  cognome: string;
+  email: string;
+  telefono: string;
+  tipoIscrizione: string;
+  dataNascita: string;
+  sesso: string;
+  nazione: string;
+  paeseResidenza: string;
+  citta: string;
+  gruppoRoma: string;
+  gruppoLabel: string;
+  alloggio: string;
+  allergie: string;
+  note: string;
+  privacyAccettata: boolean | null;
+  submittedAtTally: string;
+  dataArrivo: string;
+  dataPartenza: string;
+  nights: number | null;
+  quotaTotale: number | null;
+};
 
 function getEnv(name: string) {
   const value = process.env[name];
@@ -13,7 +37,6 @@ function getEnv(name: string) {
 function verifySignature(rawBody: string, signatureHeader: string | null) {
   const secret = process.env.TALLY_WEBHOOK_SECRET;
   if (!secret) return true;
-
   if (!signatureHeader) return false;
 
   const cleaned = signatureHeader.startsWith("sha256=")
@@ -45,6 +68,38 @@ function parseDate(value: string | undefined | null) {
   const d = new Date(trimmed);
   if (!Number.isNaN(d.getTime())) return d;
   return null;
+}
+
+function formatDateOnly(date: Date | null) {
+  if (!date) return null;
+  return date.toISOString().slice(0, 10);
+}
+
+function parseBool(value: string) {
+  const v = value.trim().toLowerCase();
+  if (!v) return null;
+  if (["true", "si", "sì", "yes", "1", "on"].includes(v)) return true;
+  if (["false", "no", "0", "off"].includes(v)) return false;
+  return null;
+}
+
+function extractAnswers(payload: any) {
+  const answers: Record<string, string> = {};
+
+  const fields = payload?.data?.fields ?? payload?.fields;
+  if (Array.isArray(fields)) {
+    for (const field of fields) {
+      const label = normalize(field?.label || field?.name || field?.key);
+      const value = normalize(field?.value);
+      if (label) answers[label] = value;
+    }
+  }
+
+  for (const [key, value] of Object.entries(payload ?? {})) {
+    if (!(key in answers)) answers[key] = normalize(value);
+  }
+
+  return answers;
 }
 
 function parseArrivalDeparture(answers: Record<string, string>) {
@@ -79,33 +134,41 @@ function calcNights(arrival: Date | null, departure: Date | null) {
   return Math.ceil(ms / (1000 * 60 * 60 * 24));
 }
 
-function extractAnswers(payload: any) {
-  const answers: Record<string, string> = {};
-
-  const fields = payload?.data?.fields ?? payload?.fields;
-  if (Array.isArray(fields)) {
-    for (const field of fields) {
-      const label = normalize(field?.label || field?.name || field?.key);
-      const value = normalize(field?.value);
-      if (label) {
-        answers[label] = value;
-      }
-    }
-  }
-
-  for (const [key, value] of Object.entries(payload ?? {})) {
-    if (!(key in answers)) {
-      answers[key] = normalize(value);
-    }
-  }
-
-  return answers;
-}
-
 function looksLikeUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     value
   );
+}
+
+async function logWebhookEvent(
+  supabase: any,
+  entry: {
+    submissionId: string;
+    respondentId: string;
+    email: string;
+    status: string;
+    errorCode?: string | null;
+    errorMessage?: string | null;
+    payload: any;
+    normalized?: any;
+  }
+) {
+  const { error } = await supabase.from("webhook_events").insert({
+    source: "tally",
+    event_type: "form_submission",
+    submission_id: entry.submissionId || null,
+    respondent_id: entry.respondentId || null,
+    email: entry.email || null,
+    status: entry.status,
+    error_code: entry.errorCode ?? null,
+    error_message: entry.errorMessage ?? null,
+    payload: entry.payload,
+    normalized: entry.normalized ?? null,
+  });
+
+  if (error && !["42P01", "PGRST204"].includes(error.code ?? "")) {
+    console.error("Webhook event logging failed", error);
+  }
 }
 
 async function resolveGruppoId(supabase: any, rawValue: string) {
@@ -182,27 +245,10 @@ async function resolveGruppoId(supabase: any, rawValue: string) {
   return null;
 }
 
-async function handlePost(req: Request) {
-  const rawBody = await req.text();
-  const signatureHeader =
-    req.headers.get("tally-signature") ||
-    req.headers.get("x-tally-signature") ||
-    req.headers.get("tally-signature-v1");
-
-  if (!verifySignature(rawBody, signatureHeader)) {
-    console.warn("Invalid signature", { signatureHeader });
-    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
-  }
-
-  let payload: any;
-  try {
-    payload = JSON.parse(rawBody);
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-
-  const answers = extractAnswers(payload);
-
+function normalizeSubmission(
+  payload: any,
+  answers: Record<string, string>
+): NormalizedSubmission {
   const nome =
     answers["Name/Nome/Nombre/Prenom"] ||
     answers["Nome"] ||
@@ -213,11 +259,17 @@ async function handlePost(req: Request) {
     answers["Cognome"] ||
     answers["Surname"] ||
     "";
-  const email =
-    answers["e-mail"] ||
-    answers["Email"] ||
-    answers["email"] ||
-    "";
+  const email = answers["e-mail"] || answers["Email"] || answers["email"] || "";
+  const telefono = answers["Contacts (Phone number and email)"] || "";
+  const tipoIscrizione =
+    answers[
+      "Type of registration / Tipo di iscrizione / Tipo de registro / Type d'inscription"
+    ] || "";
+  const dataNascita =
+    answers[
+      "Date of birth / Data di nascita / Fecha de nacimiento / Date de naissance"
+    ] || "";
+  const sesso = answers["Sex / Sesso / Sexo / Sexe"] || "";
   const nazione =
     answers["Nationality/Nazionalità/Nacionalidad/Nationalitè"] ||
     answers["Nationality"] ||
@@ -229,7 +281,7 @@ async function handlePost(req: Request) {
   const citta = answers["City"] || answers["Città"] || "";
   const gruppoRoma = answers["Gruppo di Roma"] || "";
 
-  const gruppoKey =
+  const gruppoLabel =
     citta.toLowerCase() === "roma"
       ? gruppoRoma
       : paeseResidenza.toLowerCase() === "italy" ||
@@ -237,15 +289,61 @@ async function handlePost(req: Request) {
         ? citta
         : paeseResidenza;
 
+  const alloggio = answers["Where are you staying? Dove alloggerai?"] || "";
+  const allergie =
+    answers["Do you have any allergies or intolerances? If yes, please specify."] ||
+    "";
+  const note =
+    answers[
+      "Is there anything else important you would like to communicate to the organization?"
+    ] || "";
+
+  const privacyAccettata = parseBool(
+    answers[
+      "Pivacy (I have read and accept the privacy policy/ Ho letto e accetto l'informativa sulla privacy / He leído y acepto la política de privacidad / J'ai lu et j'accepte la politique de confidentialité)"
+    ] || answers["Pivacy"] || ""
+  );
+
+  const submittedAtTally =
+    answers["Submitted at"] || normalize(payload?.submittedAt || payload?.createdAt);
+
   const { arrival, departure } = parseArrivalDeparture(answers);
   const nights = calcNights(arrival, departure);
   const quotaTotale = nights === null ? null : nights >= 4 ? 235 : 200;
 
-  if (!email || !nome || !cognome) {
-    return NextResponse.json(
-      { error: "Missing required fields (nome, cognome, email)" },
-      { status: 400 }
-    );
+  return {
+    nome,
+    cognome,
+    email,
+    telefono,
+    tipoIscrizione,
+    dataNascita,
+    sesso,
+    nazione,
+    paeseResidenza,
+    citta,
+    gruppoRoma,
+    gruppoLabel,
+    alloggio,
+    allergie,
+    note,
+    privacyAccettata,
+    submittedAtTally,
+    dataArrivo: formatDateOnly(arrival) || "",
+    dataPartenza: formatDateOnly(departure) || "",
+    nights,
+    quotaTotale,
+  };
+}
+
+async function handlePost(req: Request) {
+  const rawBody = await req.text();
+  let payload: any = { raw: rawBody };
+
+  try {
+    payload = JSON.parse(rawBody);
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
   const supabase = createClient(
@@ -253,39 +351,151 @@ async function handlePost(req: Request) {
     getEnv("SUPABASE_SERVICE_ROLE_KEY")
   );
 
-  const { data: existing, error: existingError } = await supabase
-    .from("partecipanti")
-    .select("id")
-    .eq("email", email)
-    .maybeSingle();
+  const signatureHeader =
+    req.headers.get("tally-signature") ||
+    req.headers.get("x-tally-signature") ||
+    req.headers.get("tally-signature-v1");
 
-  if (existingError && existingError.code !== "PGRST116") {
-    console.error("Supabase pre-check error", existingError);
-    return NextResponse.json({ error: existingError.message }, { status: 500 });
+  if (!verifySignature(rawBody, signatureHeader)) {
+    await logWebhookEvent(supabase, {
+      submissionId: normalize(payload?.["Submission ID"] || payload?.["\ufeff\"Submission ID\""]),
+      respondentId: normalize(payload?.["Respondent ID"]),
+      email: normalize(payload?.["e-mail"] || payload?.email),
+      status: "invalid_signature",
+      errorCode: "401",
+      errorMessage: "Invalid signature",
+      payload,
+    });
+
+    console.warn("Invalid signature", { signatureHeader });
+    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
-  if (existing) {
-    return NextResponse.json({ ok: true, skipped: "email_exists" });
+  const answers = extractAnswers(payload);
+  const normalized = normalizeSubmission(payload, answers);
+
+  const submissionId =
+    normalize(payload?.["Submission ID"]) ||
+    normalize(payload?.['\ufeff"Submission ID"']) ||
+    normalize(answers['\ufeff"Submission ID"']) ||
+    normalize(answers["Submission ID"]);
+  const respondentId =
+    normalize(payload?.["Respondent ID"]) || normalize(answers["Respondent ID"]);
+
+  if (!normalized.email || !normalized.nome || !normalized.cognome) {
+    await logWebhookEvent(supabase, {
+      submissionId,
+      respondentId,
+      email: normalized.email,
+      status: "rejected_missing_fields",
+      errorCode: "400",
+      errorMessage: "Missing required fields (nome, cognome, email)",
+      payload,
+      normalized,
+    });
+
+    return NextResponse.json(
+      { error: "Missing required fields (nome, cognome, email)" },
+      { status: 400 }
+    );
   }
 
-  const gruppoId = await resolveGruppoId(supabase, gruppoKey || "");
+  const gruppoId = await resolveGruppoId(supabase, normalized.gruppoLabel);
 
-  const { error } = await supabase.from("partecipanti").insert({
-    nome,
-    cognome,
-    email,
-    nazione: nazione || null,
-    "città": citta || null,
+  const fullInsert = {
+    nome: normalized.nome,
+    cognome: normalized.cognome,
+    email: normalized.email,
+    nazione: normalized.nazione || null,
+    "città": normalized.citta || null,
+    giorni_permanenza: normalized.nights ?? undefined,
+    quota_totale: normalized.quotaTotale ?? undefined,
     gruppo_id: gruppoId,
-    giorni_permanenza: nights ?? undefined,
-    quota_totale: quotaTotale ?? undefined,
+    telefono: normalized.telefono || null,
+    paese_residenza: normalized.paeseResidenza || null,
+    tipo_iscrizione: normalized.tipoIscrizione || null,
+    sesso: normalized.sesso || null,
+    data_nascita: normalized.dataNascita || null,
+    data_arrivo: normalized.dataArrivo || null,
+    data_partenza: normalized.dataPartenza || null,
+    alloggio: normalized.alloggio || null,
+    allergie: normalized.allergie || null,
+    note: normalized.note || null,
+    privacy_accettata: normalized.privacyAccettata,
+    submitted_at_tally: normalized.submittedAtTally || null,
+    gruppo_label: normalized.gruppoLabel || null,
     dati_tally: payload,
-  });
+  };
 
-  if (error) {
-    console.error("Supabase insert error", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  let insertResult = await supabase.from("partecipanti").insert(fullInsert);
+
+  if (insertResult.error) {
+    const code = insertResult.error.code ?? "";
+    const message = insertResult.error.message ?? "";
+
+    const isMissingColumn =
+      code === "42703" ||
+      code === "PGRST204" ||
+      /column .* does not exist/i.test(message);
+
+    if (isMissingColumn) {
+      console.warn("Missing normalized columns, fallback to minimal insert", {
+        code,
+        message,
+      });
+
+      insertResult = await supabase.from("partecipanti").insert({
+        nome: normalized.nome,
+        cognome: normalized.cognome,
+        email: normalized.email,
+        nazione: normalized.nazione || null,
+        "città": normalized.citta || null,
+        giorni_permanenza: normalized.nights ?? undefined,
+        quota_totale: normalized.quotaTotale ?? undefined,
+        gruppo_id: gruppoId,
+        dati_tally: payload,
+      });
+    }
   }
+
+  if (insertResult.error) {
+    const err = insertResult.error;
+    const isEmailUniqueViolation =
+      err.code === "23505" && /partecipanti_email_key/i.test(err.message);
+
+    await logWebhookEvent(supabase, {
+      submissionId,
+      respondentId,
+      email: normalized.email,
+      status: "error",
+      errorCode: err.code,
+      errorMessage: err.message,
+      payload,
+      normalized: { ...normalized, gruppoId },
+    });
+
+    if (isEmailUniqueViolation) {
+      return NextResponse.json(
+        {
+          error:
+            "Email duplicata bloccata da vincolo DB. Rimuovi il constraint partecipanti_email_key per consentire più partecipanti con la stessa email.",
+        },
+        { status: 409 }
+      );
+    }
+
+    console.error("Supabase insert error", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+
+  await logWebhookEvent(supabase, {
+    submissionId,
+    respondentId,
+    email: normalized.email,
+    status: "success",
+    payload,
+    normalized: { ...normalized, gruppoId },
+  });
 
   return NextResponse.json({ ok: true, gruppo_id: gruppoId });
 }
