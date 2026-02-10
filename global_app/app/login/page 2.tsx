@@ -31,7 +31,7 @@ export default function LoginPage() {
       }
 
       setStatus("sent");
-      setMessage("Controlla la tua email!");
+      setMessage("Link inviato. Controlla la tua email.");
     } catch (err) {
       setStatus("error");
       setMessage("Errore durante l'invio del link.");

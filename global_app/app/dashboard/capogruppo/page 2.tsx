@@ -1,10 +1,13 @@
 import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 
-function getSupabaseEnv() {
-  const url = process.env.SUPABASE_URL;
-  const anonKey = process.env.SUPABASE_ANON_KEY;
-  return { url, anonKey };
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  throw new Error(
+    "Missing SUPABASE_URL or SUPABASE_ANON_KEY environment variables."
+  );
 }
 
 async function getAccessTokenFromCookies() {
@@ -42,20 +45,7 @@ export default async function CapogruppoPage() {
     );
   }
 
-  const { url, anonKey } = getSupabaseEnv();
-  if (!url || !anonKey) {
-    return (
-      <main className="mx-auto max-w-5xl px-6 py-10">
-        <h1 className="text-2xl font-semibold">Dashboard Capogruppo</h1>
-        <p className="mt-4 text-sm text-neutral-600">
-          Configurazione mancante: imposta SUPABASE_URL e SUPABASE_ANON_KEY in
-          ambiente.
-        </p>
-      </main>
-    );
-  }
-
-  const supabase = createClient(url, anonKey, {
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: { persistSession: false },
     global: { headers: { Authorization: `Bearer ${accessToken}` } },
   });
