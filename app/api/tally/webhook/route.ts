@@ -12,7 +12,7 @@ function getEnv(name: string) {
 
 function verifySignature(rawBody: string, signatureHeader: string | null) {
   const secret = process.env.TALLY_WEBHOOK_SECRET;
-  if (!secret) return true; // allow if not configured
+  if (!secret) return true;
 
   if (!signatureHeader) return false;
 
@@ -102,6 +102,86 @@ function extractAnswers(payload: any) {
   return answers;
 }
 
+function looksLikeUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value
+  );
+}
+
+async function resolveGruppoId(supabase: any, rawValue: string) {
+  const value = rawValue.trim();
+  if (!value) return null;
+
+  const { data: byId, error: byIdError } = await supabase
+    .from("gruppi")
+    .select("id")
+    .eq("id", value)
+    .maybeSingle();
+
+  if (byId?.id) return byId.id;
+  if (byIdError && byIdError.code !== "PGRST116") {
+    console.error("Group lookup by id failed", byIdError);
+  }
+
+  if (looksLikeUuid(value)) {
+    const { data: createdByUuid, error: createdByUuidError } = await supabase
+      .from("gruppi")
+      .insert({ id: value, nome: value })
+      .select("id")
+      .single();
+
+    if (createdByUuid?.id) return createdByUuid.id;
+
+    if (createdByUuidError && createdByUuidError.code !== "23505") {
+      console.error("Group create by uuid failed", createdByUuidError);
+    }
+
+    const { data: recheckById } = await supabase
+      .from("gruppi")
+      .select("id")
+      .eq("id", value)
+      .maybeSingle();
+
+    if (recheckById?.id) return recheckById.id;
+  }
+
+  const { data: byName, error: byNameError } = await supabase
+    .from("gruppi")
+    .select("id")
+    .ilike("nome", value)
+    .limit(1)
+    .maybeSingle();
+
+  if (byName?.id) return byName.id;
+  if (byNameError && byNameError.code !== "PGRST116") {
+    console.error("Group lookup by name failed", byNameError);
+  }
+
+  const { data: createdByName, error: createdByNameError } = await supabase
+    .from("gruppi")
+    .insert({ nome: value })
+    .select("id")
+    .single();
+
+  if (createdByName?.id) return createdByName.id;
+
+  if (createdByNameError && createdByNameError.code !== "23505") {
+    console.error("Group create by name failed", createdByNameError);
+  }
+
+  const { data: recheckByName } = await supabase
+    .from("gruppi")
+    .select("id")
+    .ilike("nome", value)
+    .limit(1)
+    .maybeSingle();
+
+  if (recheckByName?.id) return recheckByName.id;
+
+  console.warn("Unable to resolve gruppo_id. Using null.", { value });
+  return null;
+}
+
 async function handlePost(req: Request) {
   const rawBody = await req.text();
   const signatureHeader =
@@ -149,7 +229,7 @@ async function handlePost(req: Request) {
   const citta = answers["City"] || answers["Città"] || "";
   const gruppoRoma = answers["Gruppo di Roma"] || "";
 
-  const gruppoId =
+  const gruppoKey =
     citta.toLowerCase() === "roma"
       ? gruppoRoma
       : paeseResidenza.toLowerCase() === "italy" ||
@@ -173,7 +253,6 @@ async function handlePost(req: Request) {
     getEnv("SUPABASE_SERVICE_ROLE_KEY")
   );
 
-  // Avoid UPDATE path entirely: skip if email already exists.
   const { data: existing, error: existingError } = await supabase
     .from("partecipanti")
     .select("id")
@@ -189,13 +268,15 @@ async function handlePost(req: Request) {
     return NextResponse.json({ ok: true, skipped: "email_exists" });
   }
 
+  const gruppoId = await resolveGruppoId(supabase, gruppoKey || "");
+
   const { error } = await supabase.from("partecipanti").insert({
     nome,
     cognome,
     email,
     nazione: nazione || null,
     "città": citta || null,
-    gruppo_id: gruppoId || null,
+    gruppo_id: gruppoId,
     giorni_permanenza: nights ?? undefined,
     quota_totale: quotaTotale ?? undefined,
     dati_tally: payload,
@@ -206,7 +287,7 @@ async function handlePost(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, gruppo_id: gruppoId });
 }
 
 export async function POST(req: Request) {
