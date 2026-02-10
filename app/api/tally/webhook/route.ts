@@ -19,7 +19,7 @@ function verifySignature(rawBody: string, signatureHeader: string | null) {
   const expected = crypto
     .createHmac("sha256", secret)
     .update(rawBody)
-    .digest("hex");
+    .digest("base64");
 
   return crypto.timingSafeEqual(
     Buffer.from(signatureHeader),
@@ -199,5 +199,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  return NextResponse.json({ ok: true });
+}
+
+export async function GET() {
   return NextResponse.json({ ok: true });
 }
