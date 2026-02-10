@@ -115,7 +115,7 @@ function extractAnswers(payload: any) {
   return answers;
 }
 
-export async function POST(req: Request) {
+async function handlePost(req: Request) {
   const rawBody = await req.text();
   const signatureHeader =
     req.headers.get("tally-signature") ||
@@ -123,6 +123,7 @@ export async function POST(req: Request) {
     req.headers.get("tally-signature-v1");
 
   if (!verifySignature(rawBody, signatureHeader)) {
+    console.warn("Invalid signature", { signatureHeader });
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
@@ -201,12 +202,37 @@ export async function POST(req: Request) {
   );
 
   if (error) {
+    console.error("Supabase insert error", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });
 }
 
+export async function POST(req: Request) {
+  try {
+    return await handlePost(req);
+  } catch (error) {
+    console.error("Tally webhook error", error);
+    return NextResponse.json(
+      { error: (error as Error)?.message ?? "Unknown error" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function GET() {
   return NextResponse.json({ ok: true });
+}
+
+export async function POST(req: Request) {
+  try {
+    return await handlePost(req);
+  } catch (error) {
+    console.error("Tally webhook error", error);
+    return NextResponse.json(
+      { error: (error as Error)?.message ?? "Unknown error" },
+      { status: 500 }
+    );
+  }
 }
