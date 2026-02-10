@@ -220,19 +220,3 @@ export async function POST(req: Request) {
     );
   }
 }
-
-export async function GET() {
-  return NextResponse.json({ ok: true });
-}
-
-export async function POST(req: Request) {
-  try {
-    return await handlePost(req);
-  } catch (error) {
-    console.error("Tally webhook error", error);
-    return NextResponse.json(
-      { error: (error as Error)?.message ?? "Unknown error" },
-      { status: 500 }
-    );
-  }
-}
