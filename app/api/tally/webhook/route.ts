@@ -71,7 +71,7 @@ function verifySignature(rawBody: string, signatureHeader: string | null) {
   return crypto.timingSafeEqual(a, b);
 }
 
-function normalize(value: unknown) {
+function normalize(value: unknown): string {
   if (value === undefined || value === null) return "";
   if (Array.isArray(value)) return value.map(normalize).join(", ");
   return String(value).trim();
