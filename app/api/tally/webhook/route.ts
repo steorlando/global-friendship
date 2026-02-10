@@ -196,9 +196,11 @@ async function handlePost(req: Request) {
       giorni_permanenza: nights ?? undefined,
       quota_totale: quotaTotale ?? undefined,
       dati_tally: payload,
-      updated_at: new Date().toISOString(),
     },
-    { onConflict: "email" }
+    {
+      onConflict: "email",
+      ignoreDuplicates: true,
+    }
   );
 
   if (error) {
