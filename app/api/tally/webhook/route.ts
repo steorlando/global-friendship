@@ -27,7 +27,7 @@ function verifySignature(rawBody: string, signatureHeader: string | null) {
 
   const a = Buffer.from(cleaned);
   const b = Buffer.from(expected);
-  if (a.length != b.length) return false;
+  if (a.length !== b.length) return false;
 
   return crypto.timingSafeEqual(a, b);
 }
@@ -36,16 +36,6 @@ function normalize(value: unknown) {
   if (value === undefined || value === null) return "";
   if (Array.isArray(value)) return value.join(", ");
   return String(value).trim();
-}
-
-function pickFirst(payload: Record<string, unknown>, keys: string[]) {
-  for (const key of keys) {
-    const value = payload[key];
-    if (value !== undefined && value !== null && String(value).trim() !== "") {
-      return normalize(value);
-    }
-  }
-  return "";
 }
 
 function parseDate(value: string | undefined | null) {
@@ -68,7 +58,6 @@ function parseArrivalDeparture(answers: Record<string, string>) {
   let departure: Date | null = null;
 
   if (range) {
-    // common formats: "2026-08-28 - 2026-08-31" or "2026-08-28 to 2026-08-31"
     const parts = range.split(/\s*-\s*|\s+to\s+/i).map((p) => p.trim());
     if (parts.length >= 2) {
       arrival = parseDate(parts[0]);
@@ -93,7 +82,6 @@ function calcNights(arrival: Date | null, departure: Date | null) {
 function extractAnswers(payload: any) {
   const answers: Record<string, string> = {};
 
-  // Tally webhook format often includes data.fields array
   const fields = payload?.data?.fields ?? payload?.fields;
   if (Array.isArray(fields)) {
     for (const field of fields) {
@@ -105,7 +93,6 @@ function extractAnswers(payload: any) {
     }
   }
 
-  // Sometimes payload is already a flat map
   for (const [key, value] of Object.entries(payload ?? {})) {
     if (!(key in answers)) {
       answers[key] = normalize(value);
@@ -161,17 +148,18 @@ async function handlePost(req: Request) {
     ] || "";
   const citta = answers["City"] || answers["Città"] || "";
   const gruppoRoma = answers["Gruppo di Roma"] || "";
+
   const gruppoId =
     citta.toLowerCase() === "roma"
       ? gruppoRoma
       : paeseResidenza.toLowerCase() === "italy" ||
-        paeseResidenza.toLowerCase() === "italia"
-      ? citta
-      : paeseResidenza;
+          paeseResidenza.toLowerCase() === "italia"
+        ? citta
+        : paeseResidenza;
+
   const { arrival, departure } = parseArrivalDeparture(answers);
   const nights = calcNights(arrival, departure);
-  const quotaTotale =
-    nights === null ? null : nights >= 4 ? 235 : 200;
+  const quotaTotale = nights === null ? null : nights >= 4 ? 235 : 200;
 
   if (!email || !nome || !cognome) {
     return NextResponse.json(
@@ -185,23 +173,33 @@ async function handlePost(req: Request) {
     getEnv("SUPABASE_SERVICE_ROLE_KEY")
   );
 
-  const { error } = await supabase.from("partecipanti").upsert(
-    {
-      nome,
-      cognome,
-      email,
-      nazione: nazione || null,
-      "città": citta || null,
-      gruppo_id: gruppoId || null,
-      giorni_permanenza: nights ?? undefined,
-      quota_totale: quotaTotale ?? undefined,
-      dati_tally: payload,
-    },
-    {
-      onConflict: "email",
-      ignoreDuplicates: true,
-    }
-  );
+  // Avoid UPDATE path entirely: skip if email already exists.
+  const { data: existing, error: existingError } = await supabase
+    .from("partecipanti")
+    .select("id")
+    .eq("email", email)
+    .maybeSingle();
+
+  if (existingError && existingError.code !== "PGRST116") {
+    console.error("Supabase pre-check error", existingError);
+    return NextResponse.json({ error: existingError.message }, { status: 500 });
+  }
+
+  if (existing) {
+    return NextResponse.json({ ok: true, skipped: "email_exists" });
+  }
+
+  const { error } = await supabase.from("partecipanti").insert({
+    nome,
+    cognome,
+    email,
+    nazione: nazione || null,
+    "città": citta || null,
+    gruppo_id: gruppoId || null,
+    giorni_permanenza: nights ?? undefined,
+    quota_totale: quotaTotale ?? undefined,
+    dati_tally: payload,
+  });
 
   if (error) {
     console.error("Supabase insert error", error);
@@ -221,4 +219,8 @@ export async function POST(req: Request) {
       { status: 500 }
     );
   }
+}
+
+export async function GET() {
+  return NextResponse.json({ ok: true });
 }
