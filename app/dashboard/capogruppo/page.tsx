@@ -1,14 +1,18 @@
 import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
-
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  throw new Error(
-    "Missing SUPABASE_URL or SUPABASE_ANON_KEY environment variables."
-  );
+function requireEnv(name: "SUPABASE_URL" | "SUPABASE_ANON_KEY") {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(
+      "Missing SUPABASE_URL or SUPABASE_ANON_KEY environment variables."
+    );
+  }
+  return value;
 }
+
+const SUPABASE_URL = requireEnv("SUPABASE_URL");
+const SUPABASE_ANON_KEY = requireEnv("SUPABASE_ANON_KEY");
 
 async function getAccessTokenFromCookies() {
   const store = await cookies();
