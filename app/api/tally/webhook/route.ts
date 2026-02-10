@@ -16,15 +16,20 @@ function verifySignature(rawBody: string, signatureHeader: string | null) {
 
   if (!signatureHeader) return false;
 
+  const cleaned = signatureHeader.startsWith("sha256=")
+    ? signatureHeader.slice("sha256=".length)
+    : signatureHeader;
+
   const expected = crypto
     .createHmac("sha256", secret)
     .update(rawBody)
     .digest("base64");
 
-  return crypto.timingSafeEqual(
-    Buffer.from(signatureHeader),
-    Buffer.from(expected)
-  );
+  const a = Buffer.from(cleaned);
+  const b = Buffer.from(expected);
+  if (a.length != b.length) return false;
+
+  return crypto.timingSafeEqual(a, b);
 }
 
 function normalize(value: unknown) {
