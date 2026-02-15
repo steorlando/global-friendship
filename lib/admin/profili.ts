@@ -187,11 +187,28 @@ export async function updateProfiloById(
     roma?: boolean | null;
   }
 ) {
+  let existingRole: string | null = null;
+  const wantsRoleChange = input.ruolo !== undefined && input.ruolo !== null;
+
+  if (wantsRoleChange) {
+    const { data: existing, error: existingError } = await supabase
+      .from("profili")
+      .select("ruolo")
+      .eq("id", id)
+      .maybeSingle();
+    if (existingError) throw new Error(existingError.message);
+    existingRole = existing?.ruolo ?? null;
+  }
+
   const patch: Record<string, string | boolean | null> = {};
   if (input.nome !== undefined) patch.nome = normalizeText(input.nome);
   if (input.cognome !== undefined) patch.cognome = normalizeText(input.cognome);
   if (input.ruolo !== undefined && input.ruolo !== null) {
-    patch.ruolo = ensureRole(input.ruolo);
+    const requestedRole = ensureRole(input.ruolo);
+    patch.ruolo =
+      existingRole === "admin" && requestedRole !== "admin"
+        ? "admin"
+        : requestedRole;
   }
   if (input.telefono !== undefined) patch.telefono = normalizeText(input.telefono);
   if (input.italia !== undefined) patch.italia = input.italia;

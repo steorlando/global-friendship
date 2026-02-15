@@ -219,6 +219,15 @@ export default function AdminUsersProfilesPage() {
           <div className="mt-3 rounded border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm">
             Imported: {uploadSummary.imported} | Skipped: {uploadSummary.skipped} | Errors:{" "}
             {uploadSummary.errors.length}
+            {uploadSummary.errors.length > 0 && (
+              <div className="mt-2 max-h-40 overflow-auto rounded border border-neutral-200 bg-white p-2 text-xs">
+                {uploadSummary.errors.slice(0, 20).map((line, index) => (
+                  <div key={`${line}-${index}`} className="font-mono text-red-700">
+                    {line}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </section>

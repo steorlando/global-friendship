@@ -106,8 +106,15 @@ export async function POST(req: Request) {
     let groupLinks = 0;
     const errors: string[] = [];
 
+    const currentAdminEmail = (auth.user.email ?? "").trim().toLowerCase();
+
     for (const [, row] of groupedByEmail) {
       try {
+        if (currentAdminEmail && row.email === currentAdminEmail) {
+          skipped += 1;
+          continue;
+        }
+
         const profilo = await upsertProfiloByEmail(supabase, {
           email: row.email,
           nome: row.nome,
@@ -128,7 +135,7 @@ export async function POST(req: Request) {
       }
     }
 
-    skipped = rows.length - groupedByEmail.size;
+    skipped += rows.length - groupedByEmail.size;
 
     return NextResponse.json({
       imported,
