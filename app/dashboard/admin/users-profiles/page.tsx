@@ -23,7 +23,8 @@ type EditDraft = {
   nome: string;
   cognome: string;
   ruolo: string;
-  groupsText: string;
+  groups: string[];
+  newGroup: string;
 };
 
 export default function AdminUsersProfilesPage() {
@@ -42,6 +43,7 @@ export default function AdminUsersProfilesPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadSummary, setUploadSummary] = useState<UploadResult | null>(null);
   const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [allKnownGroups, setAllKnownGroups] = useState<string[]>([]);
 
   const sorted = useMemo(
     () => [...profiles].sort((a, b) => a.email.localeCompare(b.email)),
@@ -55,7 +57,16 @@ export default function AdminUsersProfilesPage() {
       const response = await fetch("/api/admin/profili", { cache: "no-store" });
       const json = await response.json();
       if (!response.ok) throw new Error(json.error || "Loading error");
-      setProfiles(json.data || []);
+      const data = (json.data || []) as Profilo[];
+      setProfiles(data);
+      const groups = [
+        ...new Set(
+          data.flatMap((profile) =>
+            (profile.groups || []).map((group) => group.trim()).filter(Boolean)
+          )
+        ),
+      ].sort((a, b) => a.localeCompare(b));
+      setAllKnownGroups(groups);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -75,7 +86,8 @@ export default function AdminUsersProfilesPage() {
         nome: profile.nome ?? "",
         cognome: profile.cognome ?? "",
         ruolo: profile.ruolo,
-        groupsText: profile.groups.join(", "),
+        groups: [...profile.groups],
+        newGroup: "",
       },
     }));
   }
@@ -89,8 +101,48 @@ export default function AdminUsersProfilesPage() {
     });
   }
 
-  function parseGroupsFromText(groupsText: string): string[] {
-    return [...new Set(groupsText.split(",").map((item) => item.trim()).filter(Boolean))];
+  function normalizeGroupName(value: string): string {
+    return value.trim();
+  }
+
+  function addGroupToDraft(profileId: string) {
+    setEditDrafts((prev) => {
+      const draft = prev[profileId];
+      if (!draft) return prev;
+      const groupName = normalizeGroupName(draft.newGroup);
+      if (!groupName) return prev;
+      if (draft.groups.includes(groupName)) {
+        return {
+          ...prev,
+          [profileId]: {
+            ...draft,
+            newGroup: "",
+          },
+        };
+      }
+      return {
+        ...prev,
+        [profileId]: {
+          ...draft,
+          groups: [...draft.groups, groupName].sort((a, b) => a.localeCompare(b)),
+          newGroup: "",
+        },
+      };
+    });
+  }
+
+  function removeGroupFromDraft(profileId: string, groupName: string) {
+    setEditDrafts((prev) => {
+      const draft = prev[profileId];
+      if (!draft) return prev;
+      return {
+        ...prev,
+        [profileId]: {
+          ...draft,
+          groups: draft.groups.filter((group) => group !== groupName),
+        },
+      };
+    });
   }
 
   async function handleCreate(event: React.FormEvent) {
@@ -126,7 +178,7 @@ export default function AdminUsersProfilesPage() {
           nome: draft.nome,
           cognome: draft.cognome,
           ruolo: draft.ruolo,
-          groups: parseGroupsFromText(draft.groupsText),
+          groups: draft.groups,
         }),
       });
       const json = await response.json();
@@ -296,20 +348,20 @@ export default function AdminUsersProfilesPage() {
                     <td className="px-3 py-2">{profile.email}</td>
                     <td className="px-3 py-2">
                       {editingId === profile.id ? (
-                      <input
-                        type="text"
-                        value={editDrafts[profile.id]?.nome ?? ""}
-                        onChange={(e) =>
-                          setEditDrafts((prev) => ({
-                            ...prev,
-                            [profile.id]: {
-                              ...prev[profile.id],
-                              nome: e.target.value,
-                            },
-                          }))
-                        }
-                        className="w-full rounded border border-neutral-300 px-2 py-1"
-                      />
+                        <input
+                          type="text"
+                          value={editDrafts[profile.id]?.nome ?? ""}
+                          onChange={(e) =>
+                            setEditDrafts((prev) => ({
+                              ...prev,
+                              [profile.id]: {
+                                ...prev[profile.id],
+                                nome: e.target.value,
+                              },
+                            }))
+                          }
+                          className="w-full rounded border border-neutral-300 px-2 py-1"
+                        />
                       ) : (
                         <span>{profile.nome ?? ""}</span>
                       )}
@@ -336,21 +388,61 @@ export default function AdminUsersProfilesPage() {
                     </td>
                     <td className="px-3 py-2">
                       {editingId === profile.id ? (
-                        <input
-                          type="text"
-                          value={editDrafts[profile.id]?.groupsText ?? ""}
-                          onChange={(e) =>
-                            setEditDrafts((prev) => ({
-                              ...prev,
-                              [profile.id]: {
-                                ...prev[profile.id],
-                                groupsText: e.target.value,
-                              },
-                            }))
-                          }
-                          className="w-full rounded border border-neutral-300 px-2 py-1"
-                          placeholder="Group A, Group B"
-                        />
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap gap-1">
+                            {(editDrafts[profile.id]?.groups ?? []).map((group) => (
+                              <span
+                                key={`${profile.id}-edit-${group}`}
+                                className="inline-flex items-center gap-1 rounded bg-neutral-100 px-2 py-0.5 text-xs"
+                              >
+                                {group}
+                                <button
+                                  type="button"
+                                  onClick={() => removeGroupFromDraft(profile.id, group)}
+                                  className="rounded px-1 text-neutral-600 hover:bg-neutral-200"
+                                >
+                                  Remove
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                          <div className="flex gap-2">
+                            <input
+                              list={`groups-${profile.id}`}
+                              type="text"
+                              value={editDrafts[profile.id]?.newGroup ?? ""}
+                              onChange={(e) =>
+                                setEditDrafts((prev) => ({
+                                  ...prev,
+                                  [profile.id]: {
+                                    ...prev[profile.id],
+                                    newGroup: e.target.value,
+                                  },
+                                }))
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  addGroupToDraft(profile.id);
+                                }
+                              }}
+                              className="w-full rounded border border-neutral-300 px-2 py-1"
+                              placeholder="Add a group"
+                            />
+                            <datalist id={`groups-${profile.id}`}>
+                              {allKnownGroups.map((group) => (
+                                <option key={`${profile.id}-opt-${group}`} value={group} />
+                              ))}
+                            </datalist>
+                            <button
+                              type="button"
+                              onClick={() => addGroupToDraft(profile.id)}
+                              className="rounded border border-neutral-300 px-2 py-1 text-xs font-medium text-neutral-800"
+                            >
+                              Add
+                            </button>
+                          </div>
+                        </div>
                       ) : profile.groups.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
                           {profile.groups.map((group) => (
