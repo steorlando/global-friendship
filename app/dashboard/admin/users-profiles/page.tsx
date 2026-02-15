@@ -10,6 +10,7 @@ type Profilo = {
   cognome: string | null;
   ruolo: string;
   created_at: string;
+  groups: string[];
 };
 
 type UploadResult = {
@@ -18,11 +19,20 @@ type UploadResult = {
   errors: string[];
 };
 
+type EditDraft = {
+  nome: string;
+  cognome: string;
+  ruolo: string;
+  groupsText: string;
+};
+
 export default function AdminUsersProfilesPage() {
   const [profiles, setProfiles] = useState<Profilo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDrafts, setEditDrafts] = useState<Record<string, EditDraft>>({});
   const [newProfile, setNewProfile] = useState({
     email: "",
     nome: "",
@@ -57,6 +67,32 @@ export default function AdminUsersProfilesPage() {
     loadProfiles();
   }, []);
 
+  function startEdit(profile: Profilo) {
+    setEditingId(profile.id);
+    setEditDrafts((prev) => ({
+      ...prev,
+      [profile.id]: {
+        nome: profile.nome ?? "",
+        cognome: profile.cognome ?? "",
+        ruolo: profile.ruolo,
+        groupsText: profile.groups.join(", "),
+      },
+    }));
+  }
+
+  function cancelEdit(profileId: string) {
+    setEditingId((current) => (current === profileId ? null : current));
+    setEditDrafts((prev) => {
+      const copy = { ...prev };
+      delete copy[profileId];
+      return copy;
+    });
+  }
+
+  function parseGroupsFromText(groupsText: string): string[] {
+    return [...new Set(groupsText.split(",").map((item) => item.trim()).filter(Boolean))];
+  }
+
   async function handleCreate(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
@@ -75,23 +111,28 @@ export default function AdminUsersProfilesPage() {
     }
   }
 
-  async function saveRow(profile: Profilo) {
-    setSavingId(profile.id);
+  async function saveRow(profileId: string) {
+    const draft = editDrafts[profileId];
+    if (!draft) return;
+
+    setSavingId(profileId);
     setError(null);
     try {
       const response = await fetch("/api/admin/profili", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          id: profile.id,
-          nome: profile.nome,
-          cognome: profile.cognome,
-          ruolo: profile.ruolo,
+          id: profileId,
+          nome: draft.nome,
+          cognome: draft.cognome,
+          ruolo: draft.ruolo,
+          groups: parseGroupsFromText(draft.groupsText),
         }),
       });
       const json = await response.json();
       if (!response.ok) throw new Error(json.error || "Update error");
       await loadProfiles();
+      cancelEdit(profileId);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -244,76 +285,141 @@ export default function AdminUsersProfilesPage() {
                   <th className="px-3 py-2">Email</th>
                   <th className="px-3 py-2">First Name</th>
                   <th className="px-3 py-2">Last Name</th>
+                  <th className="px-3 py-2">Groups</th>
                   <th className="px-3 py-2">Role</th>
                   <th className="px-3 py-2">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {sorted.map((profile) => (
-                  <tr key={profile.id} className="border-t border-neutral-100">
+                  <tr key={profile.id} className="border-t border-neutral-100 align-top">
                     <td className="px-3 py-2">{profile.email}</td>
                     <td className="px-3 py-2">
+                      {editingId === profile.id ? (
                       <input
                         type="text"
-                        value={profile.nome ?? ""}
+                        value={editDrafts[profile.id]?.nome ?? ""}
                         onChange={(e) =>
-                          setProfiles((prev) =>
-                            prev.map((row) =>
-                              row.id === profile.id
-                                ? { ...row, nome: e.target.value }
-                                : row
-                            )
-                          )
+                          setEditDrafts((prev) => ({
+                            ...prev,
+                            [profile.id]: {
+                              ...prev[profile.id],
+                              nome: e.target.value,
+                            },
+                          }))
                         }
                         className="w-full rounded border border-neutral-300 px-2 py-1"
                       />
+                      ) : (
+                        <span>{profile.nome ?? ""}</span>
+                      )}
                     </td>
                     <td className="px-3 py-2">
-                      <input
-                        type="text"
-                        value={profile.cognome ?? ""}
-                        onChange={(e) =>
-                          setProfiles((prev) =>
-                            prev.map((row) =>
-                              row.id === profile.id
-                                ? { ...row, cognome: e.target.value }
-                                : row
-                            )
-                          )
-                        }
+                      {editingId === profile.id ? (
+                        <input
+                          type="text"
+                          value={editDrafts[profile.id]?.cognome ?? ""}
+                          onChange={(e) =>
+                            setEditDrafts((prev) => ({
+                              ...prev,
+                              [profile.id]: {
+                                ...prev[profile.id],
+                                cognome: e.target.value,
+                              },
+                            }))
+                          }
                         className="w-full rounded border border-neutral-300 px-2 py-1"
                       />
+                      ) : (
+                        <span>{profile.cognome ?? ""}</span>
+                      )}
                     </td>
                     <td className="px-3 py-2">
-                      <select
-                        value={profile.ruolo}
-                        onChange={(e) =>
-                          setProfiles((prev) =>
-                            prev.map((row) =>
-                              row.id === profile.id
-                                ? { ...row, ruolo: e.target.value }
-                                : row
-                            )
-                          )
-                        }
-                        className="w-full rounded border border-neutral-300 px-2 py-1"
-                      >
-                        {AVAILABLE_ROLES.map((role) => (
-                          <option key={role} value={role}>
-                            {ROLE_LABELS[role]}
-                          </option>
-                        ))}
-                      </select>
+                      {editingId === profile.id ? (
+                        <input
+                          type="text"
+                          value={editDrafts[profile.id]?.groupsText ?? ""}
+                          onChange={(e) =>
+                            setEditDrafts((prev) => ({
+                              ...prev,
+                              [profile.id]: {
+                                ...prev[profile.id],
+                                groupsText: e.target.value,
+                              },
+                            }))
+                          }
+                          className="w-full rounded border border-neutral-300 px-2 py-1"
+                          placeholder="Group A, Group B"
+                        />
+                      ) : profile.groups.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {profile.groups.map((group) => (
+                            <span
+                              key={`${profile.id}-${group}`}
+                              className="rounded bg-neutral-100 px-2 py-0.5 text-xs"
+                            >
+                              {group}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-neutral-500">No groups</span>
+                      )}
                     </td>
                     <td className="px-3 py-2">
-                      <button
-                        type="button"
-                        onClick={() => saveRow(profile)}
-                        disabled={savingId === profile.id}
-                        className="rounded bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
-                      >
-                        {savingId === profile.id ? "Saving..." : "Save"}
-                      </button>
+                      {editingId === profile.id ? (
+                        <select
+                          value={editDrafts[profile.id]?.ruolo ?? profile.ruolo}
+                          onChange={(e) =>
+                            setEditDrafts((prev) => ({
+                              ...prev,
+                              [profile.id]: {
+                                ...prev[profile.id],
+                                ruolo: e.target.value,
+                              },
+                            }))
+                          }
+                          className="w-full rounded border border-neutral-300 px-2 py-1"
+                        >
+                          {AVAILABLE_ROLES.map((role) => (
+                            <option key={role} value={role}>
+                              {ROLE_LABELS[role]}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span>{ROLE_LABELS[profile.ruolo] ?? profile.ruolo}</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      {editingId === profile.id ? (
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => saveRow(profile.id)}
+                            disabled={savingId === profile.id}
+                            className="rounded bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
+                          >
+                            {savingId === profile.id ? "Saving..." : "Save"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => cancelEdit(profile.id)}
+                            disabled={savingId === profile.id}
+                            className="rounded border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => startEdit(profile)}
+                          className="rounded border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-800"
+                        >
+                          Edit
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

@@ -57,10 +57,17 @@ export async function PATCH(req: Request) {
     }
 
     const supabase = createSupabaseServiceClient();
+    const groups =
+      body.groups === undefined
+        ? undefined
+        : Array.isArray(body.groups)
+          ? body.groups.map((group: unknown) => String(group))
+          : [];
     const data = await updateProfiloById(supabase, id, {
       nome: body.nome !== undefined ? String(body.nome) : undefined,
       cognome: body.cognome !== undefined ? String(body.cognome) : undefined,
       ruolo: body.ruolo !== undefined ? String(body.ruolo) : undefined,
+      groups,
     });
 
     return NextResponse.json({ data });

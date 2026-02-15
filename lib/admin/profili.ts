@@ -11,6 +11,15 @@ export type ProfiloInput = {
   roma?: boolean | null;
 };
 
+type ProfiloRow = {
+  id: string;
+  email: string;
+  nome: string | null;
+  cognome: string | null;
+  ruolo: string;
+  created_at: string;
+};
+
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
@@ -103,7 +112,37 @@ export async function listProfili(supabase: SupabaseClient) {
     .order("created_at", { ascending: false });
 
   if (error) throw new Error(error.message);
-  return data ?? [];
+
+  const profili = (data ?? []) as ProfiloRow[];
+  if (profili.length === 0) return [];
+
+  const profileIds = profili.map((row) => row.id);
+  const { data: links, error: linksError } = await supabase
+    .from("profili_gruppi")
+    .select("profilo_id,gruppo_id")
+    .in("profilo_id", profileIds);
+
+  if (linksError) throw new Error(linksError.message);
+
+  const groupsByProfileId = new Map<string, string[]>();
+  for (const link of links ?? []) {
+    const profileId = link.profilo_id as string;
+    const groupId = String(link.gruppo_id ?? "");
+    if (!groupId) continue;
+    const current = groupsByProfileId.get(profileId) ?? [];
+    current.push(groupId);
+    groupsByProfileId.set(profileId, current);
+  }
+
+  return profili.map((row) => ({
+    ...row,
+    groups: [...new Set(groupsByProfileId.get(row.id) ?? [])].sort(),
+  }));
+}
+
+function normalizeGroups(input: string[] | null | undefined): string[] {
+  if (!input) return [];
+  return [...new Set(input.map((group) => group.trim()).filter(Boolean))];
 }
 
 export async function upsertProfiloByEmail(
@@ -185,6 +224,7 @@ export async function updateProfiloById(
     telefono?: string | null;
     italia?: boolean | null;
     roma?: boolean | null;
+    groups?: string[] | null;
   }
 ) {
   let existingRole: string | null = null;
@@ -222,6 +262,12 @@ export async function updateProfiloById(
     .single();
 
   if (error) throw new Error(error.message);
+
+  if (input.groups !== undefined) {
+    const groups = normalizeGroups(input.groups);
+    await setProfiloGruppi(supabase, id, groups);
+  }
+
   return data;
 }
 
@@ -248,6 +294,39 @@ export async function linkProfiloToGruppo(
       },
       { onConflict: "profilo_id,gruppo_id" }
     );
+
+  if (linkError) throw new Error(linkError.message);
+}
+
+export async function setProfiloGruppi(
+  supabase: SupabaseClient,
+  profiloId: string,
+  groups: string[]
+) {
+  const normalizedGroups = normalizeGroups(groups);
+
+  const { error: deleteError } = await supabase
+    .from("profili_gruppi")
+    .delete()
+    .eq("profilo_id", profiloId);
+
+  if (deleteError) throw new Error(deleteError.message);
+  if (normalizedGroups.length === 0) return;
+
+  const gruppoRows = normalizedGroups.map((groupId) => ({ id: groupId, nome: groupId }));
+  const { error: groupError } = await supabase
+    .from("gruppi")
+    .upsert(gruppoRows, { onConflict: "id" });
+
+  if (groupError) throw new Error(groupError.message);
+
+  const linkRows = normalizedGroups.map((groupId) => ({
+    profilo_id: profiloId,
+    gruppo_id: groupId,
+  }));
+  const { error: linkError } = await supabase
+    .from("profili_gruppi")
+    .upsert(linkRows, { onConflict: "profilo_id,gruppo_id" });
 
   if (linkError) throw new Error(linkError.message);
 }
