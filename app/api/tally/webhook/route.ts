@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { computeParticipantCalculatedFields } from "../../../../lib/tally/calculated-fields";
 
 type TallyOption = {
   id?: string;
@@ -49,6 +50,8 @@ type NormalizedSubmission = {
   dataPartenza: string;
   nights: number | null;
   quotaTotale: number | null;
+  eta: number | null;
+  isMinorenne: boolean | null;
 };
 
 const GROUP_NAMESPACE_UUID = "6ba7b811-9dad-11d1-80b4-00c04fd430c8";
@@ -282,13 +285,6 @@ function parseArrivalDeparture(answers: Record<string, string>) {
   }
 
   return { arrival, departure };
-}
-
-function calcNights(arrival: Date | null, departure: Date | null): number | null {
-  if (!arrival || !departure) return null;
-  const ms = departure.getTime() - arrival.getTime();
-  if (ms <= 0) return null;
-  return Math.ceil(ms / (1000 * 60 * 60 * 24));
 }
 
 function extractAnswers(payload: any): Record<string, string> {
@@ -588,8 +584,11 @@ function normalizeSubmission(
     normalize(payload?.data?.createdAt || payload?.createdAt || payload?.submittedAt);
 
   const { arrival, departure } = parseArrivalDeparture(answers);
-  const nights = calcNights(arrival, departure);
-  const quotaTotale = nights === null ? null : nights >= 4 ? 235 : 200;
+  const calculated = computeParticipantCalculatedFields({
+    arrival,
+    departure,
+    dataNascita: dataNascita || null,
+  });
 
   return {
     nome,
@@ -624,8 +623,10 @@ function normalizeSubmission(
     submittedAtTally,
     dataArrivo: formatDateOnly(arrival) || "",
     dataPartenza: formatDateOnly(departure) || "",
-    nights,
-    quotaTotale,
+    nights: calculated.giorniPermanenza,
+    quotaTotale: calculated.quotaTotale,
+    eta: calculated.eta,
+    isMinorenne: calculated.isMinorenne,
   };
 }
 
@@ -726,6 +727,8 @@ async function handlePost(req: Request) {
     difficolta_accessibilita: normalized.difficoltaAccessibilita || null,
     tally_submission_id: normalized.tallySubmissionId || null,
     tally_respondent_id: normalized.tallyRespondentId || null,
+    eta: normalized.eta,
+    is_minorenne: normalized.isMinorenne,
     note: normalized.note || null,
     privacy_accettata: normalized.privacyAccettata,
     submitted_at_tally: submittedAtIso,
