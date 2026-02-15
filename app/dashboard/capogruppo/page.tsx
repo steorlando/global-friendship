@@ -34,9 +34,9 @@ export default async function CapogruppoPage() {
   if (!accessToken) {
     return (
       <main className="mx-auto max-w-5xl px-6 py-10">
-        <h1 className="text-2xl font-semibold">Dashboard Capogruppo</h1>
+        <h1 className="text-2xl font-semibold">Group Leader Dashboard</h1>
         <p className="mt-4 text-sm text-neutral-600">
-          Devi effettuare il login per vedere i partecipanti del tuo gruppo.
+          Please sign in to view participants in your group.
         </p>
       </main>
     );
@@ -46,10 +46,9 @@ export default async function CapogruppoPage() {
   if (!url || !anonKey) {
     return (
       <main className="mx-auto max-w-5xl px-6 py-10">
-        <h1 className="text-2xl font-semibold">Dashboard Capogruppo</h1>
+        <h1 className="text-2xl font-semibold">Group Leader Dashboard</h1>
         <p className="mt-4 text-sm text-neutral-600">
-          Configurazione mancante: imposta SUPABASE_URL e SUPABASE_ANON_KEY in
-          ambiente.
+          Missing configuration: set SUPABASE_URL and SUPABASE_ANON_KEY.
         </p>
       </main>
     );
@@ -69,26 +68,26 @@ export default async function CapogruppoPage() {
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
-      <h1 className="text-2xl font-semibold">Dashboard Capogruppo</h1>
+      <h1 className="text-2xl font-semibold">Group Leader Dashboard</h1>
       <p className="mt-2 text-sm text-neutral-600">
-        Partecipanti del tuo gruppo
+        Participants in your group
       </p>
 
       {error ? (
         <div className="mt-6 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          Errore nel caricamento: {error.message}
+          Loading error: {error.message}
         </div>
       ) : (
         <div className="mt-6 overflow-x-auto rounded border border-neutral-200">
           <table className="w-full border-collapse text-left text-sm">
             <thead className="bg-neutral-50 text-neutral-700">
               <tr>
-                <th className="px-4 py-3">Nome</th>
-                <th className="px-4 py-3">Cognome</th>
+                <th className="px-4 py-3">First Name</th>
+                <th className="px-4 py-3">Last Name</th>
                 <th className="px-4 py-3">Email</th>
-                <th className="px-4 py-3">Gruppo</th>
-                <th className="px-4 py-3">Giorni</th>
-                <th className="px-4 py-3">Quota</th>
+                <th className="px-4 py-3">Group</th>
+                <th className="px-4 py-3">Days</th>
+                <th className="px-4 py-3">Fee</th>
               </tr>
             </thead>
             <tbody>

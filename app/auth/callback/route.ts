@@ -1,15 +1,11 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-
-const ROLE_ROUTES: Record<string, string> = {
-  admin: "/dashboard/admin",
-  capogruppo: "/dashboard/capogruppo",
-  partecipante: "/dashboard/partecipante",
-};
+import { ROLE_ROUTES, isAppRole } from "@/lib/auth/roles";
 
 export async function GET(req: Request) {
   const { searchParams, origin } = new URL(req.url);
   const code = searchParams.get("code");
+  const requestedRole = searchParams.get("role");
 
   if (code) {
     const supabase = await createSupabaseServerClient();
@@ -29,7 +25,13 @@ export async function GET(req: Request) {
         .eq("id", user.id)
         .single();
 
-      const route = profile?.ruolo ? ROLE_ROUTES[profile.ruolo] : undefined;
+      const roleFromProfile = profile?.ruolo ?? null;
+      const route = isAppRole(requestedRole)
+        ? ROLE_ROUTES[requestedRole]
+        : isAppRole(roleFromProfile)
+          ? ROLE_ROUTES[roleFromProfile]
+          : undefined;
+
       return NextResponse.redirect(`${origin}${route ?? "/dashboard"}`);
     }
   }

@@ -1,0 +1,318 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { AVAILABLE_ROLES, ROLE_LABELS } from "@/lib/auth/roles";
+
+type Profilo = {
+  id: string;
+  email: string;
+  nome: string | null;
+  cognome: string | null;
+  ruolo: string;
+  created_at: string;
+};
+
+type UploadResult = {
+  imported: number;
+  skipped: number;
+  errors: string[];
+};
+
+export default function AdminUsersProfilesPage() {
+  const [profiles, setProfiles] = useState<Profilo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [newProfile, setNewProfile] = useState({
+    email: "",
+    nome: "",
+    cognome: "",
+    ruolo: "capogruppo",
+  });
+  const [uploading, setUploading] = useState(false);
+  const [uploadSummary, setUploadSummary] = useState<UploadResult | null>(null);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+
+  const sorted = useMemo(
+    () => [...profiles].sort((a, b) => a.email.localeCompare(b.email)),
+    [profiles]
+  );
+
+  async function loadProfiles() {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/admin/profili", { cache: "no-store" });
+      const json = await response.json();
+      if (!response.ok) throw new Error(json.error || "Loading error");
+      setProfiles(json.data || []);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadProfiles();
+  }, []);
+
+  async function handleCreate(event: React.FormEvent) {
+    event.preventDefault();
+    setError(null);
+    try {
+      const response = await fetch("/api/admin/profili", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newProfile),
+      });
+      const json = await response.json();
+      if (!response.ok) throw new Error(json.error || "Create error");
+      setNewProfile({ email: "", nome: "", cognome: "", ruolo: "capogruppo" });
+      await loadProfiles();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  async function saveRow(profile: Profilo) {
+    setSavingId(profile.id);
+    setError(null);
+    try {
+      const response = await fetch("/api/admin/profili", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: profile.id,
+          nome: profile.nome,
+          cognome: profile.cognome,
+          ruolo: profile.ruolo,
+        }),
+      });
+      const json = await response.json();
+      if (!response.ok) throw new Error(json.error || "Update error");
+      await loadProfiles();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  async function handleCsvUpload(event: React.FormEvent) {
+    event.preventDefault();
+    if (!csvFile) return;
+
+    setUploading(true);
+    setError(null);
+    setUploadSummary(null);
+
+    try {
+      const form = new FormData();
+      form.set("file", csvFile);
+      form.set("defaultRole", "capogruppo");
+
+      const response = await fetch("/api/admin/profili/upload", {
+        method: "POST",
+        body: form,
+      });
+      const json = await response.json();
+      if (!response.ok) throw new Error(json.error || "CSV upload error");
+      setUploadSummary(json);
+      setCsvFile(null);
+      await loadProfiles();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div className="space-y-8">
+      <header>
+        <h1 className="text-2xl font-semibold">Users & Profiles</h1>
+        <p className="mt-2 text-sm text-neutral-600">
+          Manage users/profiles: view, edit, add new users, or import from CSV.
+        </p>
+      </header>
+
+      {error && (
+        <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      <section className="rounded border border-neutral-200 p-4">
+        <h2 className="text-base font-medium">Add User</h2>
+        <form onSubmit={handleCreate} className="mt-4 grid gap-3 md:grid-cols-4">
+          <input
+            type="email"
+            required
+            value={newProfile.email}
+            onChange={(e) =>
+              setNewProfile((prev) => ({ ...prev, email: e.target.value }))
+            }
+            className="rounded border border-neutral-300 px-3 py-2 text-sm"
+            placeholder="email"
+          />
+          <input
+            type="text"
+            value={newProfile.nome}
+            onChange={(e) =>
+              setNewProfile((prev) => ({ ...prev, nome: e.target.value }))
+            }
+            className="rounded border border-neutral-300 px-3 py-2 text-sm"
+            placeholder="first name"
+          />
+          <input
+            type="text"
+            value={newProfile.cognome}
+            onChange={(e) =>
+              setNewProfile((prev) => ({ ...prev, cognome: e.target.value }))
+            }
+            className="rounded border border-neutral-300 px-3 py-2 text-sm"
+            placeholder="last name"
+          />
+          <div className="flex gap-2">
+            <select
+              value={newProfile.ruolo}
+              onChange={(e) =>
+                setNewProfile((prev) => ({ ...prev, ruolo: e.target.value }))
+              }
+              className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+            >
+              {AVAILABLE_ROLES.map((role) => (
+                <option key={role} value={role}>
+                  {ROLE_LABELS[role]}
+                </option>
+              ))}
+            </select>
+            <button
+              type="submit"
+              className="rounded bg-neutral-900 px-4 py-2 text-sm font-medium text-white"
+            >
+              Add
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section className="rounded border border-neutral-200 p-4">
+        <h2 className="text-base font-medium">Upload CSV</h2>
+        <form onSubmit={handleCsvUpload} className="mt-4 flex flex-col gap-3 md:flex-row">
+          <input
+            type="file"
+            accept=".csv,text/csv"
+            onChange={(e) => setCsvFile(e.target.files?.[0] ?? null)}
+            className="block text-sm"
+          />
+          <button
+            type="submit"
+            disabled={!csvFile || uploading}
+            className="rounded bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+          >
+            {uploading ? "Uploading..." : "Upload"}
+          </button>
+        </form>
+        {uploadSummary && (
+          <div className="mt-3 rounded border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm">
+            Imported: {uploadSummary.imported} | Skipped: {uploadSummary.skipped} | Errors:{" "}
+            {uploadSummary.errors.length}
+          </div>
+        )}
+      </section>
+
+      <section className="rounded border border-neutral-200 p-4">
+        <h2 className="text-base font-medium">Current Profiles</h2>
+        {loading ? (
+          <p className="mt-3 text-sm text-neutral-600">Loading...</p>
+        ) : (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full border-collapse text-left text-sm">
+              <thead className="bg-neutral-50">
+                <tr>
+                  <th className="px-3 py-2">Email</th>
+                  <th className="px-3 py-2">First Name</th>
+                  <th className="px-3 py-2">Last Name</th>
+                  <th className="px-3 py-2">Role</th>
+                  <th className="px-3 py-2">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map((profile) => (
+                  <tr key={profile.id} className="border-t border-neutral-100">
+                    <td className="px-3 py-2">{profile.email}</td>
+                    <td className="px-3 py-2">
+                      <input
+                        type="text"
+                        value={profile.nome ?? ""}
+                        onChange={(e) =>
+                          setProfiles((prev) =>
+                            prev.map((row) =>
+                              row.id === profile.id
+                                ? { ...row, nome: e.target.value }
+                                : row
+                            )
+                          )
+                        }
+                        className="w-full rounded border border-neutral-300 px-2 py-1"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <input
+                        type="text"
+                        value={profile.cognome ?? ""}
+                        onChange={(e) =>
+                          setProfiles((prev) =>
+                            prev.map((row) =>
+                              row.id === profile.id
+                                ? { ...row, cognome: e.target.value }
+                                : row
+                            )
+                          )
+                        }
+                        className="w-full rounded border border-neutral-300 px-2 py-1"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <select
+                        value={profile.ruolo}
+                        onChange={(e) =>
+                          setProfiles((prev) =>
+                            prev.map((row) =>
+                              row.id === profile.id
+                                ? { ...row, ruolo: e.target.value }
+                                : row
+                            )
+                          )
+                        }
+                        className="w-full rounded border border-neutral-300 px-2 py-1"
+                      >
+                        {AVAILABLE_ROLES.map((role) => (
+                          <option key={role} value={role}>
+                            {ROLE_LABELS[role]}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-3 py-2">
+                      <button
+                        type="button"
+                        onClick={() => saveRow(profile)}
+                        disabled={savingId === profile.id}
+                        className="rounded bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
+                      >
+                        {savingId === profile.id ? "Saving..." : "Save"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
