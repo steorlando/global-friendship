@@ -22,6 +22,7 @@ type NormalizedSubmission = {
   nome: string;
   cognome: string;
   email: string;
+  emailSecondaria: string;
   telefono: string;
   tipoIscrizione: string;
   dataNascita: string;
@@ -30,9 +31,15 @@ type NormalizedSubmission = {
   paeseResidenza: string;
   citta: string;
   gruppoRoma: string;
+  groupLeader: string;
   gruppoLabel: string;
+  partecipaInteroEvento: boolean | null;
+  presenzaDettaglio: Record<string, unknown> | null;
   alloggio: string;
+  esigenzeAlimentari: string;
   allergie: string;
+  disabilitaAccessibilita: boolean | null;
+  difficoltaAccessibilita: string;
   note: string;
   privacyAccettata: boolean | null;
   submittedAtTally: string;
@@ -99,6 +106,70 @@ function parseBool(value: string): boolean | null {
   if (["true", "si", "sì", "yes", "1", "on"].includes(v)) return true;
   if (["false", "no", "0", "off"].includes(v)) return false;
   return null;
+}
+
+function pickAnswer(answers: Record<string, string>, labels: string[]): string {
+  for (const label of labels) {
+    const value = answers[label];
+    if (value !== undefined && value !== null && value.trim() !== "") {
+      return value;
+    }
+  }
+  return "";
+}
+
+function findAnswersByPrefix(
+  answers: Record<string, string>,
+  prefix: string
+): Array<{ key: string; value: string }> {
+  const normPrefix = prefix.trim().toLowerCase();
+  return Object.entries(answers)
+    .filter(([key]) => key.trim().toLowerCase().startsWith(normPrefix))
+    .map(([key, value]) => ({ key, value }));
+}
+
+function collectCheckedOptions(
+  answers: Record<string, string>,
+  baseLabel: string
+): string[] {
+  const selected = new Set<string>();
+
+  const direct = pickAnswer(answers, [baseLabel]);
+  if (direct) {
+    direct
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .forEach((item) => selected.add(item));
+  }
+
+  const prefixed = findAnswersByPrefix(answers, `${baseLabel} (`);
+  for (const { key, value } of prefixed) {
+    if (parseBool(value) === true) {
+      const match = key.match(/\((.*)\)\s*$/);
+      const label = (match?.[1] ?? "").trim();
+      if (label) selected.add(label);
+    }
+  }
+
+  return Array.from(selected);
+}
+
+function buildPresenceDettaglio(
+  answers: Record<string, string>
+): Record<string, unknown> | null {
+  const blocks = findAnswersByPrefix(answers, "When will you be present?");
+  if (blocks.length === 0) return null;
+
+  const details: Record<string, unknown> = {};
+  for (const { key, value } of blocks) {
+    const cleanedKey = key.replace(/^When will you be present\?\s*/i, "").trim();
+    const itemKey = cleanedKey || "general";
+    const boolValue = parseBool(value);
+    details[itemKey] = boolValue === null ? value : boolValue;
+  }
+
+  return Object.keys(details).length > 0 ? details : null;
 }
 
 function optionId(option: TallyOption): string {
@@ -385,37 +456,45 @@ function normalizeSubmission(
   payload: any,
   answers: Record<string, string>
 ): NormalizedSubmission {
-  const nome =
-    answers["Name/Nome/Nombre/Prenom"] ||
-    answers["Nome"] ||
-    answers["Name"] ||
-    "";
-  const cognome =
-    answers["Surname / Cognome / Apellido / Nom de famille"] ||
-    answers["Cognome"] ||
-    answers["Surname"] ||
-    "";
-  const email = answers["e-mail"] || answers["Email"] || answers["email"] || "";
-  const telefono = answers["Contacts (Phone number and email)"] || "";
-  const tipoIscrizione =
-    answers[
-      "Type of registration / Tipo di iscrizione / Tipo de registro / Type d'inscription"
-    ] || "";
-  const dataNascita =
-    answers[
-      "Date of birth / Data di nascita / Fecha de nacimiento / Date de naissance"
-    ] || "";
-  const sesso = answers["Sex / Sesso / Sexo / Sexe"] || "";
-  const nazione =
-    answers["Nationality/Nazionalità/Nacionalidad/Nationalitè"] ||
-    answers["Nationality"] ||
-    "";
-  const paeseResidenza =
-    answers[
-      "Country of residence / Paese di residenza / País de residencia / Pays de résidence"
-    ] || "";
-  const citta = answers["City"] || answers["Città"] || "";
-  const gruppoRoma = answers["Gruppo di Roma"] || "";
+  const nome = pickAnswer(answers, ["Name/Nome/Nombre/Prenom", "Nome", "Name"]);
+  const cognome = pickAnswer(answers, [
+    "Surname / Cognome / Apellido / Nom de famille",
+    "Cognome",
+    "Surname",
+  ]);
+  const email = pickAnswer(answers, ["e-mail", "Email", "email"]);
+  const emailSecondaria = pickAnswer(answers, ["e-mail-2", "Secondary email"]);
+  const telefono = pickAnswer(answers, ["Contacts (Phone number and email)", "Phone"]);
+  const tipoIscrizione = pickAnswer(answers, [
+    "Type of registration / Tipo di iscrizione / Tipo de registro / Type d'inscription",
+    "Type of registration",
+  ]);
+  const dataNascita = pickAnswer(answers, [
+    "Date of birth / Data di nascita / Fecha de nacimiento / Date de naissance",
+    "Date of birth",
+  ]);
+  const sesso = pickAnswer(answers, ["Sex / Sesso / Sexo / Sexe", "Sex"]);
+  const nazione = pickAnswer(answers, [
+    "Nationality/Nazionalità/Nacionalidad/Nationalitè",
+    "Nationality",
+  ]);
+  const paeseResidenza = pickAnswer(answers, [
+    "Country of residence / Paese di residenza / País de residencia / Pays de résidence",
+    "Country of residence",
+  ]);
+  const citta = pickAnswer(answers, ["City", "Città"]);
+  const gruppoRoma = pickAnswer(answers, ["Gruppo di Roma"]);
+  const groupLeader = pickAnswer(answers, [
+    "Who is your group leader?",
+    "Group leader",
+  ]);
+  const partecipaInteroEvento = parseBool(
+    pickAnswer(answers, [
+      "Are you attending the entire event, from friday to sunday",
+      "Are you attending the entire event",
+    ])
+  );
+  const presenzaDettaglio = buildPresenceDettaglio(answers);
 
   const gruppoLabel =
     citta.toLowerCase() === "roma"
@@ -425,23 +504,44 @@ function normalizeSubmission(
         ? citta
         : paeseResidenza;
 
-  const alloggio = answers["Where are you staying? Dove alloggerai?"] || "";
-  const allergie =
-    answers["Do you have any allergies or intolerances? If yes, please specify."] ||
-    "";
-  const note =
-    answers[
-      "Is there anything else important you would like to communicate to the organization?"
-    ] || "";
+  const alloggio = pickAnswer(answers, [
+    "Where are you staying? Dove alloggerai?",
+    "Where are you staying?",
+  ]);
+  const esigenzeAlimentari = collectCheckedOptions(
+    answers,
+    "Do you have any particular food requirement"
+  ).join(", ");
+  const allergie = pickAnswer(answers, [
+    "Do you have any allergies or intolerances? If yes, please specify.",
+    "Allergies",
+  ]);
+  const disabilitaAccessibilita = parseBool(
+    pickAnswer(answers, [
+      "Do you have any disabilities or accessibility needs?",
+      "Accessibility needs",
+    ])
+  );
+  const difficoltaAccessibilita = collectCheckedOptions(
+    answers,
+    "Which difficulties do you experience? (Select all that apply)"
+  ).join(", ");
+  const note = pickAnswer(answers, [
+    "Is there anything else important you would like to communicate to the organization?",
+    "Notes",
+  ]);
 
   const privacyAccettata = parseBool(
-    answers[
-      "Pivacy (I have read and accept the privacy policy/ Ho letto e accetto l'informativa sulla privacy / He leído y acepto la política de privacidad / J'ai lu et j'accepte la politique de confidentialité)"
-    ] || answers["Pivacy"] || ""
+    pickAnswer(answers, [
+      "Privacy (I have read and accept the privacy policy/ Ho letto e accetto l'informativa sulla privacy / He leído y acepto la política de privacidad / J'ai lu et j'accepte la politique de confidentialité)",
+      "Privacy",
+      "Pivacy (I have read and accept the privacy policy/ Ho letto e accetto l'informativa sulla privacy / He leído y acepto la política de privacidad / J'ai lu et j'accepte la politique de confidentialité)",
+      "Pivacy",
+    ])
   );
 
   const submittedAtTally =
-    answers["Submitted at"] ||
+    pickAnswer(answers, ["Submitted at"]) ||
     normalize(payload?.data?.createdAt || payload?.createdAt || payload?.submittedAt);
 
   const { arrival, departure } = parseArrivalDeparture(answers);
@@ -452,6 +552,7 @@ function normalizeSubmission(
     nome,
     cognome,
     email,
+    emailSecondaria,
     telefono,
     tipoIscrizione,
     dataNascita,
@@ -460,9 +561,15 @@ function normalizeSubmission(
     paeseResidenza,
     citta,
     gruppoRoma,
+    groupLeader,
     gruppoLabel,
+    partecipaInteroEvento,
+    presenzaDettaglio,
     alloggio,
+    esigenzeAlimentari,
     allergie,
+    disabilitaAccessibilita,
+    difficoltaAccessibilita,
     note,
     privacyAccettata,
     submittedAtTally,
@@ -548,11 +655,12 @@ async function handlePost(req: Request) {
     cognome: normalized.cognome,
     email: normalized.email,
     nazione: normalized.nazione || null,
-    "città": normalized.citta || null,
+    citta: normalized.citta || null,
     giorni_permanenza: normalized.nights ?? undefined,
     quota_totale: normalized.quotaTotale ?? undefined,
     gruppo_id: gruppoId,
     telefono: normalized.telefono || null,
+    email_secondaria: normalized.emailSecondaria || null,
     paese_residenza: normalized.paeseResidenza || null,
     tipo_iscrizione: normalized.tipoIscrizione || null,
     sesso: normalized.sesso || null,
@@ -560,7 +668,13 @@ async function handlePost(req: Request) {
     data_arrivo: normalized.dataArrivo || null,
     data_partenza: normalized.dataPartenza || null,
     alloggio: normalized.alloggio || null,
+    esigenze_alimentari: normalized.esigenzeAlimentari || null,
     allergie: normalized.allergie || null,
+    gruppo_leader: normalized.groupLeader || null,
+    partecipa_intero_evento: normalized.partecipaInteroEvento,
+    presenza_dettaglio: normalized.presenzaDettaglio,
+    disabilita_accessibilita: normalized.disabilitaAccessibilita,
+    difficolta_accessibilita: normalized.difficoltaAccessibilita || null,
     note: normalized.note || null,
     privacy_accettata: normalized.privacyAccettata,
     submitted_at_tally: submittedAtIso,
@@ -590,7 +704,7 @@ async function handlePost(req: Request) {
         cognome: normalized.cognome,
         email: normalized.email,
         nazione: normalized.nazione || null,
-        "città": normalized.citta || null,
+        citta: normalized.citta || null,
         giorni_permanenza: normalized.nights ?? undefined,
         quota_totale: normalized.quotaTotale ?? undefined,
         gruppo_id: gruppoId,
