@@ -43,12 +43,42 @@ async function findAuthUserIdByEmail(
   return data?.id ?? null;
 }
 
+async function findAuthUserIdByEmailViaAdminApi(
+  supabase: SupabaseClient,
+  email: string
+): Promise<string | null> {
+  const normalized = email.trim().toLowerCase();
+  let page = 1;
+  const perPage = 200;
+
+  while (page <= 20) {
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
+    if (error) return null;
+
+    const users = data?.users ?? [];
+    if (users.length === 0) return null;
+
+    const found = users.find(
+      (user) => (user.email ?? "").trim().toLowerCase() === normalized
+    );
+    if (found?.id) return found.id;
+
+    if (users.length < perPage) return null;
+    page += 1;
+  }
+
+  return null;
+}
+
 async function ensureAuthUserIdByEmail(
   supabase: SupabaseClient,
   email: string
 ): Promise<string> {
   const existingId = await findAuthUserIdByEmail(supabase, email);
   if (existingId) return existingId;
+
+  const existingViaAdmin = await findAuthUserIdByEmailViaAdminApi(supabase, email);
+  if (existingViaAdmin) return existingViaAdmin;
 
   const { data: created, error: createError } = await supabase.auth.admin.createUser({
     email,
@@ -59,6 +89,9 @@ async function ensureAuthUserIdByEmail(
 
   const retried = await findAuthUserIdByEmail(supabase, email);
   if (retried) return retried;
+
+  const retriedViaAdmin = await findAuthUserIdByEmailViaAdminApi(supabase, email);
+  if (retriedViaAdmin) return retriedViaAdmin;
 
   throw new Error(createError?.message ?? "Unable to create auth user");
 }
@@ -89,20 +122,23 @@ export async function upsertProfiloByEmail(
 
   const { data: existing, error: existingError } = await supabase
     .from("profili")
-    .select("id,email")
+    .select("id,email,ruolo")
     .ilike("email", email)
     .maybeSingle();
 
   if (existingError) throw new Error(existingError.message);
 
   if (existing?.id) {
+    const finalRole =
+      existing.ruolo === "admin" && ruolo !== "admin" ? "admin" : ruolo;
+
     const { data: updated, error: updateError } = await supabase
       .from("profili")
       .update({
         email,
         nome,
         cognome,
-        ruolo,
+        ruolo: finalRole,
         telefono,
         italia,
         roma,
