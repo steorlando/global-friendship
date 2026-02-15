@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ROLE_ROUTES, isAppRole } from "@/lib/auth/roles";
 
-export default function AuthCallbackPage() {
+function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [message, setMessage] = useState("Completing sign in...");
@@ -62,9 +62,26 @@ export default function AuthCallbackPage() {
   }, [router, searchParams]);
 
   return (
-    <main className="mx-auto max-w-md px-6 py-12">
+    <>
       <h1 className="text-2xl font-semibold">Signing In</h1>
       <p className="mt-2 text-sm text-neutral-600">{message}</p>
+    </>
+  );
+}
+
+export default function AuthCallbackPage() {
+  return (
+    <main className="mx-auto max-w-md px-6 py-12">
+      <Suspense
+        fallback={
+          <>
+            <h1 className="text-2xl font-semibold">Signing In</h1>
+            <p className="mt-2 text-sm text-neutral-600">Completing sign in...</p>
+          </>
+        }
+      >
+        <AuthCallbackContent />
+      </Suspense>
     </main>
   );
 }
