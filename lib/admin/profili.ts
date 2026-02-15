@@ -6,6 +6,9 @@ export type ProfiloInput = {
   nome: string | null;
   cognome: string | null;
   ruolo: string;
+  telefono?: string | null;
+  italia?: boolean | null;
+  roma?: boolean | null;
 };
 
 function normalizeEmail(email: string): string {
@@ -78,6 +81,9 @@ export async function upsertProfiloByEmail(
   const ruolo = ensureRole(input.ruolo);
   const nome = normalizeText(input.nome);
   const cognome = normalizeText(input.cognome);
+  const telefono = normalizeText(input.telefono ?? null);
+  const italia = input.italia ?? null;
+  const roma = input.roma ?? null;
 
   if (!email) throw new Error("Email is required");
 
@@ -92,9 +98,17 @@ export async function upsertProfiloByEmail(
   if (existing?.id) {
     const { data: updated, error: updateError } = await supabase
       .from("profili")
-      .update({ email, nome, cognome, ruolo })
+      .update({
+        email,
+        nome,
+        cognome,
+        ruolo,
+        telefono,
+        italia,
+        roma,
+      })
       .eq("id", existing.id)
-      .select("id,email,nome,cognome,ruolo,created_at")
+      .select("id,email,nome,cognome,ruolo,telefono,italia,roma,created_at")
       .single();
 
     if (updateError) throw new Error(updateError.message);
@@ -111,8 +125,11 @@ export async function upsertProfiloByEmail(
       nome,
       cognome,
       ruolo,
+      telefono,
+      italia,
+      roma,
     })
-    .select("id,email,nome,cognome,ruolo,created_at")
+    .select("id,email,nome,cognome,ruolo,telefono,italia,roma,created_at")
     .single();
 
   if (insertError) throw new Error(insertError.message);
@@ -122,22 +139,59 @@ export async function upsertProfiloByEmail(
 export async function updateProfiloById(
   supabase: SupabaseClient,
   id: string,
-  input: { nome?: string | null; cognome?: string | null; ruolo?: string | null }
+  input: {
+    nome?: string | null;
+    cognome?: string | null;
+    ruolo?: string | null;
+    telefono?: string | null;
+    italia?: boolean | null;
+    roma?: boolean | null;
+  }
 ) {
-  const patch: Record<string, string | null> = {};
+  const patch: Record<string, string | boolean | null> = {};
   if (input.nome !== undefined) patch.nome = normalizeText(input.nome);
   if (input.cognome !== undefined) patch.cognome = normalizeText(input.cognome);
   if (input.ruolo !== undefined && input.ruolo !== null) {
     patch.ruolo = ensureRole(input.ruolo);
   }
+  if (input.telefono !== undefined) patch.telefono = normalizeText(input.telefono);
+  if (input.italia !== undefined) patch.italia = input.italia;
+  if (input.roma !== undefined) patch.roma = input.roma;
 
   const { data, error } = await supabase
     .from("profili")
     .update(patch)
     .eq("id", id)
-    .select("id,email,nome,cognome,ruolo,created_at")
+    .select("id,email,nome,cognome,ruolo,telefono,italia,roma,created_at")
     .single();
 
   if (error) throw new Error(error.message);
   return data;
+}
+
+export async function linkProfiloToGruppo(
+  supabase: SupabaseClient,
+  profiloId: string,
+  gruppoId: string
+) {
+  const normalizedGroup = gruppoId.trim();
+  if (!normalizedGroup) return;
+
+  const { error: groupError } = await supabase
+    .from("gruppi")
+    .upsert({ id: normalizedGroup, nome: normalizedGroup }, { onConflict: "id" });
+
+  if (groupError) throw new Error(groupError.message);
+
+  const { error: linkError } = await supabase
+    .from("profili_gruppi")
+    .upsert(
+      {
+        profilo_id: profiloId,
+        gruppo_id: normalizedGroup,
+      },
+      { onConflict: "profilo_id,gruppo_id" }
+    );
+
+  if (linkError) throw new Error(linkError.message);
 }
