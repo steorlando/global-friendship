@@ -155,16 +155,19 @@ export async function upsertProfiloByEmail(
 
   const { data: inserted, error: insertError } = await supabase
     .from("profili")
-    .insert({
-      id: authUserId,
-      email,
-      nome,
-      cognome,
-      ruolo,
-      telefono,
-      italia,
-      roma,
-    })
+    .upsert(
+      {
+        id: authUserId,
+        email,
+        nome,
+        cognome,
+        ruolo,
+        telefono,
+        italia,
+        roma,
+      },
+      { onConflict: "id" }
+    )
     .select("id,email,nome,cognome,ruolo,telefono,italia,roma,created_at")
     .single();
 
