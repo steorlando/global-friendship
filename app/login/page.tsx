@@ -18,6 +18,7 @@ export default function LoginPage() {
     setMessage(null);
 
     try {
+      window.localStorage.setItem("gf_requested_role", role);
       const supabase = createSupabaseBrowserClient();
       const { error } = await supabase.auth.signInWithOtp({
         email,

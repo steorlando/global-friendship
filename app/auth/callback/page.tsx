@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ROLE_ROUTES, isAppRole } from "@/lib/auth/roles";
@@ -8,31 +8,28 @@ import { ROLE_ROUTES, isAppRole } from "@/lib/auth/roles";
 function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [message, setMessage] = useState("Completing sign in...");
+  const message = "Completing sign in...";
 
   useEffect(() => {
-    let active = true;
-
     async function run() {
       const code = searchParams.get("code");
-      const requestedRole = searchParams.get("role");
+      const requestedRoleFromQuery = searchParams.get("role");
+      const requestedRoleFromStorage =
+        window.localStorage.getItem("gf_requested_role");
       const supabase = createSupabaseBrowserClient();
 
       if (code) {
         const { error } = await supabase.auth.exchangeCodeForSession(code);
         if (error) {
-          if (active) {
-            setMessage("Authentication failed. Redirecting to login...");
-          }
-          router.replace("/login?error=auth");
-          return;
+          console.warn("Code exchange failed, trying session fallback", error);
         }
       }
 
       const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        data: { session },
+      } = await supabase.auth.getSession();
 
+      const user = session?.user ?? null;
       if (!user) {
         router.replace("/login?error=auth");
         return;
@@ -45,6 +42,16 @@ function AuthCallbackContent() {
         .maybeSingle();
 
       const roleFromProfile = profile?.ruolo ?? null;
+      const requestedRole = isAppRole(requestedRoleFromQuery)
+        ? requestedRoleFromQuery
+        : isAppRole(requestedRoleFromStorage)
+          ? requestedRoleFromStorage
+          : null;
+
+      if (requestedRoleFromStorage) {
+        window.localStorage.removeItem("gf_requested_role");
+      }
+
       const target = isAppRole(requestedRole)
         ? ROLE_ROUTES[requestedRole]
         : isAppRole(roleFromProfile)
@@ -55,10 +62,6 @@ function AuthCallbackContent() {
     }
 
     run();
-
-    return () => {
-      active = false;
-    };
   }, [router, searchParams]);
 
   return (

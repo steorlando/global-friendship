@@ -10,5 +10,9 @@ export function createSupabaseBrowserClient() {
     );
   }
 
-  return createBrowserClient(url, key);
+  return createBrowserClient(url, key, {
+    auth: {
+      flowType: "implicit",
+    },
+  });
 }
