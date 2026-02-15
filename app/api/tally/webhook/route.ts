@@ -40,6 +40,8 @@ type NormalizedSubmission = {
   allergie: string;
   disabilitaAccessibilita: boolean | null;
   difficoltaAccessibilita: string;
+  tallySubmissionId: string;
+  tallyRespondentId: string;
   note: string;
   privacyAccettata: boolean | null;
   submittedAtTally: string;
@@ -128,27 +130,57 @@ function findAnswersByPrefix(
     .map(([key, value]) => ({ key, value }));
 }
 
+function findAnswersByContains(
+  answers: Record<string, string>,
+  fragments: string[]
+): Array<{ key: string; value: string }> {
+  const normalized = fragments.map((f) => f.trim().toLowerCase()).filter(Boolean);
+  return Object.entries(answers)
+    .filter(([key]) => {
+      const lk = key.trim().toLowerCase();
+      return normalized.some((fragment) => lk.includes(fragment));
+    })
+    .map(([key, value]) => ({ key, value }));
+}
+
+function pickAnswerContains(
+  answers: Record<string, string>,
+  fragments: string[]
+): string {
+  const matches = findAnswersByContains(answers, fragments);
+  for (const match of matches) {
+    if (match.value && match.value.trim() !== "") return match.value;
+  }
+  return "";
+}
+
 function collectCheckedOptions(
   answers: Record<string, string>,
-  baseLabel: string
+  baseLabel: string,
+  aliases: string[] = []
 ): string[] {
   const selected = new Set<string>();
+  const labels = [baseLabel, ...aliases];
 
-  const direct = pickAnswer(answers, [baseLabel]);
-  if (direct) {
-    direct
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean)
-      .forEach((item) => selected.add(item));
+  for (const label of labels) {
+    const direct = pickAnswer(answers, [label]);
+    if (direct) {
+      direct
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .forEach((item) => selected.add(item));
+    }
   }
 
-  const prefixed = findAnswersByPrefix(answers, `${baseLabel} (`);
+  const prefixed = labels.flatMap((label) =>
+    findAnswersByPrefix(answers, `${label} (`)
+  );
   for (const { key, value } of prefixed) {
-    if (parseBool(value) === true) {
+    if (parseBool(value) === true || normalize(value).toLowerCase() === "true") {
       const match = key.match(/\((.*)\)\s*$/);
-      const label = (match?.[1] ?? "").trim();
-      if (label) selected.add(label);
+      const choiceLabel = (match?.[1] ?? "").trim();
+      if (choiceLabel) selected.add(choiceLabel);
     }
   }
 
@@ -517,15 +549,26 @@ function normalizeSubmission(
     "Allergies",
   ]);
   const disabilitaAccessibilita = parseBool(
-    pickAnswer(answers, [
-      "Do you have any disabilities or accessibility needs?",
-      "Accessibility needs",
-    ])
+    pickAnswer(answers, ["Do you have any disabilities or accessibility needs?"]) ||
+      pickAnswerContains(answers, [
+        "disabilities or accessibility needs",
+        "disability",
+        "accessibility needs",
+        "disabilit",
+        "accessibilit",
+      ])
   );
   const difficoltaAccessibilita = collectCheckedOptions(
     answers,
-    "Which difficulties do you experience? (Select all that apply)"
+    "Which difficulties do you experience? (Select all that apply)",
+    ["A quali difficoltà partecipi", "Which difficulties do you experience"]
   ).join(", ");
+  const esigenzeAlimentariFallback = pickAnswerContains(answers, [
+    "food requirement",
+    "esigenze alimentari",
+    "alimentari",
+    "dietary",
+  ]);
   const note = pickAnswer(answers, [
     "Is there anything else important you would like to communicate to the organization?",
     "Notes",
@@ -566,10 +609,16 @@ function normalizeSubmission(
     partecipaInteroEvento,
     presenzaDettaglio,
     alloggio,
-    esigenzeAlimentari,
+    esigenzeAlimentari: esigenzeAlimentari || esigenzeAlimentariFallback,
     allergie,
     disabilitaAccessibilita,
     difficoltaAccessibilita,
+    tallySubmissionId:
+      pickAnswer(answers, ['\ufeff"Submission ID"', "Submission ID"]) ||
+      normalize(payload?.data?.submissionId || payload?.submissionId),
+    tallyRespondentId:
+      pickAnswer(answers, ["Respondent ID"]) ||
+      normalize(payload?.data?.respondentId || payload?.respondentId),
     note,
     privacyAccettata,
     submittedAtTally,
@@ -655,7 +704,7 @@ async function handlePost(req: Request) {
     cognome: normalized.cognome,
     email: normalized.email,
     nazione: normalized.nazione || null,
-    citta: normalized.citta || null,
+    "città": normalized.citta || null,
     giorni_permanenza: normalized.nights ?? undefined,
     quota_totale: normalized.quotaTotale ?? undefined,
     gruppo_id: gruppoId,
@@ -675,6 +724,8 @@ async function handlePost(req: Request) {
     presenza_dettaglio: normalized.presenzaDettaglio,
     disabilita_accessibilita: normalized.disabilitaAccessibilita,
     difficolta_accessibilita: normalized.difficoltaAccessibilita || null,
+    tally_submission_id: normalized.tallySubmissionId || null,
+    tally_respondent_id: normalized.tallyRespondentId || null,
     note: normalized.note || null,
     privacy_accettata: normalized.privacyAccettata,
     submitted_at_tally: submittedAtIso,
@@ -704,10 +755,12 @@ async function handlePost(req: Request) {
         cognome: normalized.cognome,
         email: normalized.email,
         nazione: normalized.nazione || null,
-        citta: normalized.citta || null,
+        "città": normalized.citta || null,
         giorni_permanenza: normalized.nights ?? undefined,
         quota_totale: normalized.quotaTotale ?? undefined,
         gruppo_id: gruppoId,
+        tally_submission_id: normalized.tallySubmissionId || null,
+        tally_respondent_id: normalized.tallyRespondentId || null,
         dati_tally: payload,
       });
     }
