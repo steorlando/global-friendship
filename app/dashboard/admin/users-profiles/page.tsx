@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AVAILABLE_ROLES, ROLE_LABELS } from "@/lib/auth/roles";
+import { AVAILABLE_ROLES, isAppRole, ROLE_LABELS } from "@/lib/auth/roles";
 
 type Profilo = {
   id: string;
@@ -388,7 +388,11 @@ export default function AdminUsersProfilesPage() {
                           ))}
                         </select>
                       ) : (
-                        <span>{ROLE_LABELS[profile.ruolo] ?? profile.ruolo}</span>
+                        <span>
+                          {isAppRole(profile.ruolo)
+                            ? ROLE_LABELS[profile.ruolo]
+                            : profile.ruolo}
+                        </span>
                       )}
                     </td>
                     <td className="px-3 py-2">
