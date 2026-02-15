@@ -50,11 +50,48 @@ export default function AdminUsersProfilesPage() {
   const [uploadSummary, setUploadSummary] = useState<UploadResult | null>(null);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [allKnownGroups, setAllKnownGroups] = useState<string[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [groupFilter, setGroupFilter] = useState("all");
+  const [italiaFilter, setItaliaFilter] = useState("all");
+  const [romaFilter, setRomaFilter] = useState("all");
 
   const sorted = useMemo(
     () => [...profiles].sort((a, b) => a.email.localeCompare(b.email)),
     [profiles]
   );
+
+  const filteredProfiles = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+
+    return sorted.filter((profile) => {
+      const matchesSearch =
+        !term ||
+        profile.email.toLowerCase().includes(term) ||
+        (profile.nome ?? "").toLowerCase().includes(term) ||
+        (profile.cognome ?? "").toLowerCase().includes(term) ||
+        (profile.telefono ?? "").toLowerCase().includes(term) ||
+        profile.groups.some((group) => group.toLowerCase().includes(term));
+
+      const matchesRole = roleFilter === "all" || profile.ruolo === roleFilter;
+      const matchesGroup =
+        groupFilter === "all" || profile.groups.includes(groupFilter);
+      const matchesItalia =
+        italiaFilter === "all" ||
+        (italiaFilter === "yes" ? Boolean(profile.italia) : !Boolean(profile.italia));
+      const matchesRoma =
+        romaFilter === "all" ||
+        (romaFilter === "yes" ? Boolean(profile.roma) : !Boolean(profile.roma));
+
+      return (
+        matchesSearch &&
+        matchesRole &&
+        matchesGroup &&
+        matchesItalia &&
+        matchesRoma
+      );
+    });
+  }, [groupFilter, italiaFilter, roleFilter, romaFilter, searchTerm, sorted]);
 
   async function loadProfiles() {
     setLoading(true);
@@ -303,39 +340,114 @@ export default function AdminUsersProfilesPage() {
         </form>
       </section>
 
-      <section className="rounded border border-neutral-200 p-4">
-        <h2 className="text-base font-medium">Upload CSV</h2>
-        <form onSubmit={handleCsvUpload} className="mt-4 flex flex-col gap-3 md:flex-row">
-          <input
-            type="file"
-            accept=".csv,text/csv"
-            onChange={(e) => setCsvFile(e.target.files?.[0] ?? null)}
-            className="block text-sm"
-          />
-          <button
-            type="submit"
-            disabled={!csvFile || uploading}
-            className="rounded bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-          >
-            {uploading ? "Uploading..." : "Upload"}
-          </button>
-        </form>
-        {uploadSummary && (
-          <div className="mt-3 rounded border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm">
-            Imported: {uploadSummary.imported} | Skipped: {uploadSummary.skipped} | Errors:{" "}
-            {uploadSummary.errors.length}
-            {uploadSummary.errors.length > 0 && (
-              <div className="mt-2 max-h-40 overflow-auto rounded border border-neutral-200 bg-white p-2 text-xs">
-                {uploadSummary.errors.slice(0, 20).map((line, index) => (
-                  <div key={`${line}-${index}`} className="font-mono text-red-700">
-                    {line}
-                  </div>
-                ))}
-              </div>
-            )}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <section className="rounded border border-neutral-200 p-4 lg:col-span-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-base font-medium">Search & Filters</h2>
+            <button
+              type="button"
+              onClick={() => {
+                setSearchTerm("");
+                setRoleFilter("all");
+                setGroupFilter("all");
+                setItaliaFilter("all");
+                setRomaFilter("all");
+              }}
+              className="rounded border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700"
+            >
+              Reset filters
+            </button>
           </div>
-        )}
-      </section>
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="rounded border border-neutral-300 px-3 py-2 text-sm md:col-span-2 xl:col-span-3"
+              placeholder="Search by email, name, phone or group"
+            />
+            <select
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+              className="rounded border border-neutral-300 px-3 py-2 text-sm"
+            >
+              <option value="all">All roles</option>
+              {AVAILABLE_ROLES.map((role) => (
+                <option key={`filter-role-${role}`} value={role}>
+                  {ROLE_LABELS[role]}
+                </option>
+              ))}
+            </select>
+            <select
+              value={groupFilter}
+              onChange={(e) => setGroupFilter(e.target.value)}
+              className="rounded border border-neutral-300 px-3 py-2 text-sm"
+            >
+              <option value="all">All groups</option>
+              {allKnownGroups.map((group) => (
+                <option key={`filter-group-${group}`} value={group}>
+                  {group}
+                </option>
+              ))}
+            </select>
+            <select
+              value={italiaFilter}
+              onChange={(e) => setItaliaFilter(e.target.value)}
+              className="rounded border border-neutral-300 px-3 py-2 text-sm"
+            >
+              <option value="all">Italy: all</option>
+              <option value="yes">Italy: yes</option>
+              <option value="no">Italy: no</option>
+            </select>
+            <select
+              value={romaFilter}
+              onChange={(e) => setRomaFilter(e.target.value)}
+              className="rounded border border-neutral-300 px-3 py-2 text-sm"
+            >
+              <option value="all">Rome: all</option>
+              <option value="yes">Rome: yes</option>
+              <option value="no">Rome: no</option>
+            </select>
+          </div>
+          <p className="mt-3 text-sm text-neutral-600">
+            Showing {filteredProfiles.length} of {sorted.length} users
+          </p>
+        </section>
+
+        <section className="rounded border border-neutral-200 p-4">
+          <h2 className="text-base font-medium">Upload CSV</h2>
+          <form onSubmit={handleCsvUpload} className="mt-3 space-y-3">
+            <input
+              type="file"
+              accept=".csv,text/csv"
+              onChange={(e) => setCsvFile(e.target.files?.[0] ?? null)}
+              className="block w-full text-sm"
+            />
+            <button
+              type="submit"
+              disabled={!csvFile || uploading}
+              className="w-full rounded bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+            >
+              {uploading ? "Uploading..." : "Upload"}
+            </button>
+          </form>
+          {uploadSummary && (
+            <div className="mt-3 rounded border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm">
+              Imported: {uploadSummary.imported} | Skipped: {uploadSummary.skipped} | Errors:{" "}
+              {uploadSummary.errors.length}
+              {uploadSummary.errors.length > 0 && (
+                <div className="mt-2 max-h-40 overflow-auto rounded border border-neutral-200 bg-white p-2 text-xs">
+                  {uploadSummary.errors.slice(0, 20).map((line, index) => (
+                    <div key={`${line}-${index}`} className="font-mono text-red-700">
+                      {line}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+      </div>
 
       <section className="rounded border border-neutral-200 p-4">
         <h2 className="text-base font-medium">Current Profiles</h2>
@@ -358,7 +470,17 @@ export default function AdminUsersProfilesPage() {
                 </tr>
               </thead>
               <tbody>
-                {sorted.map((profile) => (
+                {filteredProfiles.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={9}
+                      className="px-3 py-6 text-center text-sm text-neutral-500"
+                    >
+                      No users found with the selected filters.
+                    </td>
+                  </tr>
+                )}
+                {filteredProfiles.map((profile) => (
                   <tr key={profile.id} className="border-t border-neutral-100 align-top">
                     <td className="px-3 py-2">{profile.email}</td>
                     <td className="px-3 py-2">
