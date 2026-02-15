@@ -9,6 +9,9 @@ type Profilo = {
   nome: string | null;
   cognome: string | null;
   ruolo: string;
+  telefono: string | null;
+  italia: boolean | null;
+  roma: boolean | null;
   created_at: string;
   groups: string[];
 };
@@ -23,6 +26,9 @@ type EditDraft = {
   nome: string;
   cognome: string;
   ruolo: string;
+  telefono: string;
+  italia: boolean;
+  roma: boolean;
   groups: string[];
   newGroup: string;
 };
@@ -86,6 +92,9 @@ export default function AdminUsersProfilesPage() {
         nome: profile.nome ?? "",
         cognome: profile.cognome ?? "",
         ruolo: profile.ruolo,
+        telefono: profile.telefono ?? "",
+        italia: Boolean(profile.italia),
+        roma: Boolean(profile.roma),
         groups: [...profile.groups],
         newGroup: "",
       },
@@ -178,6 +187,9 @@ export default function AdminUsersProfilesPage() {
           nome: draft.nome,
           cognome: draft.cognome,
           ruolo: draft.ruolo,
+          telefono: draft.telefono,
+          italia: draft.italia,
+          roma: draft.roma,
           groups: draft.groups,
         }),
       });
@@ -337,6 +349,9 @@ export default function AdminUsersProfilesPage() {
                   <th className="px-3 py-2">Email</th>
                   <th className="px-3 py-2">First Name</th>
                   <th className="px-3 py-2">Last Name</th>
+                  <th className="px-3 py-2">Phone</th>
+                  <th className="px-3 py-2">Italy</th>
+                  <th className="px-3 py-2">Rome</th>
                   <th className="px-3 py-2">Groups</th>
                   <th className="px-3 py-2">Role</th>
                   <th className="px-3 py-2">Action</th>
@@ -380,10 +395,74 @@ export default function AdminUsersProfilesPage() {
                               },
                             }))
                           }
-                        className="w-full rounded border border-neutral-300 px-2 py-1"
-                      />
+                          className="w-full rounded border border-neutral-300 px-2 py-1"
+                        />
                       ) : (
                         <span>{profile.cognome ?? ""}</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      {editingId === profile.id ? (
+                        <input
+                          type="text"
+                          value={editDrafts[profile.id]?.telefono ?? ""}
+                          onChange={(e) =>
+                            setEditDrafts((prev) => ({
+                              ...prev,
+                              [profile.id]: {
+                                ...prev[profile.id],
+                                telefono: e.target.value,
+                              },
+                            }))
+                          }
+                          className="w-full rounded border border-neutral-300 px-2 py-1"
+                        />
+                      ) : (
+                        <span>{profile.telefono ?? ""}</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      {editingId === profile.id ? (
+                        <label className="inline-flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(editDrafts[profile.id]?.italia)}
+                            onChange={(e) =>
+                              setEditDrafts((prev) => ({
+                                ...prev,
+                                [profile.id]: {
+                                  ...prev[profile.id],
+                                  italia: e.target.checked,
+                                },
+                              }))
+                            }
+                          />
+                          <span className="text-xs text-neutral-700">Italy</span>
+                        </label>
+                      ) : (
+                        <span>{profile.italia ? "Yes" : "No"}</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      {editingId === profile.id ? (
+                        <label className="inline-flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(editDrafts[profile.id]?.roma)}
+                            onChange={(e) =>
+                              setEditDrafts((prev) => ({
+                                ...prev,
+                                [profile.id]: {
+                                  ...prev[profile.id],
+                                  roma: e.target.checked,
+                                },
+                              }))
+                            }
+                          />
+                          <span className="text-xs text-neutral-700">Rome</span>
+                        </label>
+                      ) : (
+                        <span>{profile.roma ? "Yes" : "No"}</span>
                       )}
                     </td>
                     <td className="px-3 py-2">

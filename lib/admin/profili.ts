@@ -17,6 +17,9 @@ type ProfiloRow = {
   nome: string | null;
   cognome: string | null;
   ruolo: string;
+  telefono: string | null;
+  italia: boolean | null;
+  roma: boolean | null;
   created_at: string;
 };
 
@@ -108,7 +111,7 @@ async function ensureAuthUserIdByEmail(
 export async function listProfili(supabase: SupabaseClient) {
   const { data, error } = await supabase
     .from("profili")
-    .select("id,email,nome,cognome,ruolo,created_at")
+    .select("id,email,nome,cognome,ruolo,telefono,italia,roma,created_at")
     .order("created_at", { ascending: false });
 
   if (error) throw new Error(error.message);

@@ -67,6 +67,9 @@ export async function PATCH(req: Request) {
       nome: body.nome !== undefined ? String(body.nome) : undefined,
       cognome: body.cognome !== undefined ? String(body.cognome) : undefined,
       ruolo: body.ruolo !== undefined ? String(body.ruolo) : undefined,
+      telefono: body.telefono !== undefined ? String(body.telefono) : undefined,
+      italia: body.italia !== undefined ? Boolean(body.italia) : undefined,
+      roma: body.roma !== undefined ? Boolean(body.roma) : undefined,
       groups,
     });
 
