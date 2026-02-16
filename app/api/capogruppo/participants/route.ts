@@ -411,3 +411,50 @@ export async function PATCH(req: Request) {
 
   return NextResponse.json({ ok: true, participant: toResponseParticipant(updated as ParticipantRow) });
 }
+
+export async function DELETE(req: Request) {
+  const auth = await requireCapogruppoContext();
+  if ("errorResponse" in auth) return auth.errorResponse;
+
+  let body: Record<string, unknown> = {};
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const participantId = normalizeText(body.id);
+  if (!participantId) {
+    return NextResponse.json({ error: "id is required" }, { status: 400 });
+  }
+
+  const { data: participant, error: participantError } = await auth.service
+    .from("partecipanti")
+    .select(SELECT_FIELDS)
+    .eq("id", participantId)
+    .maybeSingle();
+
+  if (participantError) {
+    return NextResponse.json({ error: participantError.message }, { status: 500 });
+  }
+
+  if (!participant) {
+    return NextResponse.json({ error: "Participant not found" }, { status: 404 });
+  }
+
+  const groupSet = new Set(auth.groups);
+  if (!participantBelongsToGroups(participant as ParticipantRow, groupSet)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { error: deleteError } = await auth.service
+    .from("partecipanti")
+    .delete()
+    .eq("id", participantId);
+
+  if (deleteError) {
+    return NextResponse.json({ error: deleteError.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true, id: participantId });
+}

@@ -376,3 +376,45 @@ export async function PATCH(req: Request) {
 
   return NextResponse.json({ ok: true, participant: toResponseParticipant(updated as ParticipantRow) });
 }
+
+export async function DELETE(req: Request) {
+  const auth = await requireManagerContext();
+  if ("errorResponse" in auth) return auth.errorResponse;
+
+  let body: Record<string, unknown> = {};
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const participantId = normalizeText(body.id);
+  if (!participantId) {
+    return NextResponse.json({ error: "id is required" }, { status: 400 });
+  }
+
+  const { data: existing, error: existingError } = await auth.service
+    .from("partecipanti")
+    .select("id")
+    .eq("id", participantId)
+    .maybeSingle();
+
+  if (existingError) {
+    return NextResponse.json({ error: existingError.message }, { status: 500 });
+  }
+
+  if (!existing) {
+    return NextResponse.json({ error: "Participant not found" }, { status: 404 });
+  }
+
+  const { error: deleteError } = await auth.service
+    .from("partecipanti")
+    .delete()
+    .eq("id", participantId);
+
+  if (deleteError) {
+    return NextResponse.json({ error: deleteError.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true, id: participantId });
+}

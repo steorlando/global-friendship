@@ -120,6 +120,7 @@ export function ParticipantsTable({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("cognome");
@@ -252,6 +253,7 @@ export function ParticipantsTable({
   function closeEditModal() {
     setEditingId(null);
     setForm(EMPTY_FORM);
+    setDeleting(false);
     setError(null);
   }
 
@@ -344,6 +346,39 @@ export function ParticipantsTable({
     }
   }
 
+  async function handleDelete() {
+    if (!editingId || deleting || saving) return;
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this participant? This action cannot be undone."
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const res = await fetch(apiBasePath, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: editingId }),
+      });
+      const json = await res.json();
+
+      if (!res.ok) {
+        setError(json.error ?? "Delete failed.");
+        return;
+      }
+
+      setParticipants((prev) => prev.filter((row) => row.id !== editingId));
+      closeEditModal();
+    } catch {
+      setError("Delete failed.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="rounded border border-neutral-200 bg-white px-4 py-6 text-sm text-neutral-600">
@@ -374,41 +409,41 @@ export function ParticipantsTable({
                 {showGroupColumn && (
                   <th className="px-4 py-3">
                     <button type="button" onClick={() => toggleSort("group")}>
-                      Gruppo {sortLabel("group")}
+                      Group {sortLabel("group")}
                     </button>
                   </th>
                 )}
                 <th className="px-4 py-3">
                   <button type="button" onClick={() => toggleSort("nome")}>
-                    Nome {sortLabel("nome")}
+                    First name {sortLabel("nome")}
                   </button>
                 </th>
                 <th className="px-4 py-3">
                   <button type="button" onClick={() => toggleSort("cognome")}>
-                    Cognome {sortLabel("cognome")}
+                    Last name {sortLabel("cognome")}
                   </button>
                 </th>
                 <th className="px-4 py-3">
                   <button type="button" onClick={() => toggleSort("data_arrivo")}>
-                    Data arrivo {sortLabel("data_arrivo")}
+                    Arrival date {sortLabel("data_arrivo")}
                   </button>
                 </th>
                 <th className="px-4 py-3">
                   <button type="button" onClick={() => toggleSort("data_partenza")}>
-                    Data partenza {sortLabel("data_partenza")}
+                    Departure date {sortLabel("data_partenza")}
                   </button>
                 </th>
                 <th className="px-4 py-3">
                   <button type="button" onClick={() => toggleSort("alloggio")}>
-                    Alloggio {sortLabel("alloggio")}
+                    Accommodation {sortLabel("alloggio")}
                   </button>
                 </th>
                 <th className="px-4 py-3">
                   <button type="button" onClick={() => toggleSort("quota_totale")}>
-                    Quota totale {sortLabel("quota_totale")}
+                    Total fee {sortLabel("quota_totale")}
                   </button>
                 </th>
-                <th className="px-4 py-3">Azioni</th>
+                <th className="px-4 py-3">Actions</th>
               </tr>
               <tr>
                 {showGroupColumn && (
@@ -416,7 +451,7 @@ export function ParticipantsTable({
                     <input
                       value={groupFilter}
                       onChange={(e) => setGroupFilter(e.target.value)}
-                      placeholder="Filtra gruppo"
+                      placeholder="Filter group"
                       className="w-full rounded border border-neutral-300 px-2 py-1 text-xs"
                     />
                   </th>
@@ -425,7 +460,7 @@ export function ParticipantsTable({
                   <input
                     value={nomeFilter}
                     onChange={(e) => setNomeFilter(e.target.value)}
-                    placeholder="Filtra nome"
+                    placeholder="Filter first name"
                     className="w-full rounded border border-neutral-300 px-2 py-1 text-xs"
                   />
                 </th>
@@ -433,7 +468,7 @@ export function ParticipantsTable({
                   <input
                     value={cognomeFilter}
                     onChange={(e) => setCognomeFilter(e.target.value)}
-                    placeholder="Filtra cognome"
+                    placeholder="Filter last name"
                     className="w-full rounded border border-neutral-300 px-2 py-1 text-xs"
                   />
                 </th>
@@ -459,7 +494,7 @@ export function ParticipantsTable({
                     onChange={(e) => setAlloggioFilter(e.target.value)}
                     className="w-full rounded border border-neutral-300 px-2 py-1 text-xs"
                   >
-                    <option value="">Tutti</option>
+                    <option value="">All</option>
                     {ALLOGGIO_SHORT_OPTIONS.map((option) => (
                       <option key={option} value={option}>
                         {option}
@@ -503,7 +538,7 @@ export function ParticipantsTable({
                     className="px-4 py-4 text-neutral-500"
                     colSpan={showGroupColumn ? 8 : 7}
                   >
-                    Nessun partecipante trovato con i filtri correnti.
+                    No participants found with the current filters.
                   </td>
                 </tr>
               ) : (
@@ -761,14 +796,23 @@ export function ParticipantsTable({
               <div className="flex items-center justify-end gap-2">
                 <button
                   type="button"
+                  onClick={handleDelete}
+                  disabled={saving || deleting}
+                  className="mr-auto rounded border border-red-300 px-4 py-2 text-sm text-red-700 hover:bg-red-50 disabled:opacity-60"
+                >
+                  {deleting ? "Deleting..." : "Delete"}
+                </button>
+                <button
+                  type="button"
                   onClick={closeEditModal}
+                  disabled={saving || deleting}
                   className="rounded border border-neutral-300 px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-100"
                 >
                   Annulla
                 </button>
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={saving || deleting}
                   className="rounded bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
                 >
                   {saving ? "Salvataggio..." : "Salva"}
