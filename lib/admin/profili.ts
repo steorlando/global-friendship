@@ -9,6 +9,7 @@ export type ProfiloInput = {
   telefono?: string | null;
   italia?: boolean | null;
   roma?: boolean | null;
+  groups?: string[] | null;
 };
 
 type ProfiloRow = {
@@ -159,6 +160,7 @@ export async function upsertProfiloByEmail(
   const telefono = normalizeText(input.telefono ?? null);
   const italia = input.italia ?? null;
   const roma = input.roma ?? null;
+  const groups = normalizeGroups(input.groups);
 
   if (!email) throw new Error("Email is required");
 
@@ -190,6 +192,9 @@ export async function upsertProfiloByEmail(
       .single();
 
     if (updateError) throw new Error(updateError.message);
+    if (input.groups !== undefined) {
+      await setProfiloGruppi(supabase, existing.id, groups);
+    }
     return updated;
   }
 
@@ -214,6 +219,9 @@ export async function upsertProfiloByEmail(
     .single();
 
   if (insertError) throw new Error(insertError.message);
+  if (input.groups !== undefined) {
+    await setProfiloGruppi(supabase, inserted.id, groups);
+  }
   return inserted;
 }
 

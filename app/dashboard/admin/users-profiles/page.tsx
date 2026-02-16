@@ -33,6 +33,30 @@ type EditDraft = {
   newGroup: string;
 };
 
+type NewProfileDraft = {
+  email: string;
+  nome: string;
+  cognome: string;
+  ruolo: string;
+  telefono: string;
+  italia: boolean;
+  roma: boolean;
+  groups: string[];
+  newGroup: string;
+};
+
+const EMPTY_NEW_PROFILE: NewProfileDraft = {
+  email: "",
+  nome: "",
+  cognome: "",
+  ruolo: "capogruppo",
+  telefono: "",
+  italia: false,
+  roma: false,
+  groups: [],
+  newGroup: "",
+};
+
 export default function AdminUsersProfilesPage() {
   const [profiles, setProfiles] = useState<Profilo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,12 +64,7 @@ export default function AdminUsersProfilesPage() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDrafts, setEditDrafts] = useState<Record<string, EditDraft>>({});
-  const [newProfile, setNewProfile] = useState({
-    email: "",
-    nome: "",
-    cognome: "",
-    ruolo: "capogruppo",
-  });
+  const [newProfile, setNewProfile] = useState<NewProfileDraft>(EMPTY_NEW_PROFILE);
   const [uploading, setUploading] = useState(false);
   const [uploadSummary, setUploadSummary] = useState<UploadResult | null>(null);
   const [csvFile, setCsvFile] = useState<File | null>(null);
@@ -191,9 +210,39 @@ export default function AdminUsersProfilesPage() {
     });
   }
 
+  function addGroupToNewProfile() {
+    setNewProfile((prev) => {
+      const groupName = normalizeGroupName(prev.newGroup);
+      if (!groupName) return prev;
+      if (prev.groups.includes(groupName)) {
+        return {
+          ...prev,
+          newGroup: "",
+        };
+      }
+      return {
+        ...prev,
+        groups: [...prev.groups, groupName].sort((a, b) => a.localeCompare(b)),
+        newGroup: "",
+      };
+    });
+  }
+
+  function removeGroupFromNewProfile(groupName: string) {
+    setNewProfile((prev) => ({
+      ...prev,
+      groups: prev.groups.filter((group) => group !== groupName),
+    }));
+  }
+
   async function handleCreate(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
+    if (newProfile.groups.length === 0) {
+      setError("At least one group is required");
+      return;
+    }
+
     try {
       const response = await fetch("/api/admin/profili", {
         method: "POST",
@@ -202,7 +251,7 @@ export default function AdminUsersProfilesPage() {
       });
       const json = await response.json();
       if (!response.ok) throw new Error(json.error || "Create error");
-      setNewProfile({ email: "", nome: "", cognome: "", ruolo: "capogruppo" });
+      setNewProfile(EMPTY_NEW_PROFILE);
       await loadProfiles();
     } catch (err) {
       setError((err as Error).message);
@@ -316,6 +365,85 @@ export default function AdminUsersProfilesPage() {
             className="rounded border border-neutral-300 px-3 py-2 text-sm"
             placeholder="last name"
           />
+          <input
+            type="text"
+            value={newProfile.telefono}
+            onChange={(e) =>
+              setNewProfile((prev) => ({ ...prev, telefono: e.target.value }))
+            }
+            className="rounded border border-neutral-300 px-3 py-2 text-sm"
+            placeholder="phone"
+          />
+          <label className="inline-flex items-center gap-2 rounded border border-neutral-300 px-3 py-2 text-sm">
+            <input
+              type="checkbox"
+              checked={newProfile.italia}
+              onChange={(e) =>
+                setNewProfile((prev) => ({ ...prev, italia: e.target.checked }))
+              }
+            />
+            <span>Italy</span>
+          </label>
+          <label className="inline-flex items-center gap-2 rounded border border-neutral-300 px-3 py-2 text-sm">
+            <input
+              type="checkbox"
+              checked={newProfile.roma}
+              onChange={(e) =>
+                setNewProfile((prev) => ({ ...prev, roma: e.target.checked }))
+              }
+            />
+            <span>Rome</span>
+          </label>
+          <div className="md:col-span-3 space-y-2">
+            <div className="flex flex-wrap gap-1">
+              {newProfile.groups.map((group) => (
+                <span
+                  key={`new-profile-group-${group}`}
+                  className="inline-flex items-center gap-1 rounded bg-neutral-100 px-2 py-0.5 text-xs"
+                >
+                  {group}
+                  <button
+                    type="button"
+                    onClick={() => removeGroupFromNewProfile(group)}
+                    className="rounded px-1 text-neutral-600 hover:bg-neutral-200"
+                  >
+                    Remove
+                  </button>
+                </span>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input
+                list="all-groups-new-profile"
+                type="text"
+                value={newProfile.newGroup}
+                onChange={(e) =>
+                  setNewProfile((prev) => ({ ...prev, newGroup: e.target.value }))
+                }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addGroupToNewProfile();
+                  }
+                }}
+                className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                placeholder="Add a group"
+              />
+              <datalist id="all-groups-new-profile">
+                {allKnownGroups.map((group) => (
+                  <option key={`new-profile-opt-${group}`} value={group} />
+                ))}
+              </datalist>
+              <button
+                type="button"
+                onClick={addGroupToNewProfile}
+                className="rounded border border-neutral-300 px-3 py-2 text-xs font-medium text-neutral-800"
+              >
+                Add
+              </button>
+            </div>
+            <p className="text-xs text-neutral-600">At least one group is required.</p>
+          </div>
           <div className="flex gap-2">
             <select
               value={newProfile.ruolo}
@@ -332,6 +460,7 @@ export default function AdminUsersProfilesPage() {
             </select>
             <button
               type="submit"
+              disabled={newProfile.groups.length === 0}
               className="rounded bg-neutral-900 px-4 py-2 text-sm font-medium text-white"
             >
               Add

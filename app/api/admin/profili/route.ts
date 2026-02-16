@@ -29,12 +29,26 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
+    const groups = Array.isArray(body.groups)
+      ? body.groups.map((group: unknown) => String(group).trim()).filter(Boolean)
+      : [];
+    if (groups.length === 0) {
+      return NextResponse.json(
+        { error: "At least one group is required" },
+        { status: 400 }
+      );
+    }
+
     const supabase = createSupabaseServiceClient();
     const data = await upsertProfiloByEmail(supabase, {
       email: String(body.email ?? ""),
       nome: body.nome ? String(body.nome) : null,
       cognome: body.cognome ? String(body.cognome) : null,
       ruolo: String(body.ruolo ?? ""),
+      telefono: body.telefono !== undefined ? String(body.telefono) : null,
+      italia: body.italia !== undefined ? Boolean(body.italia) : null,
+      roma: body.roma !== undefined ? Boolean(body.roma) : null,
+      groups,
     });
     return NextResponse.json({ data });
   } catch (error) {
