@@ -52,6 +52,11 @@ export function PartecipanteForm() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteEmailInput, setDeleteEmailInput] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteSuccess, setDeleteSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -133,6 +138,42 @@ export function PartecipanteForm() {
       setError("Unable to save data.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDeleteRegistration() {
+    setDeleteError(null);
+    setDeleteSuccess(null);
+    setDeleting(true);
+
+    try {
+      const res = await fetch("/api/partecipante/me", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmation_email: deleteEmailInput }),
+      });
+      const json = await res.json();
+
+      if (!res.ok) {
+        setDeleteError(json.error ?? "Unable to cancel registration.");
+        return;
+      }
+
+      if (json.emailSent === false) {
+        setDeleteSuccess(
+          "Registration cancelled. Confirmation email could not be sent."
+        );
+      } else {
+        setDeleteSuccess("Registration cancelled. Confirmation email sent.");
+      }
+
+      setTimeout(() => {
+        window.location.replace("/login?cancelled=1");
+      }, 1400);
+    } catch {
+      setDeleteError("Unable to cancel registration.");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -368,6 +409,86 @@ export function PartecipanteForm() {
       >
         {saving ? "Salvataggio..." : "Salva modifiche"}
       </button>
+
+      <section className="rounded border border-red-200 bg-red-50 p-4">
+        <h3 className="text-sm font-semibold text-red-900">Delete Registration</h3>
+        <p className="mt-1 text-sm text-red-800">
+          This action is permanent. To confirm cancellation, click the button and
+          type your associated email address.
+        </p>
+
+        {!showDeleteConfirm ? (
+          <button
+            type="button"
+            onClick={() => {
+              setShowDeleteConfirm(true);
+              setDeleteError(null);
+              setDeleteSuccess(null);
+            }}
+            className="mt-3 rounded bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-800"
+          >
+            Cancel Registration
+          </button>
+        ) : (
+          <div className="mt-3 space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-red-900">
+                Confirm email
+              </label>
+              <input
+                type="email"
+                value={deleteEmailInput}
+                onChange={(e) => setDeleteEmailInput(e.target.value)}
+                placeholder={email || "your@email.com"}
+                className="mt-1 w-full rounded border border-red-300 bg-white px-3 py-2 text-sm"
+              />
+              <p className="mt-1 text-xs text-red-700">
+                Insert exactly: {email || "-"}
+              </p>
+            </div>
+
+            {deleteError && (
+              <div className="rounded border border-red-300 bg-white px-3 py-2 text-sm text-red-700">
+                {deleteError}
+              </div>
+            )}
+
+            {deleteSuccess && (
+              <div className="rounded border border-emerald-300 bg-white px-3 py-2 text-sm text-emerald-700">
+                {deleteSuccess}
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleDeleteRegistration}
+                disabled={
+                  deleting ||
+                  !email ||
+                  deleteEmailInput.trim().toLowerCase() !== email.toLowerCase()
+                }
+                className="rounded bg-red-700 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {deleting ? "Cancelling..." : "Confirm Cancellation"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setDeleteEmailInput("");
+                  setDeleteError(null);
+                  setDeleteSuccess(null);
+                }}
+                disabled={deleting}
+                className="rounded border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-800 disabled:opacity-60"
+              >
+                Keep Registration
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
     </form>
   );
 }

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { getGmailSenderAddress, sendGmailTextEmail } from "@/lib/email/gmail";
 import { computeParticipantCalculatedFields } from "@/lib/tally/calculated-fields";
 import {
   ALLOGGIO_OPTIONS,
@@ -16,6 +18,9 @@ type ParticipantDbRow = {
   email: string | null;
   nome: string | null;
   cognome: string | null;
+  gruppo_id: string | null;
+  gruppo_label: string | null;
+  tally_submission_id: string | null;
   nazione: string | null;
   data_nascita: string | null;
   data_arrivo: string | null;
@@ -84,20 +89,22 @@ async function getCurrentUserEmail() {
   } = await supabase.auth.getUser();
 
   if (userError || !user?.email) {
-    return { supabase, errorResponse: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+    return {
+      errorResponse: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+    };
   }
 
-  return { supabase, email: user.email.toLowerCase() };
+  return { email: user.email.toLowerCase() };
 }
 
 async function loadParticipantByEmail(
   email: string
 ): Promise<{ participant: ParticipantDbRow | null; error: string | null }> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = createSupabaseServiceClient();
   const { data, error } = await supabase
     .from("partecipanti")
     .select(
-      "id,email,nome,cognome,nazione,data_nascita,data_arrivo,data_partenza,alloggio,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,submitted_at_tally"
+      "id,email,nome,cognome,gruppo_id,gruppo_label,tally_submission_id,nazione,data_nascita,data_arrivo,data_partenza,alloggio,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,submitted_at_tally"
     )
     .ilike("email", email);
 
@@ -251,7 +258,8 @@ export async function PATCH(req: Request) {
     dataNascita,
   });
 
-  const { error: updateError } = await auth.supabase
+  const service = createSupabaseServiceClient();
+  const { error: updateError } = await service
     .from("partecipanti")
     .update({
       nome,
@@ -281,4 +289,79 @@ export async function PATCH(req: Request) {
   }
 
   return NextResponse.json({ ok: true });
+}
+
+export async function DELETE(req: Request) {
+  const auth = await getCurrentUserEmail();
+  if ("errorResponse" in auth) return auth.errorResponse;
+
+  const { participant, error } = await loadParticipantByEmail(auth.email);
+  if (error) return NextResponse.json({ error }, { status: 500 });
+  if (!participant) {
+    return NextResponse.json({ error: "Participant not found" }, { status: 404 });
+  }
+
+  let body: Record<string, unknown> = {};
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const confirmationEmail = normalizeText(body.confirmation_email)?.toLowerCase();
+  if (!confirmationEmail) {
+    return NextResponse.json(
+      { error: "confirmation_email is required" },
+      { status: 400 }
+    );
+  }
+
+  if (confirmationEmail !== auth.email) {
+    return NextResponse.json(
+      { error: "confirmation_email does not match your account email" },
+      { status: 400 }
+    );
+  }
+
+  const service = createSupabaseServiceClient();
+  const { error: deleteError } = await service
+    .from("partecipanti")
+    .delete()
+    .eq("id", participant.id)
+    .ilike("email", auth.email);
+
+  if (deleteError) {
+    return NextResponse.json({ error: deleteError.message }, { status: 500 });
+  }
+
+  const nome = (participant.nome ?? "").trim() || "Participant";
+  const cognome = (participant.cognome ?? "").trim();
+  const fullName = `${nome}${cognome ? ` ${cognome}` : ""}`.trim();
+  const gruppo = (participant.gruppo_label ?? participant.gruppo_id ?? "").trim() || "-";
+  const tallySubmissionId = (participant.tally_submission_id ?? "").trim() || "-";
+  const subject = "Your Global Friendship registration has been cancelled";
+  const text = [
+    "Your registration cancellation has been completed.",
+    "",
+    `Name: ${fullName}`,
+    `Group: ${gruppo}`,
+    `Tally submission ID: ${tallySubmissionId}`,
+    `Email: ${auth.email}`,
+    "",
+    "If this was not requested by you, please contact the organizers immediately.",
+  ].join("\n");
+
+  let emailSent = true;
+  try {
+    await sendGmailTextEmail({
+      from: getGmailSenderAddress(),
+      to: auth.email,
+      subject,
+      text,
+    });
+  } catch {
+    emailSent = false;
+  }
+
+  return NextResponse.json({ ok: true, emailSent });
 }

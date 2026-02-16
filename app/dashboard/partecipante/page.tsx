@@ -1,4 +1,5 @@
 import { PartecipanteForm } from "./partecipante-form";
+import { OrganizersContactCard } from "./organizers-contact-card";
 
 export default function PartecipantePage() {
   return (
@@ -8,8 +9,12 @@ export default function PartecipantePage() {
         Qui puoi vedere e aggiornare i tuoi dati.
       </p>
 
-      <div className="mt-6">
-        <PartecipanteForm />
+      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
+        <section className="rounded border border-neutral-200 bg-white p-4">
+          <PartecipanteForm />
+        </section>
+
+        <OrganizersContactCard />
       </div>
     </main>
   );
