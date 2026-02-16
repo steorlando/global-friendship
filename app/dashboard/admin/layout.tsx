@@ -2,8 +2,9 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 const sections = [
-  { href: "/dashboard/admin/users-profiles", label: "Users & Profiles" },
-  { href: "/dashboard/admin", label: "Overview" },
+  { href: "/dashboard/admin", label: "Statistics" },
+  { href: "/dashboard/admin/participants", label: "Participants" },
+  { href: "/dashboard/admin/users-profiles", label: "Users & Profile" },
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {

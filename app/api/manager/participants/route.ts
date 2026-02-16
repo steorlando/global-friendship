@@ -135,7 +135,7 @@ async function requireManagerContext() {
     };
   }
 
-  if (profile?.ruolo !== "manager") {
+  if (profile?.ruolo !== "manager" && profile?.ruolo !== "admin") {
     return {
       errorResponse: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
     };
