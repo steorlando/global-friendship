@@ -23,7 +23,7 @@ type Participant = {
   data_partenza: string | null;
   alloggio: string | null;
   allergie: string | null;
-  esigenze_alimentari: string | null;
+  esigenze_alimentari: string[];
   disabilita_accessibilita: boolean | null;
   difficolta_accessibilita: string[];
   quota_totale: number | null;
@@ -41,10 +41,21 @@ type FormState = {
   data_partenza: string;
   alloggio: string;
   allergie: string;
-  esigenze_alimentari: string;
+  esigenze_alimentari: string[];
   disabilita_accessibilita: boolean;
   difficolta_accessibilita: string[];
 };
+
+type SortKey =
+  | "group"
+  | "nome"
+  | "cognome"
+  | "data_arrivo"
+  | "data_partenza"
+  | "alloggio"
+  | "quota_totale";
+
+type SortDirection = "asc" | "desc";
 
 const EMPTY_FORM: FormState = {
   nome: "",
@@ -57,7 +68,7 @@ const EMPTY_FORM: FormState = {
   data_partenza: "",
   alloggio: "",
   allergie: "",
-  esigenze_alimentari: "",
+  esigenze_alimentari: [],
   disabilita_accessibilita: false,
   difficolta_accessibilita: [],
 };
@@ -74,7 +85,9 @@ function toFormState(participant: Participant): FormState {
     data_partenza: participant.data_partenza ?? "",
     alloggio: participant.alloggio ?? "",
     allergie: participant.allergie ?? "",
-    esigenze_alimentari: participant.esigenze_alimentari ?? "",
+    esigenze_alimentari: Array.isArray(participant.esigenze_alimentari)
+      ? participant.esigenze_alimentari
+      : [],
     disabilita_accessibilita: Boolean(participant.disabilita_accessibilita),
     difficolta_accessibilita: participant.difficolta_accessibilita ?? [],
   };
@@ -101,11 +114,98 @@ export function CapogruppoParticipants() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey>("cognome");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [groupFilter, setGroupFilter] = useState("");
+  const [nomeFilter, setNomeFilter] = useState("");
+  const [cognomeFilter, setCognomeFilter] = useState("");
+  const [arrivoFilter, setArrivoFilter] = useState("");
+  const [partenzaFilter, setPartenzaFilter] = useState("");
+  const [alloggioFilter, setAlloggioFilter] = useState("");
+  const [quotaMinFilter, setQuotaMinFilter] = useState("");
+  const [quotaMaxFilter, setQuotaMaxFilter] = useState("");
 
   const editingParticipant = useMemo(
     () => participants.find((participant) => participant.id === editingId) ?? null,
     [editingId, participants]
   );
+
+  const filteredSortedParticipants = useMemo(() => {
+    const filtered = participants.filter((participant) => {
+      if (
+        showGroupColumn &&
+        groupFilter &&
+        !(participant.group ?? "").toLowerCase().includes(groupFilter.toLowerCase())
+      ) {
+        return false;
+      }
+      if (
+        nomeFilter &&
+        !(participant.nome ?? "").toLowerCase().includes(nomeFilter.toLowerCase())
+      ) {
+        return false;
+      }
+      if (
+        cognomeFilter &&
+        !(participant.cognome ?? "").toLowerCase().includes(cognomeFilter.toLowerCase())
+      ) {
+        return false;
+      }
+      if (arrivoFilter && (participant.data_arrivo ?? "") !== arrivoFilter) {
+        return false;
+      }
+      if (partenzaFilter && (participant.data_partenza ?? "") !== partenzaFilter) {
+        return false;
+      }
+      if (alloggioFilter && (participant.alloggio ?? "") !== alloggioFilter) {
+        return false;
+      }
+      if (quotaMinFilter) {
+        const min = Number(quotaMinFilter);
+        if (!Number.isNaN(min) && (participant.quota_totale ?? -Infinity) < min) {
+          return false;
+        }
+      }
+      if (quotaMaxFilter) {
+        const max = Number(quotaMaxFilter);
+        if (!Number.isNaN(max) && (participant.quota_totale ?? Infinity) > max) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    filtered.sort((a, b) => {
+      const direction = sortDirection === "asc" ? 1 : -1;
+      const aValue =
+        sortKey === "quota_totale"
+          ? a.quota_totale ?? -Infinity
+          : (a[sortKey] ?? "").toString().toLowerCase();
+      const bValue =
+        sortKey === "quota_totale"
+          ? b.quota_totale ?? -Infinity
+          : (b[sortKey] ?? "").toString().toLowerCase();
+
+      if (aValue < bValue) return -1 * direction;
+      if (aValue > bValue) return 1 * direction;
+      return 0;
+    });
+
+    return filtered;
+  }, [
+    alloggioFilter,
+    arrivoFilter,
+    cognomeFilter,
+    groupFilter,
+    nomeFilter,
+    participants,
+    partenzaFilter,
+    quotaMaxFilter,
+    quotaMinFilter,
+    showGroupColumn,
+    sortDirection,
+    sortKey,
+  ]);
 
   useEffect(() => {
     async function loadParticipants() {
@@ -157,6 +257,43 @@ export function CapogruppoParticipants() {
           : [...prev.difficolta_accessibilita, option],
       };
     });
+  }
+
+  function toggleEsigenza(option: string) {
+    setForm((prev) => {
+      const exists = prev.esigenze_alimentari.includes(option);
+      return {
+        ...prev,
+        esigenze_alimentari: exists
+          ? prev.esigenze_alimentari.filter((item) => item !== option)
+          : [...prev.esigenze_alimentari, option],
+      };
+    });
+  }
+
+  function toggleSort(nextKey: SortKey) {
+    if (sortKey === nextKey) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortKey(nextKey);
+    setSortDirection("asc");
+  }
+
+  function sortLabel(key: SortKey) {
+    if (sortKey !== key) return " ";
+    return sortDirection === "asc" ? "↑" : "↓";
+  }
+
+  function resetFilters() {
+    setGroupFilter("");
+    setNomeFilter("");
+    setCognomeFilter("");
+    setArrivoFilter("");
+    setPartenzaFilter("");
+    setAlloggioFilter("");
+    setQuotaMinFilter("");
+    setQuotaMaxFilter("");
   }
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
@@ -226,18 +363,133 @@ export function CapogruppoParticipants() {
           <table className="w-full border-collapse text-left text-sm">
             <thead className="bg-neutral-50 text-neutral-700">
               <tr>
-                {showGroupColumn && <th className="px-4 py-3">Gruppo</th>}
-                <th className="px-4 py-3">Nome</th>
-                <th className="px-4 py-3">Cognome</th>
-                <th className="px-4 py-3">Data arrivo</th>
-                <th className="px-4 py-3">Data partenza</th>
-                <th className="px-4 py-3">Alloggio</th>
-                <th className="px-4 py-3">Quota totale</th>
+                {showGroupColumn && (
+                  <th className="px-4 py-3">
+                    <button type="button" onClick={() => toggleSort("group")}>
+                      Gruppo {sortLabel("group")}
+                    </button>
+                  </th>
+                )}
+                <th className="px-4 py-3">
+                  <button type="button" onClick={() => toggleSort("nome")}>
+                    Nome {sortLabel("nome")}
+                  </button>
+                </th>
+                <th className="px-4 py-3">
+                  <button type="button" onClick={() => toggleSort("cognome")}>
+                    Cognome {sortLabel("cognome")}
+                  </button>
+                </th>
+                <th className="px-4 py-3">
+                  <button type="button" onClick={() => toggleSort("data_arrivo")}>
+                    Data arrivo {sortLabel("data_arrivo")}
+                  </button>
+                </th>
+                <th className="px-4 py-3">
+                  <button type="button" onClick={() => toggleSort("data_partenza")}>
+                    Data partenza {sortLabel("data_partenza")}
+                  </button>
+                </th>
+                <th className="px-4 py-3">
+                  <button type="button" onClick={() => toggleSort("alloggio")}>
+                    Alloggio {sortLabel("alloggio")}
+                  </button>
+                </th>
+                <th className="px-4 py-3">
+                  <button type="button" onClick={() => toggleSort("quota_totale")}>
+                    Quota totale {sortLabel("quota_totale")}
+                  </button>
+                </th>
                 <th className="px-4 py-3">Azioni</th>
+              </tr>
+              <tr>
+                {showGroupColumn && (
+                  <th className="px-2 pb-3">
+                    <input
+                      value={groupFilter}
+                      onChange={(e) => setGroupFilter(e.target.value)}
+                      placeholder="Filtra gruppo"
+                      className="w-full rounded border border-neutral-300 px-2 py-1 text-xs"
+                    />
+                  </th>
+                )}
+                <th className="px-2 pb-3">
+                  <input
+                    value={nomeFilter}
+                    onChange={(e) => setNomeFilter(e.target.value)}
+                    placeholder="Filtra nome"
+                    className="w-full rounded border border-neutral-300 px-2 py-1 text-xs"
+                  />
+                </th>
+                <th className="px-2 pb-3">
+                  <input
+                    value={cognomeFilter}
+                    onChange={(e) => setCognomeFilter(e.target.value)}
+                    placeholder="Filtra cognome"
+                    className="w-full rounded border border-neutral-300 px-2 py-1 text-xs"
+                  />
+                </th>
+                <th className="px-2 pb-3">
+                  <input
+                    type="date"
+                    value={arrivoFilter}
+                    onChange={(e) => setArrivoFilter(e.target.value)}
+                    className="w-full rounded border border-neutral-300 px-2 py-1 text-xs"
+                  />
+                </th>
+                <th className="px-2 pb-3">
+                  <input
+                    type="date"
+                    value={partenzaFilter}
+                    onChange={(e) => setPartenzaFilter(e.target.value)}
+                    className="w-full rounded border border-neutral-300 px-2 py-1 text-xs"
+                  />
+                </th>
+                <th className="px-2 pb-3">
+                  <select
+                    value={alloggioFilter}
+                    onChange={(e) => setAlloggioFilter(e.target.value)}
+                    className="w-full rounded border border-neutral-300 px-2 py-1 text-xs"
+                  >
+                    <option value="">Tutti</option>
+                    {ALLOGGIO_OPTIONS.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </th>
+                <th className="px-2 pb-3">
+                  <div className="grid grid-cols-2 gap-1">
+                    <input
+                      type="number"
+                      placeholder="Min"
+                      value={quotaMinFilter}
+                      onChange={(e) => setQuotaMinFilter(e.target.value)}
+                      className="w-full rounded border border-neutral-300 px-2 py-1 text-xs"
+                    />
+                    <input
+                      type="number"
+                      placeholder="Max"
+                      value={quotaMaxFilter}
+                      onChange={(e) => setQuotaMaxFilter(e.target.value)}
+                      className="w-full rounded border border-neutral-300 px-2 py-1 text-xs"
+                    />
+                  </div>
+                </th>
+                <th className="px-2 pb-3">
+                  <button
+                    type="button"
+                    onClick={resetFilters}
+                    className="rounded border border-neutral-300 px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-100"
+                  >
+                    Reset
+                  </button>
+                </th>
               </tr>
             </thead>
             <tbody>
-              {participants.length === 0 ? (
+              {filteredSortedParticipants.length === 0 ? (
                 <tr>
                   <td
                     className="px-4 py-4 text-neutral-500"
@@ -247,7 +499,7 @@ export function CapogruppoParticipants() {
                   </td>
                 </tr>
               ) : (
-                participants.map((participant) => (
+                filteredSortedParticipants.map((participant) => (
                   <tr key={participant.id} className="border-t border-neutral-100">
                     {showGroupColumn && (
                       <td className="px-4 py-3">{participant.group || "-"}</td>
@@ -435,20 +687,18 @@ export function CapogruppoParticipants() {
                   <label className="block text-sm font-medium text-neutral-700">
                     Esigenze alimentari
                   </label>
-                  <select
-                    value={form.esigenze_alimentari}
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, esigenze_alimentari: e.target.value }))
-                    }
-                    className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
-                  >
-                    <option value="">Seleziona...</option>
+                  <div className="mt-2 grid gap-2 rounded border border-neutral-200 p-3 md:grid-cols-2">
                     {ESIGENZE_ALIMENTARI_OPTIONS.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
+                      <label key={option} className="inline-flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={form.esigenze_alimentari.includes(option)}
+                          onChange={() => toggleEsigenza(option)}
+                        />
+                        <span>{option}</span>
+                      </label>
                     ))}
-                  </select>
+                  </div>
                 </div>
 
                 <div className="md:col-span-2 rounded border border-neutral-200 p-3">

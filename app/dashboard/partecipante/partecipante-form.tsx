@@ -20,7 +20,7 @@ type ParticipantFormData = {
   data_partenza: string;
   alloggio: string;
   allergie: string;
-  esigenze_alimentari: string;
+  esigenze_alimentari: string[];
   disabilita_accessibilita: boolean;
   difficolta_accessibilita: string[];
 };
@@ -34,7 +34,7 @@ const INITIAL_DATA: ParticipantFormData = {
   data_partenza: "",
   alloggio: "",
   allergie: "",
-  esigenze_alimentari: "",
+  esigenze_alimentari: [],
   disabilita_accessibilita: false,
   difficolta_accessibilita: [],
 };
@@ -82,7 +82,9 @@ export function PartecipanteForm() {
           data_partenza: participant.data_partenza ?? "",
           alloggio: participant.alloggio ?? "",
           allergie: participant.allergie ?? "",
-          esigenze_alimentari: participant.esigenze_alimentari ?? "",
+          esigenze_alimentari: Array.isArray(participant.esigenze_alimentari)
+            ? participant.esigenze_alimentari
+            : [],
           disabilita_accessibilita: Boolean(
             participant.disabilita_accessibilita
           ),
@@ -110,6 +112,18 @@ export function PartecipanteForm() {
         difficolta_accessibilita: exists
           ? prev.difficolta_accessibilita.filter((item) => item !== option)
           : [...prev.difficolta_accessibilita, option],
+      };
+    });
+  }
+
+  function toggleEsigenza(option: string) {
+    setFormData((prev) => {
+      const exists = prev.esigenze_alimentari.includes(option);
+      return {
+        ...prev,
+        esigenze_alimentari: exists
+          ? prev.esigenze_alimentari.filter((item) => item !== option)
+          : [...prev.esigenze_alimentari, option],
       };
     });
   }
@@ -311,23 +325,19 @@ export function PartecipanteForm() {
           <label className="block text-sm font-medium text-neutral-700">
             Esigenze alimentari
           </label>
-          <select
-            value={formData.esigenze_alimentari}
-            onChange={(e) =>
-              setFormData((prev) => ({
-                ...prev,
-                esigenze_alimentari: e.target.value,
-              }))
-            }
-            className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
-          >
-            <option value="">Seleziona...</option>
+          <div className="mt-2 grid gap-2 rounded border border-neutral-200 p-3">
             {ESIGENZE_ALIMENTARI_OPTIONS.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
+              <label key={option} className="inline-flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={formData.esigenze_alimentari.includes(option)}
+                  onChange={() => toggleEsigenza(option)}
+                  className="h-4 w-4"
+                />
+                <span>{option}</span>
+              </label>
             ))}
-          </select>
+          </div>
         </div>
 
         <div>

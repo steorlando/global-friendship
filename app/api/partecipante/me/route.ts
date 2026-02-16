@@ -62,12 +62,38 @@ function normalizeDifficolta(value: unknown): string[] {
   return [...new Set(items)];
 }
 
+function normalizeEsigenze(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    const items = value
+      .map((item) => (typeof item === "string" ? item.trim() : ""))
+      .filter(Boolean);
+    return [...new Set(items)];
+  }
+
+  if (typeof value === "string") {
+    return value
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
 function parseStoredDifficolta(value: string | null): string[] {
   if (!value) return [];
   return value
     .split(",")
     .map((item) => item.trim())
     .filter((item) => item && difficoltaSet.has(item));
+}
+
+function parseStoredEsigenze(value: string | null): string[] {
+  if (!value) return [];
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => item && esigenzeSet.has(item));
 }
 
 function pickLatest(rows: ParticipantDbRow[]): ParticipantDbRow | null {
@@ -128,6 +154,7 @@ export async function GET() {
   return NextResponse.json({
     participant: {
       ...participant,
+      esigenze_alimentari: parseStoredEsigenze(participant.esigenze_alimentari),
       difficolta_accessibilita: parseStoredDifficolta(
         participant.difficolta_accessibilita
       ),
@@ -180,8 +207,8 @@ export async function PATCH(req: Request) {
     "allergie" in body ? normalizeText(body.allergie) : participant.allergie;
   const esigenzeAlimentari =
     "esigenze_alimentari" in body
-      ? normalizeText(body.esigenze_alimentari)
-      : participant.esigenze_alimentari;
+      ? normalizeEsigenze(body.esigenze_alimentari)
+      : parseStoredEsigenze(participant.esigenze_alimentari);
   const difficoltaAccessibilita =
     "difficolta_accessibilita" in body
       ? normalizeDifficolta(body.difficolta_accessibilita)
@@ -238,7 +265,7 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Invalid alloggio value" }, { status: 400 });
   }
 
-  if (esigenzeAlimentari && !esigenzeSet.has(esigenzeAlimentari)) {
+  if (esigenzeAlimentari.some((item) => !esigenzeSet.has(item))) {
     return NextResponse.json(
       { error: "Invalid esigenze_alimentari value" },
       { status: 400 }
@@ -270,7 +297,8 @@ export async function PATCH(req: Request) {
       data_partenza: dataPartenza,
       alloggio,
       allergie,
-      esigenze_alimentari: esigenzeAlimentari,
+      esigenze_alimentari:
+        esigenzeAlimentari.length > 0 ? esigenzeAlimentari.join(", ") : null,
       disabilita_accessibilita: disabilitaAccessibilita,
       difficolta_accessibilita:
         difficoltaAccessibilita.length > 0
