@@ -3,13 +3,14 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { computeParticipantCalculatedFields } from "@/lib/tally/calculated-fields";
 import {
-  ALLOGGIO_OPTIONS,
   ARRIVAL_DATE_MAX,
   ARRIVAL_DATE_MIN,
   DEPARTURE_DATE_MAX,
   DEPARTURE_DATE_MIN,
   DIFFICOLTA_ACCESSIBILITA_OPTIONS,
   ESIGENZE_ALIMENTARI_OPTIONS,
+  alloggioLongToShort,
+  alloggioShortToLong,
 } from "@/lib/partecipante/constants";
 
 type ParticipantRow = {
@@ -27,15 +28,15 @@ type ParticipantRow = {
   esigenze_alimentari: string | null;
   disabilita_accessibilita: boolean | null;
   difficolta_accessibilita: string | null;
+  alloggio_short: string | null;
   quota_totale: number | null;
   gruppo_id: string | null;
   gruppo_label: string | null;
 };
 
 const SELECT_FIELDS =
-  "id,nome,cognome,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label";
+  "id,nome,cognome,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label";
 
-const alloggioSet = new Set<string>(ALLOGGIO_OPTIONS);
 const esigenzeSet = new Set<string>(ESIGENZE_ALIMENTARI_OPTIONS);
 const difficoltaSet = new Set<string>(DIFFICOLTA_ACCESSIBILITA_OPTIONS);
 
@@ -165,6 +166,7 @@ async function loadAllParticipants() {
 function toResponseParticipant(row: ParticipantRow) {
   return {
     ...row,
+    alloggio: row.alloggio_short ?? alloggioLongToShort(row.alloggio),
     group: buildGroupLabel(row),
     esigenze_alimentari: parseStoredEsigenze(row.esigenze_alimentari),
     difficolta_accessibilita: parseStoredDifficolta(row.difficolta_accessibilita),
@@ -245,7 +247,9 @@ export async function PATCH(req: Request) {
     "data_partenza" in body
       ? normalizeText(body.data_partenza)
       : normalizeText(current.data_partenza);
-  const alloggio = "alloggio" in body ? normalizeText(body.alloggio) : current.alloggio;
+  const alloggioInput =
+    "alloggio" in body ? normalizeText(body.alloggio) : current.alloggio_short ?? current.alloggio;
+  const normalizedAlloggio = alloggioShortToLong(alloggioInput);
   const allergie = "allergie" in body ? normalizeText(body.allergie) : current.allergie;
   const esigenzeAlimentari =
     "esigenze_alimentari" in body
@@ -312,7 +316,7 @@ export async function PATCH(req: Request) {
     );
   }
 
-  if (alloggio && !alloggioSet.has(alloggio)) {
+  if (alloggioInput && !normalizedAlloggio) {
     return NextResponse.json({ error: "Invalid alloggio value" }, { status: 400 });
   }
 
@@ -349,7 +353,8 @@ export async function PATCH(req: Request) {
       data_nascita: dataNascita,
       data_arrivo: dataArrivo,
       data_partenza: dataPartenza,
-      alloggio,
+      alloggio: normalizedAlloggio,
+      alloggio_short: alloggioLongToShort(normalizedAlloggio),
       allergie,
       esigenze_alimentari:
         esigenzeAlimentari.length > 0 ? esigenzeAlimentari.join(", ") : null,

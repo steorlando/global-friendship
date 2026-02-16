@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
-  ALLOGGIO_OPTIONS,
+  ALLOGGIO_SHORT_OPTIONS,
   ARRIVAL_DATE_MAX,
   ARRIVAL_DATE_MIN,
   DEPARTURE_DATE_MAX,
@@ -460,7 +460,7 @@ export function ParticipantsTable({
                     className="w-full rounded border border-neutral-300 px-2 py-1 text-xs"
                   >
                     <option value="">Tutti</option>
-                    {ALLOGGIO_OPTIONS.map((option) => (
+                    {ALLOGGIO_SHORT_OPTIONS.map((option) => (
                       <option key={option} value={option}>
                         {option}
                       </option>
@@ -673,7 +673,7 @@ export function ParticipantsTable({
                     className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
                   >
                     <option value="">Seleziona...</option>
-                    {ALLOGGIO_OPTIONS.map((option) => (
+                    {ALLOGGIO_SHORT_OPTIONS.map((option) => (
                       <option key={option} value={option}>
                         {option}
                       </option>

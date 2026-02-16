@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { computeParticipantCalculatedFields } from "../../../../lib/tally/calculated-fields";
+import { alloggioLongToShort } from "@/lib/partecipante/constants";
 
 type TallyOption = {
   id?: string;
@@ -37,6 +38,7 @@ type NormalizedSubmission = {
   partecipaInteroEvento: boolean | null;
   presenzaDettaglio: Record<string, unknown> | null;
   alloggio: string;
+  alloggioShort: string;
   esigenzeAlimentari: string;
   allergie: string;
   disabilitaAccessibilita: boolean | null;
@@ -536,6 +538,7 @@ function normalizeSubmission(
     "Where are you staying? Dove alloggerai?",
     "Where are you staying?",
   ]);
+  const alloggioShort = alloggioLongToShort(alloggio) ?? "";
   const esigenzeAlimentari = collectCheckedOptions(
     answers,
     "Do you have any particular food requirement"
@@ -608,6 +611,7 @@ function normalizeSubmission(
     partecipaInteroEvento,
     presenzaDettaglio,
     alloggio,
+    alloggioShort,
     esigenzeAlimentari: esigenzeAlimentari || esigenzeAlimentariFallback,
     allergie,
     disabilitaAccessibilita,
@@ -718,6 +722,7 @@ async function handlePost(req: Request) {
     data_arrivo: normalized.dataArrivo || null,
     data_partenza: normalized.dataPartenza || null,
     alloggio: normalized.alloggio || null,
+    alloggio_short: normalized.alloggioShort || null,
     esigenze_alimentari: normalized.esigenzeAlimentari || null,
     allergie: normalized.allergie || null,
     gruppo_leader: normalized.groupLeader || null,
