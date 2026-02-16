@@ -1,4 +1,4 @@
-import { CapogruppoParticipants } from "./capogruppo-participants";
+import { ParticipantsTable } from "../_components/participants-table";
 
 export default function CapogruppoPage() {
   return (
@@ -9,7 +9,10 @@ export default function CapogruppoPage() {
       </p>
 
       <div className="mt-6">
-        <CapogruppoParticipants />
+        <ParticipantsTable
+          apiBasePath="/api/capogruppo/participants"
+          groupSummaryLabel="Gruppi associati"
+        />
       </div>
     </main>
   );

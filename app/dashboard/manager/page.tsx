@@ -1,10 +1,8 @@
-export default function ManagerPage() {
+export default function ManagerStatisticsPage() {
   return (
-    <main className="mx-auto max-w-5xl px-6 py-10">
-      <h1 className="text-2xl font-semibold">Manager Dashboard</h1>
-      <p className="mt-2 text-sm text-neutral-600">
-        Manager area is active.
-      </p>
-    </main>
+    <section className="rounded border border-neutral-200 bg-white p-6">
+      <h2 className="text-xl font-semibold">Statistics</h2>
+      <p className="mt-2 text-sm text-neutral-600">Under construction.</p>
+    </section>
   );
 }

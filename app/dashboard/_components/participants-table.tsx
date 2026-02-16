@@ -57,6 +57,11 @@ type SortKey =
 
 type SortDirection = "asc" | "desc";
 
+type ParticipantsTableProps = {
+  apiBasePath: string;
+  groupSummaryLabel: string;
+};
+
 const EMPTY_FORM: FormState = {
   nome: "",
   cognome: "",
@@ -103,7 +108,10 @@ function displayDate(value: string | null, min: string, max: string) {
   return dateInRange(value, min, max) ? value : "-";
 }
 
-export function CapogruppoParticipants() {
+export function ParticipantsTable({
+  apiBasePath,
+  groupSummaryLabel,
+}: ParticipantsTableProps) {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [showGroupColumn, setShowGroupColumn] = useState(false);
   const [groups, setGroups] = useState<string[]>([]);
@@ -213,7 +221,7 @@ export function CapogruppoParticipants() {
       setLoadError(null);
 
       try {
-        const res = await fetch("/api/capogruppo/participants", { method: "GET" });
+        const res = await fetch(apiBasePath, { method: "GET" });
         const json = await res.json();
 
         if (!res.ok) {
@@ -232,7 +240,7 @@ export function CapogruppoParticipants() {
     }
 
     loadParticipants();
-  }, []);
+  }, [apiBasePath]);
 
   function openEditModal(participant: Participant) {
     setEditingId(participant.id);
@@ -305,7 +313,7 @@ export function CapogruppoParticipants() {
     setSuccess(null);
 
     try {
-      const res = await fetch("/api/capogruppo/participants", {
+      const res = await fetch(apiBasePath, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -356,7 +364,7 @@ export function CapogruppoParticipants() {
     <>
       <div className="rounded border border-neutral-200 bg-white p-4">
         <p className="text-sm text-neutral-600">
-          Gruppi associati: {groups.length > 0 ? groups.join(", ") : "Nessun gruppo"}
+          {groupSummaryLabel}: {groups.length > 0 ? groups.join(", ") : "Nessun gruppo"}
         </p>
 
         <div className="mt-4 overflow-x-auto rounded border border-neutral-200">
@@ -495,7 +503,7 @@ export function CapogruppoParticipants() {
                     className="px-4 py-4 text-neutral-500"
                     colSpan={showGroupColumn ? 8 : 7}
                   >
-                    Nessun partecipante per i gruppi associati.
+                    Nessun partecipante trovato con i filtri correnti.
                   </td>
                 </tr>
               ) : (
