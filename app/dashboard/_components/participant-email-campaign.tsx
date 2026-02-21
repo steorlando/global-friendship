@@ -1,6 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "@tiptap/extension-link";
+import Underline from "@tiptap/extension-underline";
+import { EditorContent, useEditor } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
 import {
   PARTICIPANT_TEMPLATE_FIELDS,
   renderParticipantTemplateHtml,
@@ -47,7 +51,28 @@ export function ParticipantEmailCampaign() {
   const [bodyHtml, setBodyHtml] = useState(
     "<p>Hello {{nome}},</p><p>We are writing regarding your Global Friendship registration.</p><p>Best regards,<br />Global Friendship team</p>"
   );
-  const editorRef = useRef<HTMLDivElement | null>(null);
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Underline,
+      Link.configure({
+        openOnClick: false,
+        autolink: true,
+        defaultProtocol: "https",
+      }),
+    ],
+    content: bodyHtml,
+    editorProps: {
+      attributes: {
+        class:
+          "min-h-52 rounded border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300",
+      },
+    },
+    onUpdate: ({ editor: currentEditor }) => {
+      setBodyHtml(currentEditor.getHTML());
+    },
+    immediatelyRender: false,
+  });
 
   const [search, setSearch] = useState("");
   const [groupFilter, setGroupFilter] = useState("");
@@ -86,11 +111,6 @@ export function ParticipantEmailCampaign() {
     }
     load();
   }, []);
-
-  useEffect(() => {
-    if (!editorRef.current) return;
-    editorRef.current.innerHTML = bodyHtml;
-  }, [bodyHtml]);
 
   const filteredSortedParticipants = useMemo(() => {
     const filtered = participants.filter((participant) => {
@@ -171,32 +191,33 @@ export function ParticipantEmailCampaign() {
     ? renderParticipantTemplateText(subject, previewParticipant)
     : subject;
 
-  function syncBodyFromEditor() {
-    if (!editorRef.current) return;
-    setBodyHtml(editorRef.current.innerHTML);
-  }
-
   function applyFormat(command: "bold" | "italic" | "underline") {
-    if (!editorRef.current) return;
-    editorRef.current.focus();
-    document.execCommand(command);
-    syncBodyFromEditor();
+    if (!editor) return;
+    const chain = editor.chain().focus();
+    if (command === "bold") chain.toggleBold().run();
+    if (command === "italic") chain.toggleItalic().run();
+    if (command === "underline") chain.toggleUnderline().run();
   }
 
   function addLink() {
-    if (!editorRef.current) return;
+    if (!editor) return;
+    const previousUrl = editor.getAttributes("link").href as string | undefined;
     const value = window.prompt("Insert URL", "https://");
-    if (!value) return;
-    editorRef.current.focus();
-    document.execCommand("createLink", false, value.trim());
-    syncBodyFromEditor();
+    if (value === null) return;
+    const url = value.trim();
+
+    if (!url) {
+      editor.chain().focus().extendMarkRange("link").unsetLink().run();
+      return;
+    }
+
+    if (url === previousUrl) return;
+    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
   }
 
   function insertToken(token: string) {
-    if (!editorRef.current) return;
-    editorRef.current.focus();
-    document.execCommand("insertText", false, token);
-    syncBodyFromEditor();
+    if (!editor) return;
+    editor.chain().focus().insertContent(token).run();
   }
 
   function toggleSort(key: SortKey) {
@@ -333,39 +354,49 @@ export function ParticipantEmailCampaign() {
               <button
                 type="button"
                 onClick={() => applyFormat("bold")}
-                className="rounded border border-neutral-300 px-2 py-1 text-xs font-semibold hover:bg-neutral-100"
+                className={`rounded border px-2 py-1 text-xs font-semibold ${
+                  editor?.isActive("bold")
+                    ? "border-neutral-900 bg-neutral-900 text-white"
+                    : "border-neutral-300 hover:bg-neutral-100"
+                }`}
               >
                 Bold
               </button>
               <button
                 type="button"
                 onClick={() => applyFormat("italic")}
-                className="rounded border border-neutral-300 px-2 py-1 text-xs font-semibold hover:bg-neutral-100"
+                className={`rounded border px-2 py-1 text-xs font-semibold ${
+                  editor?.isActive("italic")
+                    ? "border-neutral-900 bg-neutral-900 text-white"
+                    : "border-neutral-300 hover:bg-neutral-100"
+                }`}
               >
                 Italic
               </button>
               <button
                 type="button"
                 onClick={() => applyFormat("underline")}
-                className="rounded border border-neutral-300 px-2 py-1 text-xs font-semibold hover:bg-neutral-100"
+                className={`rounded border px-2 py-1 text-xs font-semibold ${
+                  editor?.isActive("underline")
+                    ? "border-neutral-900 bg-neutral-900 text-white"
+                    : "border-neutral-300 hover:bg-neutral-100"
+                }`}
               >
                 Underline
               </button>
               <button
                 type="button"
                 onClick={addLink}
-                className="rounded border border-neutral-300 px-2 py-1 text-xs font-semibold hover:bg-neutral-100"
+                className={`rounded border px-2 py-1 text-xs font-semibold ${
+                  editor?.isActive("link")
+                    ? "border-neutral-900 bg-neutral-900 text-white"
+                    : "border-neutral-300 hover:bg-neutral-100"
+                }`}
               >
                 Link
               </button>
             </div>
-            <div
-              ref={editorRef}
-              contentEditable
-              suppressContentEditableWarning
-              onInput={syncBodyFromEditor}
-              className="mt-2 min-h-52 rounded border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
-            />
+            <EditorContent editor={editor} className="mt-2" />
           </div>
         </section>
 
