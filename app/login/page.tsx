@@ -37,7 +37,7 @@ export default function LoginPage() {
 
       setStatus("sent");
       setMessage("Check your email for the magic link.");
-    } catch (err) {
+    } catch {
       setStatus("error");
       setMessage("Error while sending the magic link.");
     }
@@ -46,9 +46,18 @@ export default function LoginPage() {
   return (
     <main className="mx-auto max-w-md px-6 py-12">
       <h1 className="text-2xl font-semibold">Login</h1>
-      <p className="mt-2 text-sm text-neutral-600">
-        Enter your email and role to receive a magic link.
-      </p>
+      <div className="mt-3 space-y-2 text-sm text-neutral-700">
+        <p className="leading-relaxed">
+          Manage Global Friendship registrations from this page. Enter your
+          password and choose your role (Participant, Group Leader, etc.) to
+          continue.
+        </p>
+        <p className="leading-relaxed">
+          We will send a secure magic link to your email. On your first login
+          attempt, the message may land in your Spam/Junk folder, so check there
+          if you do not see it in your inbox.
+        </p>
+      </div>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         <div>
