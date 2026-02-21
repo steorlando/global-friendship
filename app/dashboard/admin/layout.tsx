@@ -5,6 +5,7 @@ const sections = [
   { href: "/dashboard/admin", label: "Statistics" },
   { href: "/dashboard/admin/participants", label: "Participants" },
   { href: "/dashboard/admin/users-profiles", label: "Users & Profile" },
+  { href: "/dashboard/admin/email-campaigns", label: "Email Campaigns" },
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {

@@ -8,6 +8,15 @@ type SendGmailTextEmailInput = {
   from?: string | null;
 };
 
+type SendGmailEmailInput = {
+  to: string;
+  subject: string;
+  text?: string | null;
+  html?: string | null;
+  replyTo?: string | null;
+  from?: string | null;
+};
+
 export function getGmailSenderAddress(): string {
   return (
     process.env.PARTECIPANTE_CONTACT_FROM_EMAIL ||
@@ -17,6 +26,16 @@ export function getGmailSenderAddress(): string {
 }
 
 export async function sendGmailTextEmail(input: SendGmailTextEmailInput) {
+  await sendGmailEmail({
+    to: input.to,
+    subject: input.subject,
+    text: input.text,
+    replyTo: input.replyTo,
+    from: input.from,
+  });
+}
+
+export async function sendGmailEmail(input: SendGmailEmailInput) {
   const gmailUser = process.env.GMAIL_USER;
   const gmailAppPassword = process.env.GMAIL_APP_PASSWORD;
   if (!gmailUser || !gmailAppPassword) {
@@ -37,7 +56,8 @@ export async function sendGmailTextEmail(input: SendGmailTextEmailInput) {
     from: input.from || getGmailSenderAddress(),
     to: input.to,
     subject: input.subject,
-    text: input.text,
+    text: input.text ?? undefined,
+    html: input.html ?? undefined,
     replyTo: input.replyTo ?? undefined,
   });
 }

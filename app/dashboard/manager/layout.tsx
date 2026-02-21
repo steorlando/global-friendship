@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 const tabs = [
   { href: "/dashboard/manager", label: "Statistics" },
   { href: "/dashboard/manager/participants", label: "Participants" },
+  { href: "/dashboard/manager/email-campaigns", label: "Email Campaigns" },
 ];
 
 export default function ManagerLayout({ children }: { children: ReactNode }) {
