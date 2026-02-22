@@ -13,6 +13,9 @@ function AuthCallbackContent() {
   useEffect(() => {
     async function run() {
       const code = searchParams.get("code");
+      const requestedRoleFromQuery = searchParams.get("role");
+      const requestedRoleFromStorage =
+        window.localStorage.getItem("gf_requested_role");
       const supabase = createSupabaseBrowserClient();
 
       if (code) {
@@ -39,9 +42,21 @@ function AuthCallbackContent() {
         .maybeSingle();
 
       const roleFromProfile = profile?.ruolo ?? null;
-      const target = isAppRole(roleFromProfile)
-        ? ROLE_ROUTES[roleFromProfile]
-        : ROLE_ROUTES.partecipante;
+      const requestedRole = isAppRole(requestedRoleFromQuery)
+        ? requestedRoleFromQuery
+        : isAppRole(requestedRoleFromStorage)
+          ? requestedRoleFromStorage
+          : null;
+
+      if (requestedRoleFromStorage) {
+        window.localStorage.removeItem("gf_requested_role");
+      }
+
+      const target = requestedRole
+        ? ROLE_ROUTES[requestedRole]
+        : isAppRole(roleFromProfile)
+          ? ROLE_ROUTES[roleFromProfile]
+          : ROLE_ROUTES.partecipante;
 
       router.replace(target);
     }

@@ -1,11 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { isAppRole, ROLE_ROUTES, type AppRole } from "@/lib/auth/roles";
+import { ROLE_ROUTES } from "@/lib/auth/roles";
 
-function roleCanAccessPath(role: AppRole, path: string): boolean {
-  if (role === "admin") return true;
-  const roleBase = ROLE_ROUTES[role];
-  return path === roleBase || path.startsWith(`${roleBase}/`);
+function pathMatches(path: string, basePath: string): boolean {
+  return path === basePath || path.startsWith(`${basePath}/`);
 }
 
 export async function middleware(req: NextRequest) {
@@ -48,27 +46,39 @@ export async function middleware(req: NextRequest) {
     .eq("id", user.id)
     .maybeSingle();
 
-  const role = profile?.ruolo;
   if (profileError) {
     return NextResponse.redirect(new URL("/login?error=role_lookup", req.url));
   }
-
-  if (isAppRole(role)) {
-    if (path === "/dashboard") {
-      return NextResponse.redirect(new URL(ROLE_ROUTES[role], req.url));
-    }
-
-    if (!roleCanAccessPath(role, path)) {
-      return NextResponse.redirect(new URL(ROLE_ROUTES[role], req.url));
-    }
-    return res;
-  }
-
+  const role = profile?.ruolo ?? null;
   const participantBase = ROLE_ROUTES.partecipante;
+  const capogruppoBase = ROLE_ROUTES.capogruppo;
+  const managerBase = ROLE_ROUTES.manager;
+  const alloggiBase = ROLE_ROUTES.alloggi;
+  const adminBase = ROLE_ROUTES.admin;
+
   if (path === "/dashboard") {
+    if (role === "admin") return NextResponse.redirect(new URL(adminBase, req.url));
+    if (role === "manager") return NextResponse.redirect(new URL(managerBase, req.url));
+    if (role === "capogruppo") {
+      return NextResponse.redirect(new URL(capogruppoBase, req.url));
+    }
+    if (role === "alloggi") return NextResponse.redirect(new URL(alloggiBase, req.url));
     return NextResponse.redirect(new URL(participantBase, req.url));
   }
-  if (!(path === participantBase || path.startsWith(`${participantBase}/`))) {
+
+  if (pathMatches(path, adminBase) && role !== "admin") {
+    return NextResponse.redirect(new URL(participantBase, req.url));
+  }
+
+  if (pathMatches(path, managerBase) && role !== "manager" && role !== "admin") {
+    return NextResponse.redirect(new URL(participantBase, req.url));
+  }
+
+  if (pathMatches(path, capogruppoBase) && role !== "capogruppo" && role !== "admin") {
+    return NextResponse.redirect(new URL(participantBase, req.url));
+  }
+
+  if (pathMatches(path, alloggiBase) && role !== "alloggi" && role !== "admin") {
     return NextResponse.redirect(new URL(participantBase, req.url));
   }
 
