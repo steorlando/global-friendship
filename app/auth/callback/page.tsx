@@ -27,6 +27,7 @@ function AuthCallbackContent() {
     async function run() {
       const code = searchParams.get("code");
       const tokenHash = searchParams.get("token_hash");
+      const token = searchParams.get("token");
       const otpType = searchParams.get("type");
       const requestedRoleFromQuery = searchParams.get("role");
       const requestedRoleFromStorage =
@@ -38,9 +39,9 @@ function AuthCallbackContent() {
         if (error) {
           console.warn("Code exchange failed, trying session fallback", error);
         }
-      } else if (tokenHash && isOtpType(otpType)) {
+      } else if ((tokenHash || token) && isOtpType(otpType)) {
         const { error } = await supabase.auth.verifyOtp({
-          token_hash: tokenHash,
+          token_hash: tokenHash ?? token ?? "",
           type: otpType,
         });
         if (error) {
