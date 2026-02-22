@@ -322,19 +322,19 @@ export default function AdminUsersProfilesPage() {
   return (
     <div className="space-y-8">
       <header>
-        <h1 className="text-2xl font-semibold">Users & Profiles</h1>
-        <p className="mt-2 text-sm text-neutral-600">
+        <h1 className="text-2xl font-bold">Users & Profiles</h1>
+        <p className="mt-2 text-sm text-slate-500">
           Manage users/profiles: view, edit, add new users, or import from CSV.
         </p>
       </header>
 
       {error && (
-        <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <div className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </div>
       )}
 
-      <section className="rounded border border-neutral-200 p-4">
+      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="text-base font-medium">Add User</h2>
         <form onSubmit={handleCreate} className="mt-4 grid gap-3 md:grid-cols-4">
           <input
@@ -344,7 +344,7 @@ export default function AdminUsersProfilesPage() {
             onChange={(e) =>
               setNewProfile((prev) => ({ ...prev, email: e.target.value }))
             }
-            className="rounded border border-neutral-300 px-3 py-2 text-sm"
+            className="rounded border border-slate-300 px-4 py-3 text-sm"
             placeholder="email"
           />
           <input
@@ -353,7 +353,7 @@ export default function AdminUsersProfilesPage() {
             onChange={(e) =>
               setNewProfile((prev) => ({ ...prev, nome: e.target.value }))
             }
-            className="rounded border border-neutral-300 px-3 py-2 text-sm"
+            className="rounded border border-slate-300 px-4 py-3 text-sm"
             placeholder="first name"
           />
           <input
@@ -362,7 +362,7 @@ export default function AdminUsersProfilesPage() {
             onChange={(e) =>
               setNewProfile((prev) => ({ ...prev, cognome: e.target.value }))
             }
-            className="rounded border border-neutral-300 px-3 py-2 text-sm"
+            className="rounded border border-slate-300 px-4 py-3 text-sm"
             placeholder="last name"
           />
           <input
@@ -371,10 +371,10 @@ export default function AdminUsersProfilesPage() {
             onChange={(e) =>
               setNewProfile((prev) => ({ ...prev, telefono: e.target.value }))
             }
-            className="rounded border border-neutral-300 px-3 py-2 text-sm"
+            className="rounded border border-slate-300 px-4 py-3 text-sm"
             placeholder="phone"
           />
-          <label className="inline-flex items-center gap-2 rounded border border-neutral-300 px-3 py-2 text-sm">
+          <label className="inline-flex items-center gap-2 rounded border border-slate-300 px-4 py-3 text-sm">
             <input
               type="checkbox"
               checked={newProfile.italia}
@@ -384,7 +384,7 @@ export default function AdminUsersProfilesPage() {
             />
             <span>Italy</span>
           </label>
-          <label className="inline-flex items-center gap-2 rounded border border-neutral-300 px-3 py-2 text-sm">
+          <label className="inline-flex items-center gap-2 rounded border border-slate-300 px-4 py-3 text-sm">
             <input
               type="checkbox"
               checked={newProfile.roma}
@@ -399,13 +399,13 @@ export default function AdminUsersProfilesPage() {
               {newProfile.groups.map((group) => (
                 <span
                   key={`new-profile-group-${group}`}
-                  className="inline-flex items-center gap-1 rounded bg-neutral-100 px-2 py-0.5 text-xs"
+                  className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-xs"
                 >
                   {group}
                   <button
                     type="button"
                     onClick={() => removeGroupFromNewProfile(group)}
-                    className="rounded px-1 text-neutral-600 hover:bg-neutral-200"
+                    className="rounded px-1 text-slate-500 hover:bg-slate-200"
                   >
                     Remove
                   </button>
@@ -426,7 +426,7 @@ export default function AdminUsersProfilesPage() {
                     addGroupToNewProfile();
                   }
                 }}
-                className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                className="w-full rounded border border-slate-300 px-4 py-3 text-sm"
                 placeholder="Add a group"
               />
               <datalist id="all-groups-new-profile">
@@ -437,12 +437,12 @@ export default function AdminUsersProfilesPage() {
               <button
                 type="button"
                 onClick={addGroupToNewProfile}
-                className="rounded border border-neutral-300 px-3 py-2 text-xs font-medium text-neutral-800"
+                className="rounded border border-slate-300 px-4 py-3 text-xs font-medium text-slate-800"
               >
                 Add
               </button>
             </div>
-            <p className="text-xs text-neutral-600">At least one group is required.</p>
+            <p className="text-xs text-slate-500">At least one group is required.</p>
           </div>
           <div className="flex gap-2">
             <select
@@ -450,7 +450,7 @@ export default function AdminUsersProfilesPage() {
               onChange={(e) =>
                 setNewProfile((prev) => ({ ...prev, ruolo: e.target.value }))
               }
-              className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+              className="w-full rounded border border-slate-300 px-4 py-3 text-sm"
             >
               {AVAILABLE_ROLES.map((role) => (
                 <option key={role} value={role}>
@@ -461,7 +461,7 @@ export default function AdminUsersProfilesPage() {
             <button
               type="submit"
               disabled={newProfile.groups.length === 0}
-              className="rounded bg-neutral-900 px-4 py-2 text-sm font-medium text-white"
+              className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white"
             >
               Add
             </button>
@@ -470,7 +470,7 @@ export default function AdminUsersProfilesPage() {
       </section>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <section className="rounded border border-neutral-200 p-4 lg:col-span-2">
+        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-base font-medium">Search & Filters</h2>
             <button
@@ -482,7 +482,7 @@ export default function AdminUsersProfilesPage() {
                 setItaliaFilter("all");
                 setRomaFilter("all");
               }}
-              className="rounded border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700"
+              className="rounded border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700"
             >
               Reset filters
             </button>
@@ -492,13 +492,13 @@ export default function AdminUsersProfilesPage() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="rounded border border-neutral-300 px-3 py-2 text-sm md:col-span-2 xl:col-span-3"
+              className="rounded border border-slate-300 px-4 py-3 text-sm md:col-span-2 xl:col-span-3"
               placeholder="Search by email, name, phone or group"
             />
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
-              className="rounded border border-neutral-300 px-3 py-2 text-sm"
+              className="rounded border border-slate-300 px-4 py-3 text-sm"
             >
               <option value="all">All roles</option>
               {AVAILABLE_ROLES.map((role) => (
@@ -510,7 +510,7 @@ export default function AdminUsersProfilesPage() {
             <select
               value={groupFilter}
               onChange={(e) => setGroupFilter(e.target.value)}
-              className="rounded border border-neutral-300 px-3 py-2 text-sm"
+              className="rounded border border-slate-300 px-4 py-3 text-sm"
             >
               <option value="all">All groups</option>
               {allKnownGroups.map((group) => (
@@ -522,7 +522,7 @@ export default function AdminUsersProfilesPage() {
             <select
               value={italiaFilter}
               onChange={(e) => setItaliaFilter(e.target.value)}
-              className="rounded border border-neutral-300 px-3 py-2 text-sm"
+              className="rounded border border-slate-300 px-4 py-3 text-sm"
             >
               <option value="all">Italy: all</option>
               <option value="yes">Italy: yes</option>
@@ -531,19 +531,19 @@ export default function AdminUsersProfilesPage() {
             <select
               value={romaFilter}
               onChange={(e) => setRomaFilter(e.target.value)}
-              className="rounded border border-neutral-300 px-3 py-2 text-sm"
+              className="rounded border border-slate-300 px-4 py-3 text-sm"
             >
               <option value="all">Rome: all</option>
               <option value="yes">Rome: yes</option>
               <option value="no">Rome: no</option>
             </select>
           </div>
-          <p className="mt-3 text-sm text-neutral-600">
+          <p className="mt-3 text-sm text-slate-500">
             Showing {filteredProfiles.length} of {sorted.length} users
           </p>
         </section>
 
-        <section className="rounded border border-neutral-200 p-4">
+        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-base font-medium">Upload CSV</h2>
           <form onSubmit={handleCsvUpload} className="mt-3 space-y-3">
             <input
@@ -555,17 +555,17 @@ export default function AdminUsersProfilesPage() {
             <button
               type="submit"
               disabled={!csvFile || uploading}
-              className="w-full rounded bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+              className="w-full rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
             >
               {uploading ? "Uploading..." : "Upload"}
             </button>
           </form>
           {uploadSummary && (
-            <div className="mt-3 rounded border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm">
+            <div className="mt-3 rounded border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
               Imported: {uploadSummary.imported} | Skipped: {uploadSummary.skipped} | Errors:{" "}
               {uploadSummary.errors.length}
               {uploadSummary.errors.length > 0 && (
-                <div className="mt-2 max-h-40 overflow-auto rounded border border-neutral-200 bg-white p-2 text-xs">
+                <div className="mt-2 max-h-40 overflow-auto rounded border border-slate-200 bg-white p-2 text-xs">
                   {uploadSummary.errors.slice(0, 20).map((line, index) => (
                     <div key={`${line}-${index}`} className="font-mono text-red-700">
                       {line}
@@ -578,24 +578,24 @@ export default function AdminUsersProfilesPage() {
         </section>
       </div>
 
-      <section className="rounded border border-neutral-200 p-4">
+      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="text-base font-medium">Current Profiles</h2>
         {loading ? (
-          <p className="mt-3 text-sm text-neutral-600">Loading...</p>
+          <p className="mt-3 text-sm text-slate-500">Loading...</p>
         ) : (
           <div className="mt-4 overflow-x-auto">
             <table className="w-full border-collapse text-left text-sm">
-              <thead className="bg-neutral-50">
+              <thead className="bg-slate-50">
                 <tr>
-                  <th className="px-3 py-2">Email</th>
-                  <th className="px-3 py-2">First Name</th>
-                  <th className="px-3 py-2">Last Name</th>
-                  <th className="px-3 py-2">Phone</th>
-                  <th className="px-3 py-2">Italy</th>
-                  <th className="px-3 py-2">Rome</th>
-                  <th className="px-3 py-2">Groups</th>
-                  <th className="px-3 py-2">Role</th>
-                  <th className="px-3 py-2">Action</th>
+                  <th className="px-4 py-3">Email</th>
+                  <th className="px-4 py-3">First Name</th>
+                  <th className="px-4 py-3">Last Name</th>
+                  <th className="px-4 py-3">Phone</th>
+                  <th className="px-4 py-3">Italy</th>
+                  <th className="px-4 py-3">Rome</th>
+                  <th className="px-4 py-3">Groups</th>
+                  <th className="px-4 py-3">Role</th>
+                  <th className="px-4 py-3">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -603,16 +603,16 @@ export default function AdminUsersProfilesPage() {
                   <tr>
                     <td
                       colSpan={9}
-                      className="px-3 py-6 text-center text-sm text-neutral-500"
+                      className="px-3 py-6 text-center text-sm text-slate-500"
                     >
                       No users found with the selected filters.
                     </td>
                   </tr>
                 )}
                 {filteredProfiles.map((profile) => (
-                  <tr key={profile.id} className="border-t border-neutral-100 align-top">
-                    <td className="px-3 py-2">{profile.email}</td>
-                    <td className="px-3 py-2">
+                  <tr key={profile.id} className="border-t border-slate-100 align-top">
+                    <td className="px-4 py-3">{profile.email}</td>
+                    <td className="px-4 py-3">
                       {editingId === profile.id ? (
                         <input
                           type="text"
@@ -626,13 +626,13 @@ export default function AdminUsersProfilesPage() {
                               },
                             }))
                           }
-                          className="w-full rounded border border-neutral-300 px-2 py-1"
+                          className="w-full rounded border border-slate-300 px-2 py-1"
                         />
                       ) : (
                         <span>{profile.nome ?? ""}</span>
                       )}
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-3">
                       {editingId === profile.id ? (
                         <input
                           type="text"
@@ -646,13 +646,13 @@ export default function AdminUsersProfilesPage() {
                               },
                             }))
                           }
-                          className="w-full rounded border border-neutral-300 px-2 py-1"
+                          className="w-full rounded border border-slate-300 px-2 py-1"
                         />
                       ) : (
                         <span>{profile.cognome ?? ""}</span>
                       )}
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-3">
                       {editingId === profile.id ? (
                         <input
                           type="text"
@@ -666,13 +666,13 @@ export default function AdminUsersProfilesPage() {
                               },
                             }))
                           }
-                          className="w-full rounded border border-neutral-300 px-2 py-1"
+                          className="w-full rounded border border-slate-300 px-2 py-1"
                         />
                       ) : (
                         <span>{profile.telefono ?? ""}</span>
                       )}
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-3">
                       {editingId === profile.id ? (
                         <label className="inline-flex items-center gap-2">
                           <input
@@ -688,13 +688,13 @@ export default function AdminUsersProfilesPage() {
                               }))
                             }
                           />
-                          <span className="text-xs text-neutral-700">Italy</span>
+                          <span className="text-xs text-slate-700">Italy</span>
                         </label>
                       ) : (
                         <span>{profile.italia ? "Yes" : "No"}</span>
                       )}
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-3">
                       {editingId === profile.id ? (
                         <label className="inline-flex items-center gap-2">
                           <input
@@ -710,26 +710,26 @@ export default function AdminUsersProfilesPage() {
                               }))
                             }
                           />
-                          <span className="text-xs text-neutral-700">Rome</span>
+                          <span className="text-xs text-slate-700">Rome</span>
                         </label>
                       ) : (
                         <span>{profile.roma ? "Yes" : "No"}</span>
                       )}
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-3">
                       {editingId === profile.id ? (
                         <div className="space-y-2">
                           <div className="flex flex-wrap gap-1">
                             {(editDrafts[profile.id]?.groups ?? []).map((group) => (
                               <span
                                 key={`${profile.id}-edit-${group}`}
-                                className="inline-flex items-center gap-1 rounded bg-neutral-100 px-2 py-0.5 text-xs"
+                                className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-xs"
                               >
                                 {group}
                                 <button
                                   type="button"
                                   onClick={() => removeGroupFromDraft(profile.id, group)}
-                                  className="rounded px-1 text-neutral-600 hover:bg-neutral-200"
+                                  className="rounded px-1 text-slate-500 hover:bg-slate-200"
                                 >
                                   Remove
                                 </button>
@@ -756,7 +756,7 @@ export default function AdminUsersProfilesPage() {
                                   addGroupToDraft(profile.id);
                                 }
                               }}
-                              className="w-full rounded border border-neutral-300 px-2 py-1"
+                              className="w-full rounded border border-slate-300 px-2 py-1"
                               placeholder="Add a group"
                             />
                             <datalist id={`groups-${profile.id}`}>
@@ -767,7 +767,7 @@ export default function AdminUsersProfilesPage() {
                             <button
                               type="button"
                               onClick={() => addGroupToDraft(profile.id)}
-                              className="rounded border border-neutral-300 px-2 py-1 text-xs font-medium text-neutral-800"
+                              className="rounded border border-slate-300 px-2 py-1 text-xs font-medium text-slate-800"
                             >
                               Add
                             </button>
@@ -778,17 +778,17 @@ export default function AdminUsersProfilesPage() {
                           {profile.groups.map((group) => (
                             <span
                               key={`${profile.id}-${group}`}
-                              className="rounded bg-neutral-100 px-2 py-0.5 text-xs"
+                              className="rounded bg-slate-100 px-2 py-0.5 text-xs"
                             >
                               {group}
                             </span>
                           ))}
                         </div>
                       ) : (
-                        <span className="text-neutral-500">No groups</span>
+                        <span className="text-slate-500">No groups</span>
                       )}
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-3">
                       {editingId === profile.id ? (
                         <select
                           value={editDrafts[profile.id]?.ruolo ?? profile.ruolo}
@@ -801,7 +801,7 @@ export default function AdminUsersProfilesPage() {
                               },
                             }))
                           }
-                          className="w-full rounded border border-neutral-300 px-2 py-1"
+                          className="w-full rounded border border-slate-300 px-2 py-1"
                         >
                           {AVAILABLE_ROLES.map((role) => (
                             <option key={role} value={role}>
@@ -817,14 +817,14 @@ export default function AdminUsersProfilesPage() {
                         </span>
                       )}
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-3">
                       {editingId === profile.id ? (
                         <div className="flex gap-2">
                           <button
                             type="button"
                             onClick={() => saveRow(profile.id)}
                             disabled={savingId === profile.id}
-                            className="rounded bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
+                            className="rounded bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
                           >
                             {savingId === profile.id ? "Saving..." : "Save"}
                           </button>
@@ -832,7 +832,7 @@ export default function AdminUsersProfilesPage() {
                             type="button"
                             onClick={() => cancelEdit(profile.id)}
                             disabled={savingId === profile.id}
-                            className="rounded border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700"
+                            className="rounded border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700"
                           >
                             Cancel
                           </button>
@@ -841,7 +841,7 @@ export default function AdminUsersProfilesPage() {
                         <button
                           type="button"
                           onClick={() => startEdit(profile)}
-                          className="rounded border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-800"
+                          className="rounded border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-800"
                         >
                           Edit
                         </button>

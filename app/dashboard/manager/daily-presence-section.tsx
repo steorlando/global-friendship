@@ -90,17 +90,17 @@ export function DailyPresenceSection({ participants }: DailyPresenceSectionProps
   }, [accommodationFilter, participants]);
 
   return (
-    <section id="daily-presence" className="rounded border border-neutral-200 bg-white p-4">
+    <section id="daily-presence" className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <h3 className="text-lg font-semibold text-neutral-900">Daily presence</h3>
-        <label className="flex flex-col gap-1 text-sm text-neutral-700">
+        <h3 className="text-lg font-semibold text-slate-900">Daily presence</h3>
+        <label className="flex flex-col gap-1 text-sm text-slate-700">
           Accommodation filter
           <select
             value={accommodationFilter}
             onChange={(event) =>
               setAccommodationFilter(event.target.value as AccommodationFilter)
             }
-            className="rounded border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900"
+            className="rounded border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900"
           >
             <option value="both">Both</option>
             <option value="organization">Provided by organization</option>
@@ -110,25 +110,25 @@ export function DailyPresenceSection({ participants }: DailyPresenceSectionProps
       </div>
 
       <div className="mt-4 overflow-auto">
-        <table className="min-w-full divide-y divide-neutral-200 text-sm">
-          <thead className="bg-neutral-50 text-left text-neutral-700">
+        <table className="min-w-full divide-y divide-slate-200 text-sm">
+          <thead className="bg-slate-50/50 text-left text-slate-700">
             <tr>
-              <th className="px-3 py-2 font-semibold">Date</th>
-              <th className="px-3 py-2 font-semibold">Present</th>
+              <th className="px-4 py-3 font-semibold">Date</th>
+              <th className="px-4 py-3 font-semibold">Present</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-neutral-100">
+          <tbody className="divide-y divide-slate-100">
             {dailyRows.length === 0 ? (
               <tr>
-                <td colSpan={2} className="px-3 py-3 text-neutral-500">
+                <td colSpan={2} className="px-3 py-3 text-slate-500">
                   No presence data available for the selected filter.
                 </td>
               </tr>
             ) : (
               dailyRows.map((row) => (
                 <tr key={row.day}>
-                  <td className="px-3 py-2 text-neutral-900">{row.day}</td>
-                  <td className="px-3 py-2 font-medium text-neutral-900">{row.count}</td>
+                  <td className="px-4 py-3 text-slate-900">{row.day}</td>
+                  <td className="px-4 py-3 font-medium text-slate-900">{row.count}</td>
                 </tr>
               ))
             )}

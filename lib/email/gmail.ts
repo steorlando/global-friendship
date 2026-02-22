@@ -13,6 +13,12 @@ type SendGmailEmailInput = {
   subject: string;
   text?: string | null;
   html?: string | null;
+  attachments?: Array<{
+    filename: string;
+    content: string;
+    encoding: "base64";
+    contentType?: string;
+  }>;
   replyTo?: string | null;
   from?: string | null;
 };
@@ -58,6 +64,7 @@ export async function sendGmailEmail(input: SendGmailEmailInput) {
     subject: input.subject,
     text: input.text ?? undefined,
     html: input.html ?? undefined,
+    attachments: input.attachments ?? undefined,
     replyTo: input.replyTo ?? undefined,
   });
 }

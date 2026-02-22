@@ -193,7 +193,7 @@ export function PartecipanteForm() {
 
   if (loading) {
     return (
-      <div className="rounded border border-neutral-200 bg-white px-4 py-6 text-sm text-neutral-600">
+      <div className="rounded border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
         Caricamento dati partecipante...
       </div>
     );
@@ -211,19 +211,19 @@ export function PartecipanteForm() {
     <form onSubmit={handleSubmit} className="space-y-5">
       <div className="grid gap-4 md:grid-cols-2">
         <div>
-          <label className="block text-sm font-medium text-neutral-700">Nome</label>
+          <label className="block text-sm font-medium text-slate-700">Nome</label>
           <input
             required
             value={formData.nome}
             onChange={(e) =>
               setFormData((prev) => ({ ...prev, nome: e.target.value }))
             }
-            className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+            className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-neutral-700">
+          <label className="block text-sm font-medium text-slate-700">
             Cognome
           </label>
           <input
@@ -232,12 +232,12 @@ export function PartecipanteForm() {
             onChange={(e) =>
               setFormData((prev) => ({ ...prev, cognome: e.target.value }))
             }
-            className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+            className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-neutral-700">
+          <label className="block text-sm font-medium text-slate-700">
             Nazione
           </label>
           <input
@@ -245,12 +245,12 @@ export function PartecipanteForm() {
             onChange={(e) =>
               setFormData((prev) => ({ ...prev, nazione: e.target.value }))
             }
-            className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+            className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-neutral-700">
+          <label className="block text-sm font-medium text-slate-700">
             Data di nascita
           </label>
           <input
@@ -259,12 +259,12 @@ export function PartecipanteForm() {
             onChange={(e) =>
               setFormData((prev) => ({ ...prev, data_nascita: e.target.value }))
             }
-            className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+            className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-neutral-700">
+          <label className="block text-sm font-medium text-slate-700">
             Data arrivo
           </label>
           <input
@@ -275,15 +275,15 @@ export function PartecipanteForm() {
             onChange={(e) =>
               setFormData((prev) => ({ ...prev, data_arrivo: e.target.value }))
             }
-            className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+            className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
           />
-          <p className="mt-1 text-xs text-neutral-500">
+          <p className="mt-1 text-xs text-slate-500">
             Consentito tra {ARRIVAL_DATE_MIN} e {ARRIVAL_DATE_MAX}
           </p>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-neutral-700">
+          <label className="block text-sm font-medium text-slate-700">
             Data partenza
           </label>
           <input
@@ -294,15 +294,15 @@ export function PartecipanteForm() {
             onChange={(e) =>
               setFormData((prev) => ({ ...prev, data_partenza: e.target.value }))
             }
-            className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+            className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
           />
-          <p className="mt-1 text-xs text-neutral-500">
+          <p className="mt-1 text-xs text-slate-500">
             Consentito tra {DEPARTURE_DATE_MIN} e {DEPARTURE_DATE_MAX}
           </p>
         </div>
 
         <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-neutral-700">
+          <label className="block text-sm font-medium text-slate-700">
             Alloggio
           </label>
           <select
@@ -310,7 +310,7 @@ export function PartecipanteForm() {
             onChange={(e) =>
               setFormData((prev) => ({ ...prev, alloggio: e.target.value }))
             }
-            className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+            className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
           >
             <option value="">Seleziona...</option>
             {ALLOGGIO_OPTIONS.map((option) => (
@@ -322,10 +322,10 @@ export function PartecipanteForm() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-neutral-700">
+          <label className="block text-sm font-medium text-slate-700">
             Esigenze alimentari
           </label>
-          <div className="mt-2 grid gap-2 rounded border border-neutral-200 p-3">
+          <div className="mt-2 grid gap-2 rounded border border-slate-200 p-3">
             {ESIGENZE_ALIMENTARI_OPTIONS.map((option) => (
               <label key={option} className="inline-flex items-center gap-2 text-sm">
                 <input
@@ -341,7 +341,7 @@ export function PartecipanteForm() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-neutral-700">
+          <label className="block text-sm font-medium text-slate-700">
             Allergie
           </label>
           <input
@@ -349,13 +349,13 @@ export function PartecipanteForm() {
             onChange={(e) =>
               setFormData((prev) => ({ ...prev, allergie: e.target.value }))
             }
-            className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+            className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
           />
         </div>
       </div>
 
-      <div className="rounded border border-neutral-200 p-4">
-        <label className="inline-flex items-center gap-2 text-sm font-medium text-neutral-800">
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-800">
           <input
             type="checkbox"
             checked={formData.disabilita_accessibilita}
@@ -379,8 +379,8 @@ export function PartecipanteForm() {
               key={option}
               className={`inline-flex items-start gap-2 text-sm ${
                 formData.disabilita_accessibilita
-                  ? "text-neutral-700"
-                  : "text-neutral-400"
+                  ? "text-slate-700"
+                  : "text-slate-400"
               }`}
             >
               <input
@@ -396,7 +396,7 @@ export function PartecipanteForm() {
         </div>
       </div>
 
-      <div className="rounded border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-700">
+      <div className="rounded border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
         Email associata: {email || "-"}
       </div>
 
@@ -415,7 +415,7 @@ export function PartecipanteForm() {
       <button
         type="submit"
         disabled={saving}
-        className="rounded bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+        className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
       >
         {saving ? "Salvataggio..." : "Salva modifiche"}
       </button>

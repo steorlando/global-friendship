@@ -45,8 +45,9 @@ export default function LoginPage() {
 
   return (
     <main className="mx-auto max-w-md px-6 py-12">
-      <h1 className="text-2xl font-semibold">Login</h1>
-      <div className="mt-3 space-y-2 text-sm text-neutral-700">
+      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h1 className="text-2xl font-bold text-slate-900">Login</h1>
+      <div className="mt-3 space-y-2 text-sm text-slate-500">
         <p className="leading-relaxed">
           Manage Global Friendship registrations from this page. Enter your
           password and choose your role (Participant, Group Leader, etc.) to
@@ -61,14 +62,14 @@ export default function LoginPage() {
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         <div>
-          <label className="block text-sm font-medium text-neutral-700">
+          <label className="block text-sm font-medium text-slate-700">
             Role
           </label>
           <select
             required
             value={role}
             onChange={(e) => setRole(e.target.value as AppRole)}
-            className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
           >
             {AVAILABLE_ROLES.map((item) => (
               <option key={item} value={item}>
@@ -79,7 +80,7 @@ export default function LoginPage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-neutral-700">
+          <label className="block text-sm font-medium text-slate-700">
             Email
           </label>
           <input
@@ -87,7 +88,7 @@ export default function LoginPage() {
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
             placeholder="name@email.com"
           />
         </div>
@@ -95,7 +96,7 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={status === "loading"}
-          className="w-full rounded bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+          className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-500 disabled:opacity-60"
         >
           {status === "loading" ? "Invio in corso..." : "Invia Magic Link"}
         </button>
@@ -112,6 +113,7 @@ export default function LoginPage() {
           </div>
         )}
       </form>
+      </section>
     </main>
   );
 }

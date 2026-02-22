@@ -58,9 +58,19 @@ type ProfileGroupRow = {
   gruppo_id: string | null;
 };
 
+type EmailAttachment = {
+  filename: string;
+  content: string;
+  encoding: "base64";
+  contentType?: string;
+};
+
 const SELECT_FIELDS =
   "id,nome,cognome,email,telefono,paese_residenza,nazione,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label";
 const GROUP_LEADER_SELECT_FIELDS = "id,email,nome,cognome,ruolo,telefono,italia,roma";
+const MAX_ATTACHMENTS = 5;
+const MAX_ATTACHMENT_BASE64_LENGTH = 10 * 1024 * 1024;
+const MAX_TOTAL_BASE64_LENGTH = 20 * 1024 * 1024;
 
 const esigenzeSet = new Set<string>(ESIGENZE_ALIMENTARI_OPTIONS);
 const difficoltaSet = new Set<string>(DIFFICOLTA_ACCESSIBILITA_OPTIONS);
@@ -68,6 +78,59 @@ const difficoltaSet = new Set<string>(DIFFICOLTA_ACCESSIBILITA_OPTIONS);
 function normalizeText(value: unknown): string {
   if (typeof value !== "string") return "";
   return value.trim();
+}
+
+function parseAttachments(value: unknown): { attachments: EmailAttachment[]; error: string | null } {
+  if (!Array.isArray(value)) {
+    return { attachments: [], error: null };
+  }
+
+  if (value.length > MAX_ATTACHMENTS) {
+    return {
+      attachments: [],
+      error: `Too many attachments. Maximum is ${MAX_ATTACHMENTS}.`,
+    };
+  }
+
+  const attachments: EmailAttachment[] = [];
+  let totalLength = 0;
+
+  for (const item of value) {
+    if (!item || typeof item !== "object") {
+      return { attachments: [], error: "Invalid attachment payload." };
+    }
+
+    const raw = item as Record<string, unknown>;
+    const filename = normalizeText(raw.filename);
+    const content = typeof raw.content === "string" ? raw.content.trim() : "";
+    const encoding = raw.encoding;
+    const contentType =
+      typeof raw.contentType === "string" && raw.contentType.trim()
+        ? raw.contentType.trim()
+        : undefined;
+
+    if (!filename || !content || encoding !== "base64") {
+      return { attachments: [], error: "Invalid attachment payload." };
+    }
+
+    if (content.length > MAX_ATTACHMENT_BASE64_LENGTH) {
+      return { attachments: [], error: `Attachment "${filename}" is too large.` };
+    }
+
+    totalLength += content.length;
+    if (totalLength > MAX_TOTAL_BASE64_LENGTH) {
+      return { attachments: [], error: "Total attachment size is too large." };
+    }
+
+    attachments.push({
+      filename,
+      content,
+      encoding: "base64",
+      contentType,
+    });
+  }
+
+  return { attachments, error: null };
 }
 
 function parseStoredEsigenze(value: string | null): string[] {
@@ -185,6 +248,11 @@ export async function POST(req: Request) {
   ];
   const subjectTemplate = normalizeText(body.subject);
   const htmlTemplate = normalizeText(body.html);
+  const parsedAttachments = parseAttachments(body.attachments);
+  if (parsedAttachments.error) {
+    return NextResponse.json({ error: parsedAttachments.error }, { status: 400 });
+  }
+  const attachments = parsedAttachments.attachments;
 
   if (recipientIds.length === 0) {
     return NextResponse.json({ error: "No recipients selected" }, { status: 400 });
@@ -264,7 +332,7 @@ export async function POST(req: Request) {
       const text = htmlToText(html);
 
       try {
-        await sendGmailEmail({ to, subject, html, text });
+        await sendGmailEmail({ to, subject, html, text, attachments });
         sentTo.push(row.id);
       } catch (sendError) {
         const reason = sendError instanceof Error ? sendError.message : "Send failed";
@@ -304,7 +372,7 @@ export async function POST(req: Request) {
       const text = htmlToText(html);
 
       try {
-        await sendGmailEmail({ to, subject, html, text });
+        await sendGmailEmail({ to, subject, html, text, attachments });
         sentTo.push(row.id);
       } catch (sendError) {
         const reason = sendError instanceof Error ? sendError.message : "Send failed";

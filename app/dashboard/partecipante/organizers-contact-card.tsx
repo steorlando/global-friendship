@@ -37,9 +37,9 @@ export function OrganizersContactCard() {
   }
 
   return (
-    <aside className="rounded border border-neutral-200 bg-white p-4">
-      <h2 className="text-lg font-semibold text-neutral-900">Contact Organizers</h2>
-      <p className="mt-2 text-sm text-neutral-600">
+    <aside className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 className="text-lg font-semibold text-slate-900">Contact Organizers</h2>
+      <p className="mt-2 text-sm text-slate-500">
         If you need support or have any updates, write your message in the box
         below. It will be sent directly to the organizers.
       </p>
@@ -53,7 +53,7 @@ export function OrganizersContactCard() {
           onChange={(e) => setMessage(e.target.value)}
           rows={7}
           placeholder="Write your message for the organizers..."
-          className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+          className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
         />
 
         {error && (
@@ -71,7 +71,7 @@ export function OrganizersContactCard() {
         <button
           type="submit"
           disabled={sending}
-          className="w-full rounded bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+          className="w-full rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
         >
           {sending ? "Sending..." : "Send"}
         </button>

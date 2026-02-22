@@ -381,7 +381,7 @@ export function ParticipantsTable({
 
   if (loading) {
     return (
-      <div className="rounded border border-neutral-200 bg-white px-4 py-6 text-sm text-neutral-600">
+      <div className="rounded border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
         Caricamento partecipanti...
       </div>
     );
@@ -397,14 +397,14 @@ export function ParticipantsTable({
 
   return (
     <>
-      <div className="rounded border border-neutral-200 bg-white p-4">
-        <p className="text-sm text-neutral-600">
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <p className="text-sm text-slate-500">
           {groupSummaryLabel}: {groups.length > 0 ? groups.join(", ") : "Nessun gruppo"}
         </p>
 
-        <div className="mt-4 overflow-x-auto rounded border border-neutral-200">
+        <div className="mt-4 overflow-x-auto rounded border border-slate-200">
           <table className="w-full border-collapse text-left text-sm">
-            <thead className="bg-neutral-50 text-neutral-700">
+            <thead className="bg-slate-50 text-slate-700">
               <tr>
                 {showGroupColumn && (
                   <th className="px-4 py-3">
@@ -452,7 +452,7 @@ export function ParticipantsTable({
                       value={groupFilter}
                       onChange={(e) => setGroupFilter(e.target.value)}
                       placeholder="Filter group"
-                      className="w-full rounded border border-neutral-300 px-2 py-1 text-xs"
+                      className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
                     />
                   </th>
                 )}
@@ -461,7 +461,7 @@ export function ParticipantsTable({
                     value={nomeFilter}
                     onChange={(e) => setNomeFilter(e.target.value)}
                     placeholder="Filter first name"
-                    className="w-full rounded border border-neutral-300 px-2 py-1 text-xs"
+                    className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
                   />
                 </th>
                 <th className="px-2 pb-3">
@@ -469,7 +469,7 @@ export function ParticipantsTable({
                     value={cognomeFilter}
                     onChange={(e) => setCognomeFilter(e.target.value)}
                     placeholder="Filter last name"
-                    className="w-full rounded border border-neutral-300 px-2 py-1 text-xs"
+                    className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
                   />
                 </th>
                 <th className="px-2 pb-3">
@@ -477,7 +477,7 @@ export function ParticipantsTable({
                     type="date"
                     value={arrivoFilter}
                     onChange={(e) => setArrivoFilter(e.target.value)}
-                    className="w-full rounded border border-neutral-300 px-2 py-1 text-xs"
+                    className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
                   />
                 </th>
                 <th className="px-2 pb-3">
@@ -485,14 +485,14 @@ export function ParticipantsTable({
                     type="date"
                     value={partenzaFilter}
                     onChange={(e) => setPartenzaFilter(e.target.value)}
-                    className="w-full rounded border border-neutral-300 px-2 py-1 text-xs"
+                    className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
                   />
                 </th>
                 <th className="px-2 pb-3">
                   <select
                     value={alloggioFilter}
                     onChange={(e) => setAlloggioFilter(e.target.value)}
-                    className="w-full rounded border border-neutral-300 px-2 py-1 text-xs"
+                    className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
                   >
                     <option value="">All</option>
                     {ALLOGGIO_SHORT_OPTIONS.map((option) => (
@@ -509,14 +509,14 @@ export function ParticipantsTable({
                       placeholder="Min"
                       value={quotaMinFilter}
                       onChange={(e) => setQuotaMinFilter(e.target.value)}
-                      className="w-full rounded border border-neutral-300 px-2 py-1 text-xs"
+                      className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
                     />
                     <input
                       type="number"
                       placeholder="Max"
                       value={quotaMaxFilter}
                       onChange={(e) => setQuotaMaxFilter(e.target.value)}
-                      className="w-full rounded border border-neutral-300 px-2 py-1 text-xs"
+                      className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
                     />
                   </div>
                 </th>
@@ -524,7 +524,7 @@ export function ParticipantsTable({
                   <button
                     type="button"
                     onClick={resetFilters}
-                    className="rounded border border-neutral-300 px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-100"
+                    className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100"
                   >
                     Reset
                   </button>
@@ -535,7 +535,7 @@ export function ParticipantsTable({
               {filteredSortedParticipants.length === 0 ? (
                 <tr>
                   <td
-                    className="px-4 py-4 text-neutral-500"
+                    className="px-4 py-4 text-slate-500"
                     colSpan={showGroupColumn ? 8 : 7}
                   >
                     No participants found with the current filters.
@@ -543,7 +543,7 @@ export function ParticipantsTable({
                 </tr>
               ) : (
                 filteredSortedParticipants.map((participant) => (
-                  <tr key={participant.id} className="border-t border-neutral-100">
+                  <tr key={participant.id} className="border-t border-slate-100">
                     {showGroupColumn && (
                       <td className="px-4 py-3">{participant.group || "-"}</td>
                     )}
@@ -573,7 +573,7 @@ export function ParticipantsTable({
                       <button
                         type="button"
                         onClick={() => openEditModal(participant)}
-                        className="rounded border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100"
+                        className="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
                       >
                         Edit
                       </button>
@@ -588,18 +588,18 @@ export function ParticipantsTable({
 
       {editingParticipant && (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-4 py-8">
-          <div className="w-full max-w-3xl rounded-lg border border-neutral-200 bg-white p-5 shadow-xl">
+          <div className="w-full max-w-3xl rounded-lg border border-slate-200 bg-white p-5 shadow-xl">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-lg font-semibold text-neutral-900">Modifica partecipante</h2>
-                <p className="text-sm text-neutral-600">
+                <h2 className="text-lg font-semibold text-slate-900">Modifica partecipante</h2>
+                <p className="text-sm text-slate-500">
                   {editingParticipant.nome} {editingParticipant.cognome}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={closeEditModal}
-                className="rounded border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100"
+                className="rounded border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
               >
                 Chiudi
               </button>
@@ -608,56 +608,56 @@ export function ParticipantsTable({
             <form onSubmit={handleSave} className="space-y-5">
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700">Nome</label>
+                  <label className="block text-sm font-medium text-slate-700">Nome</label>
                   <input
                     required
                     value={form.nome}
                     onChange={(e) => setForm((prev) => ({ ...prev, nome: e.target.value }))}
-                    className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700">Cognome</label>
+                  <label className="block text-sm font-medium text-slate-700">Cognome</label>
                   <input
                     required
                     value={form.cognome}
                     onChange={(e) => setForm((prev) => ({ ...prev, cognome: e.target.value }))}
-                    className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700">Nazione</label>
+                  <label className="block text-sm font-medium text-slate-700">Nazione</label>
                   <input
                     value={form.nazione}
                     onChange={(e) => setForm((prev) => ({ ...prev, nazione: e.target.value }))}
-                    className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700">Email</label>
+                  <label className="block text-sm font-medium text-slate-700">Email</label>
                   <input
                     type="email"
                     required
                     value={form.email}
                     onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
-                    className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700">Telefono</label>
+                  <label className="block text-sm font-medium text-slate-700">Telefono</label>
                   <input
                     value={form.telefono}
                     onChange={(e) => setForm((prev) => ({ ...prev, telefono: e.target.value }))}
-                    className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700">
+                  <label className="block text-sm font-medium text-slate-700">
                     Data nascita
                   </label>
                   <input
@@ -666,12 +666,12 @@ export function ParticipantsTable({
                     onChange={(e) =>
                       setForm((prev) => ({ ...prev, data_nascita: e.target.value }))
                     }
-                    className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700">Data arrivo</label>
+                  <label className="block text-sm font-medium text-slate-700">Data arrivo</label>
                   <input
                     type="date"
                     min={ARRIVAL_DATE_MIN}
@@ -680,12 +680,12 @@ export function ParticipantsTable({
                     onChange={(e) =>
                       setForm((prev) => ({ ...prev, data_arrivo: e.target.value }))
                     }
-                    className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700">
+                  <label className="block text-sm font-medium text-slate-700">
                     Data partenza
                   </label>
                   <input
@@ -696,16 +696,16 @@ export function ParticipantsTable({
                     onChange={(e) =>
                       setForm((prev) => ({ ...prev, data_partenza: e.target.value }))
                     }
-                    className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
                   />
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-neutral-700">Alloggio</label>
+                  <label className="block text-sm font-medium text-slate-700">Alloggio</label>
                   <select
                     value={form.alloggio}
                     onChange={(e) => setForm((prev) => ({ ...prev, alloggio: e.target.value }))}
-                    className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
                   >
                     <option value="">Seleziona...</option>
                     {ALLOGGIO_SHORT_OPTIONS.map((option) => (
@@ -717,20 +717,20 @@ export function ParticipantsTable({
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-neutral-700">Allergie</label>
+                  <label className="block text-sm font-medium text-slate-700">Allergie</label>
                   <textarea
                     rows={2}
                     value={form.allergie}
                     onChange={(e) => setForm((prev) => ({ ...prev, allergie: e.target.value }))}
-                    className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
                   />
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-neutral-700">
+                  <label className="block text-sm font-medium text-slate-700">
                     Esigenze alimentari
                   </label>
-                  <div className="mt-2 grid gap-2 rounded border border-neutral-200 p-3 md:grid-cols-2">
+                  <div className="mt-2 grid gap-2 rounded border border-slate-200 p-3 md:grid-cols-2">
                     {ESIGENZE_ALIMENTARI_OPTIONS.map((option) => (
                       <label key={option} className="inline-flex items-center gap-2 text-sm">
                         <input
@@ -744,8 +744,8 @@ export function ParticipantsTable({
                   </div>
                 </div>
 
-                <div className="md:col-span-2 rounded border border-neutral-200 p-3">
-                  <label className="inline-flex items-center gap-2 text-sm font-medium text-neutral-700">
+                <div className="md:col-span-2 rounded border border-slate-200 p-3">
+                  <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
                     <input
                       type="checkbox"
                       checked={form.disabilita_accessibilita}
@@ -766,7 +766,7 @@ export function ParticipantsTable({
                     {DIFFICOLTA_ACCESSIBILITA_OPTIONS.map((option) => (
                       <label
                         key={option}
-                        className="flex items-start gap-2 rounded border border-neutral-200 px-2 py-1.5 text-xs"
+                        className="flex items-start gap-2 rounded border border-slate-200 px-2 py-1.5 text-xs"
                       >
                         <input
                           type="checkbox"
@@ -782,13 +782,13 @@ export function ParticipantsTable({
               </div>
 
               {error && (
-                <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                <div className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                   {error}
                 </div>
               )}
 
               {success && (
-                <div className="rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                <div className="rounded border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
                   {success}
                 </div>
               )}
@@ -806,14 +806,14 @@ export function ParticipantsTable({
                   type="button"
                   onClick={closeEditModal}
                   disabled={saving || deleting}
-                  className="rounded border border-neutral-300 px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-100"
+                  className="rounded border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
                 >
                   Annulla
                 </button>
                 <button
                   type="submit"
                   disabled={saving || deleting}
-                  className="rounded bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+                  className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
                 >
                   {saving ? "Salvataggio..." : "Salva"}
                 </button>

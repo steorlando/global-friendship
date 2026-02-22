@@ -66,8 +66,8 @@ function AuthCallbackContent() {
 
   return (
     <>
-      <h1 className="text-2xl font-semibold">Signing In</h1>
-      <p className="mt-2 text-sm text-neutral-600">{message}</p>
+      <h1 className="text-2xl font-bold text-slate-900">Signing In</h1>
+      <p className="mt-2 text-sm text-slate-500">{message}</p>
     </>
   );
 }
@@ -75,16 +75,18 @@ function AuthCallbackContent() {
 export default function AuthCallbackPage() {
   return (
     <main className="mx-auto max-w-md px-6 py-12">
-      <Suspense
-        fallback={
-          <>
-            <h1 className="text-2xl font-semibold">Signing In</h1>
-            <p className="mt-2 text-sm text-neutral-600">Completing sign in...</p>
-          </>
-        }
-      >
-        <AuthCallbackContent />
-      </Suspense>
+      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <Suspense
+          fallback={
+            <>
+              <h1 className="text-2xl font-bold text-slate-900">Signing In</h1>
+              <p className="mt-2 text-sm text-slate-500">Completing sign in...</p>
+            </>
+          }
+        >
+          <AuthCallbackContent />
+        </Suspense>
+      </section>
     </main>
   );
 }

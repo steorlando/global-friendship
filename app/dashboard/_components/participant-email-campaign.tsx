@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import Link from "@tiptap/extension-link";
 import Underline from "@tiptap/extension-underline";
 import { EditorContent, useEditor } from "@tiptap/react";
@@ -56,6 +56,17 @@ type EmailTemplate = {
   updatedAt: string;
 };
 
+type ComposerAttachment = {
+  id: string;
+  filename: string;
+  contentType: string;
+  size: number;
+  content: string;
+};
+
+const MAX_ATTACHMENT_COUNT = 5;
+const MAX_ATTACHMENT_SIZE_BYTES = 7 * 1024 * 1024;
+
 function safeLower(value: string | null): string {
   return (value ?? "").toLowerCase();
 }
@@ -67,6 +78,28 @@ function safeIncludes(value: string | null, search: string): boolean {
 function formatBoolean(value: boolean | null): string {
   if (value === null) return "-";
   return value ? "Yes" : "No";
+}
+
+async function fileToBase64(file: File): Promise<string | null> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result !== "string") {
+        resolve(null);
+        return;
+      }
+      const marker = "base64,";
+      const idx = result.indexOf(marker);
+      if (idx === -1) {
+        resolve(null);
+        return;
+      }
+      resolve(result.slice(idx + marker.length));
+    };
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  });
 }
 
 export function ParticipantEmailCampaign() {
@@ -101,7 +134,7 @@ export function ParticipantEmailCampaign() {
     editorProps: {
       attributes: {
         class:
-          "min-h-52 rounded border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 [&_h2]:mt-3 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:leading-tight [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:my-1 [&_p]:my-2",
+          "min-h-52 rounded border border-slate-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 [&_h2]:mt-3 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:leading-tight [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:my-1 [&_p]:my-2",
       },
     },
     onUpdate: ({ editor: currentEditor }) => {
@@ -131,6 +164,7 @@ export function ParticipantEmailCampaign() {
   const [sendError, setSendError] = useState<string | null>(null);
   const [sendResult, setSendResult] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [attachments, setAttachments] = useState<ComposerAttachment[]>([]);
 
   const [savedTemplates, setSavedTemplates] = useState<EmailTemplate[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState(true);
@@ -426,6 +460,56 @@ export function ParticipantEmailCampaign() {
     editor.chain().focus().insertContent(token).run();
   }
 
+  async function onAttachmentChange(event: ChangeEvent<HTMLInputElement>) {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    const slotsLeft = MAX_ATTACHMENT_COUNT - attachments.length;
+    if (slotsLeft <= 0) {
+      setSendError(`Maximum ${MAX_ATTACHMENT_COUNT} attachments allowed.`);
+      event.target.value = "";
+      return;
+    }
+
+    const picked = Array.from(files).slice(0, slotsLeft);
+    const next: ComposerAttachment[] = [];
+
+    for (const file of picked) {
+      if (file.size > MAX_ATTACHMENT_SIZE_BYTES) {
+        setSendError(`File "${file.name}" is too large (max 7 MB).`);
+        continue;
+      }
+
+      const base64 = await fileToBase64(file);
+      if (!base64) {
+        setSendError(`Unable to read file "${file.name}".`);
+        continue;
+      }
+
+      next.push({
+        id:
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        filename: file.name,
+        contentType: file.type || "application/octet-stream",
+        size: file.size,
+        content: base64,
+      });
+    }
+
+    if (next.length > 0) {
+      setAttachments((current) => [...current, ...next]);
+      setSendError(null);
+    }
+
+    event.target.value = "";
+  }
+
+  function removeAttachment(id: string) {
+    setAttachments((current) => current.filter((item) => item.id !== id));
+  }
+
   async function saveTemplate() {
     const defaultName = `Template ${savedTemplates.length + 1}`;
     const nameInput = window.prompt("Template name", defaultName);
@@ -670,6 +754,12 @@ export function ParticipantEmailCampaign() {
           recipientIds: [...activeSelectedIds],
           subject,
           html: bodyHtml,
+          attachments: attachments.map((attachment) => ({
+            filename: attachment.filename,
+            contentType: attachment.contentType,
+            content: attachment.content,
+            encoding: "base64",
+          })),
         }),
       });
       const json = (await res.json()) as {
@@ -698,33 +788,33 @@ export function ParticipantEmailCampaign() {
 
   return (
     <section className="space-y-6">
-      <header className="rounded border border-neutral-200 bg-white p-4">
-        <h2 className="text-xl font-semibold text-neutral-900">Email Campaigns</h2>
-        <p className="mt-2 text-sm text-neutral-600">
+      <header className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="text-xl font-bold text-slate-900">Email Campaigns</h2>
+        <p className="mt-2 text-sm text-slate-500">
           Compose a personalized email and send it to selected participants or group leaders.
         </p>
       </header>
 
       {sendError && (
-        <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <div className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {sendError}
         </div>
       )}
       {sendResult && (
-        <div className="rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+        <div className="rounded border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
           {sendResult}
         </div>
       )}
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
         <div className="space-y-6">
-          <section className="rounded border border-neutral-200 bg-white p-4">
+          <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <label className="block text-sm font-medium text-neutral-700">Subject</label>
+              <label className="block text-sm font-medium text-slate-700">Subject</label>
               <button
                 type="button"
                 onClick={saveTemplate}
-                className="rounded border border-neutral-300 bg-white px-3 py-1.5 text-sm hover:bg-neutral-100"
+                className="rounded border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-100"
               >
                 Save template
               </button>
@@ -733,20 +823,20 @@ export function ParticipantEmailCampaign() {
               type="text"
               value={subject}
               onChange={(event) => setSubject(event.target.value)}
-              className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
               placeholder="Email subject"
             />
 
             <div className="mt-4">
-              <p className="text-sm font-medium text-neutral-700">Message</p>
+              <p className="text-sm font-medium text-slate-700">Message</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={() => applyFormat("bold")}
                   className={`rounded border px-2 py-1 text-xs font-semibold ${
                     editor?.isActive("bold")
-                      ? "border-neutral-900 bg-neutral-900 text-white"
-                      : "border-neutral-300 hover:bg-neutral-100"
+                      ? "border-indigo-600 bg-indigo-600 text-white"
+                      : "border-slate-300 hover:bg-slate-100"
                   }`}
                 >
                   Bold
@@ -756,8 +846,8 @@ export function ParticipantEmailCampaign() {
                   onClick={() => applyFormat("italic")}
                   className={`rounded border px-2 py-1 text-xs font-semibold ${
                     editor?.isActive("italic")
-                      ? "border-neutral-900 bg-neutral-900 text-white"
-                      : "border-neutral-300 hover:bg-neutral-100"
+                      ? "border-indigo-600 bg-indigo-600 text-white"
+                      : "border-slate-300 hover:bg-slate-100"
                   }`}
                 >
                   Italic
@@ -767,8 +857,8 @@ export function ParticipantEmailCampaign() {
                   onClick={() => applyFormat("underline")}
                   className={`rounded border px-2 py-1 text-xs font-semibold ${
                     editor?.isActive("underline")
-                      ? "border-neutral-900 bg-neutral-900 text-white"
-                      : "border-neutral-300 hover:bg-neutral-100"
+                      ? "border-indigo-600 bg-indigo-600 text-white"
+                      : "border-slate-300 hover:bg-slate-100"
                   }`}
                 >
                   Underline
@@ -778,8 +868,8 @@ export function ParticipantEmailCampaign() {
                   onClick={() => applyFormat("heading")}
                   className={`rounded border px-2 py-1 text-xs font-semibold ${
                     editor?.isActive("heading", { level: 2 })
-                      ? "border-neutral-900 bg-neutral-900 text-white"
-                      : "border-neutral-300 hover:bg-neutral-100"
+                      ? "border-indigo-600 bg-indigo-600 text-white"
+                      : "border-slate-300 hover:bg-slate-100"
                   }`}
                 >
                   H2
@@ -789,8 +879,8 @@ export function ParticipantEmailCampaign() {
                   onClick={() => applyFormat("bulletList")}
                   className={`rounded border px-2 py-1 text-xs font-semibold ${
                     editor?.isActive("bulletList")
-                      ? "border-neutral-900 bg-neutral-900 text-white"
-                      : "border-neutral-300 hover:bg-neutral-100"
+                      ? "border-indigo-600 bg-indigo-600 text-white"
+                      : "border-slate-300 hover:bg-slate-100"
                   }`}
                 >
                   Bullet list
@@ -800,8 +890,8 @@ export function ParticipantEmailCampaign() {
                   onClick={() => applyFormat("orderedList")}
                   className={`rounded border px-2 py-1 text-xs font-semibold ${
                     editor?.isActive("orderedList")
-                      ? "border-neutral-900 bg-neutral-900 text-white"
-                      : "border-neutral-300 hover:bg-neutral-100"
+                      ? "border-indigo-600 bg-indigo-600 text-white"
+                      : "border-slate-300 hover:bg-slate-100"
                   }`}
                 >
                   Numbered list
@@ -811,8 +901,8 @@ export function ParticipantEmailCampaign() {
                   onClick={addLink}
                   className={`rounded border px-2 py-1 text-xs font-semibold ${
                     editor?.isActive("link")
-                      ? "border-neutral-900 bg-neutral-900 text-white"
-                      : "border-neutral-300 hover:bg-neutral-100"
+                      ? "border-indigo-600 bg-indigo-600 text-white"
+                      : "border-slate-300 hover:bg-slate-100"
                   }`}
                 >
                   Link
@@ -820,46 +910,87 @@ export function ParticipantEmailCampaign() {
                 <button
                   type="button"
                   onClick={() => applyFormat("clear")}
-                  className="rounded border border-neutral-300 px-2 py-1 text-xs font-semibold hover:bg-neutral-100"
+                  className="rounded border border-slate-300 px-2 py-1 text-xs font-semibold hover:bg-slate-100"
                 >
                   Clear formatting
                 </button>
               </div>
               <EditorContent editor={editor} className="mt-2" />
             </div>
+
+            <div className="mt-4 rounded border border-slate-200 bg-slate-50 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-medium text-slate-700">Attachments</p>
+                <label className="cursor-pointer rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium hover:bg-slate-100">
+                  Add files
+                  <input
+                    type="file"
+                    multiple
+                    onChange={onAttachmentChange}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+              <p className="mt-1 text-xs text-slate-500">
+                Up to {MAX_ATTACHMENT_COUNT} files, max 7 MB each.
+              </p>
+              {attachments.length === 0 ? (
+                <p className="mt-2 text-xs text-slate-500">No attachments selected.</p>
+              ) : (
+                <div className="mt-2 space-y-2">
+                  {attachments.map((attachment) => (
+                    <div
+                      key={attachment.id}
+                      className="flex items-center justify-between gap-2 rounded border border-slate-200 bg-white px-2 py-1.5"
+                    >
+                      <span className="truncate text-xs text-slate-700">
+                        {attachment.filename} ({Math.ceil(attachment.size / 1024)} KB)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeAttachment(attachment.id)}
+                        className="rounded border border-red-200 px-2 py-0.5 text-xs text-red-700 hover:bg-red-50"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </section>
 
-          <section className="rounded border border-neutral-200 bg-white p-4">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-700">
+          <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
               Saved Templates
             </h3>
             {templatesLoading ? (
-              <p className="mt-2 text-xs text-neutral-500">Loading templates...</p>
+              <p className="mt-2 text-xs text-slate-500">Loading templates...</p>
             ) : savedTemplates.length === 0 ? (
-              <p className="mt-2 text-xs text-neutral-500">No saved templates yet.</p>
+              <p className="mt-2 text-xs text-slate-500">No saved templates yet.</p>
             ) : (
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 {savedTemplates.map((template) => (
                   <div
                     key={template.id}
-                    className="rounded border border-neutral-200 px-3 py-2"
+                    className="rounded border border-slate-200 px-4 py-3"
                   >
-                    <p className="text-sm font-medium text-neutral-900">{template.name}</p>
-                    <p className="mt-1 truncate text-xs text-neutral-500">
+                    <p className="text-sm font-medium text-slate-900">{template.name}</p>
+                    <p className="mt-1 truncate text-xs text-slate-500">
                       {template.subject || "(No subject)"}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2">
                       <button
                         type="button"
                         onClick={() => applyTemplate(template)}
-                        className="rounded border border-neutral-300 px-2 py-1 text-xs hover:bg-neutral-100"
+                        className="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100"
                       >
                         Use
                       </button>
                       <button
                         type="button"
                         onClick={() => editTemplate(template)}
-                        className="rounded border border-neutral-300 px-2 py-1 text-xs hover:bg-neutral-100"
+                        className="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100"
                       >
                         Edit
                       </button>
@@ -878,11 +1009,11 @@ export function ParticipantEmailCampaign() {
           </section>
         </div>
 
-        <aside className="h-max rounded border border-neutral-200 bg-white p-4 xl:sticky xl:top-24">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-700">
+        <aside className="h-max rounded-xl border border-slate-200 bg-white p-6 shadow-sm xl:sticky xl:top-24">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
             Personalization Fields
           </h3>
-          <p className="mt-2 text-xs text-neutral-500">
+          <p className="mt-2 text-xs text-slate-500">
             Click a field to insert it at cursor position.
           </p>
           <div className="mt-3 space-y-2">
@@ -891,25 +1022,25 @@ export function ParticipantEmailCampaign() {
                 key={field.key}
                 type="button"
                 onClick={() => insertToken(field.token)}
-                className="flex w-full items-center justify-between rounded border border-neutral-200 px-3 py-2 text-left hover:bg-neutral-50"
+                className="flex w-full items-center justify-between rounded border border-slate-200 px-4 py-3 text-left hover:bg-slate-50"
               >
-                <span className="text-sm text-neutral-800">{field.label}</span>
-                <code className="text-xs text-neutral-500">{field.token}</code>
+                <span className="text-sm text-slate-800">{field.label}</span>
+                <code className="text-xs text-slate-500">{field.token}</code>
               </button>
             ))}
           </div>
         </aside>
       </div>
 
-      <section className="rounded border border-neutral-200 bg-white p-4">
+      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => setActiveRecipientType("participants")}
             className={`rounded border px-3 py-1.5 text-sm ${
               activeRecipientType === "participants"
-                ? "border-neutral-900 bg-neutral-900 text-white"
-                : "border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-100"
+                ? "border-indigo-600 bg-indigo-600 text-white"
+                : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
             }`}
           >
             Participants ({participants.length})
@@ -919,8 +1050,8 @@ export function ParticipantEmailCampaign() {
             onClick={() => setActiveRecipientType("group_leaders")}
             className={`rounded border px-3 py-1.5 text-sm ${
               activeRecipientType === "group_leaders"
-                ? "border-neutral-900 bg-neutral-900 text-white"
-                : "border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-100"
+                ? "border-indigo-600 bg-indigo-600 text-white"
+                : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
             }`}
           >
             Group leaders ({groupLeaders.length})
@@ -930,7 +1061,7 @@ export function ParticipantEmailCampaign() {
         {activeRecipientType === "participants" ? (
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Search
               </label>
               <input
@@ -938,12 +1069,12 @@ export function ParticipantEmailCampaign() {
                 value={participantSearch}
                 onChange={(event) => setParticipantSearch(event.target.value)}
                 placeholder="Name, surname, email, group"
-                className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
               />
             </div>
             {showGroupColumn && (
               <div>
-                <label className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Group
                 </label>
                 <input
@@ -951,7 +1082,7 @@ export function ParticipantEmailCampaign() {
                   value={participantGroupFilter}
                   onChange={(event) => setParticipantGroupFilter(event.target.value)}
                   list="group-options"
-                  className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
                 />
                 <datalist id="group-options">
                   {groups.map((group) => (
@@ -961,43 +1092,43 @@ export function ParticipantEmailCampaign() {
               </div>
             )}
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Arrival
               </label>
               <input
                 type="date"
                 value={participantArrivoFilter}
                 onChange={(event) => setParticipantArrivoFilter(event.target.value)}
-                className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
               />
             </div>
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Departure
               </label>
               <input
                 type="date"
                 value={participantPartenzaFilter}
                 onChange={(event) => setParticipantPartenzaFilter(event.target.value)}
-                className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
               />
             </div>
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Accommodation
               </label>
               <input
                 type="text"
                 value={participantAlloggioFilter}
                 onChange={(event) => setParticipantAlloggioFilter(event.target.value)}
-                className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
               />
             </div>
           </div>
         ) : (
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Search
               </label>
               <input
@@ -1005,17 +1136,17 @@ export function ParticipantEmailCampaign() {
                 value={groupLeaderSearch}
                 onChange={(event) => setGroupLeaderSearch(event.target.value)}
                 placeholder="Name, surname, email, phone"
-                className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
               />
             </div>
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Italy
               </label>
               <select
                 value={groupLeaderItaliaFilter}
                 onChange={(event) => setGroupLeaderItaliaFilter(event.target.value)}
-                className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
               >
                 <option value="all">All</option>
                 <option value="yes">Yes</option>
@@ -1023,13 +1154,13 @@ export function ParticipantEmailCampaign() {
               </select>
             </div>
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Rome
               </label>
               <select
                 value={groupLeaderRomaFilter}
                 onChange={(event) => setGroupLeaderRomaFilter(event.target.value)}
-                className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
               >
                 <option value="all">All</option>
                 <option value="yes">Yes</option>
@@ -1040,21 +1171,21 @@ export function ParticipantEmailCampaign() {
         )}
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-neutral-600">
+          <p className="text-sm text-slate-500">
             Selected recipients: <strong>{activeSelectedIds.size}</strong>
           </p>
           <div className="flex gap-2">
             <button
               type="button"
               onClick={toggleVisibleSelection}
-              className="rounded border border-neutral-300 bg-white px-3 py-1.5 text-sm hover:bg-neutral-100"
+              className="rounded border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-100"
             >
               {allVisibleSelected ? "Unselect visible" : "Select all visible"}
             </button>
             <button
               type="button"
               onClick={openPreview}
-              className="rounded bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"
+              className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
             >
               Send
             </button>
@@ -1063,15 +1194,15 @@ export function ParticipantEmailCampaign() {
 
         {activeRecipientType === "participants" ? (
           participantsLoading ? (
-            <p className="mt-4 text-sm text-neutral-600">Loading participants...</p>
+            <p className="mt-4 text-sm text-slate-500">Loading participants...</p>
           ) : participantsError ? (
             <p className="mt-4 text-sm text-red-700">{participantsError}</p>
           ) : (
             <div className="mt-4 overflow-x-auto">
-              <table className="min-w-full divide-y divide-neutral-200 text-sm">
-                <thead className="bg-neutral-50 text-left text-neutral-700">
+              <table className="min-w-full divide-y divide-slate-200 text-sm">
+                <thead className="bg-slate-50/50 text-left text-slate-700">
                   <tr>
-                    <th className="px-3 py-2">
+                    <th className="px-4 py-3">
                       <input
                         type="checkbox"
                         checked={allVisibleSelected}
@@ -1080,26 +1211,26 @@ export function ParticipantEmailCampaign() {
                       />
                     </th>
                     {showGroupColumn && (
-                      <th className="px-3 py-2 font-semibold">
+                      <th className="px-4 py-3 font-semibold">
                         <button type="button" onClick={() => toggleParticipantSort("group")}>
                           Group
                         </button>
                       </th>
                     )}
-                    <th className="px-3 py-2 font-semibold">
+                    <th className="px-4 py-3 font-semibold">
                       <button type="button" onClick={() => toggleParticipantSort("nome")}>Name</button>
                     </th>
-                    <th className="px-3 py-2 font-semibold">
+                    <th className="px-4 py-3 font-semibold">
                       <button type="button" onClick={() => toggleParticipantSort("cognome")}>
                         Surname
                       </button>
                     </th>
-                    <th className="px-3 py-2 font-semibold">
+                    <th className="px-4 py-3 font-semibold">
                       <button type="button" onClick={() => toggleParticipantSort("email")}>
                         Email
                       </button>
                     </th>
-                    <th className="px-3 py-2 font-semibold">
+                    <th className="px-4 py-3 font-semibold">
                       <button
                         type="button"
                         onClick={() => toggleParticipantSort("data_arrivo")}
@@ -1107,7 +1238,7 @@ export function ParticipantEmailCampaign() {
                         Arrival
                       </button>
                     </th>
-                    <th className="px-3 py-2 font-semibold">
+                    <th className="px-4 py-3 font-semibold">
                       <button
                         type="button"
                         onClick={() => toggleParticipantSort("data_partenza")}
@@ -1115,12 +1246,12 @@ export function ParticipantEmailCampaign() {
                         Departure
                       </button>
                     </th>
-                    <th className="px-3 py-2 font-semibold">
+                    <th className="px-4 py-3 font-semibold">
                       <button type="button" onClick={() => toggleParticipantSort("alloggio")}>
                         Accommodation
                       </button>
                     </th>
-                    <th className="px-3 py-2 font-semibold">
+                    <th className="px-4 py-3 font-semibold">
                       <button
                         type="button"
                         onClick={() => toggleParticipantSort("quota_totale")}
@@ -1130,12 +1261,12 @@ export function ParticipantEmailCampaign() {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-neutral-100">
+                <tbody className="divide-y divide-slate-100">
                   {filteredSortedParticipants.length === 0 ? (
                     <tr>
                       <td
                         colSpan={showGroupColumn ? 9 : 8}
-                        className="px-3 py-3 text-neutral-500"
+                        className="px-3 py-3 text-slate-500"
                       >
                         No participants match current filters.
                       </td>
@@ -1143,7 +1274,7 @@ export function ParticipantEmailCampaign() {
                   ) : (
                     filteredSortedParticipants.map((participant) => (
                       <tr key={participant.id}>
-                        <td className="px-3 py-2">
+                        <td className="px-4 py-3">
                           <input
                             type="checkbox"
                             checked={selectedParticipantIds.has(participant.id)}
@@ -1152,19 +1283,19 @@ export function ParticipantEmailCampaign() {
                           />
                         </td>
                         {showGroupColumn && (
-                          <td className="px-3 py-2 text-neutral-700">{participant.group || "-"}</td>
+                          <td className="px-4 py-3 text-slate-700">{participant.group || "-"}</td>
                         )}
-                        <td className="px-3 py-2 text-neutral-900">{participant.nome || "-"}</td>
-                        <td className="px-3 py-2 text-neutral-900">{participant.cognome || "-"}</td>
-                        <td className="px-3 py-2 text-neutral-700">{participant.email || "-"}</td>
-                        <td className="px-3 py-2 text-neutral-700">
+                        <td className="px-4 py-3 text-slate-900">{participant.nome || "-"}</td>
+                        <td className="px-4 py-3 text-slate-900">{participant.cognome || "-"}</td>
+                        <td className="px-4 py-3 text-slate-700">{participant.email || "-"}</td>
+                        <td className="px-4 py-3 text-slate-700">
                           {participant.data_arrivo || "-"}
                         </td>
-                        <td className="px-3 py-2 text-neutral-700">
+                        <td className="px-4 py-3 text-slate-700">
                           {participant.data_partenza || "-"}
                         </td>
-                        <td className="px-3 py-2 text-neutral-700">{participant.alloggio || "-"}</td>
-                        <td className="px-3 py-2 text-neutral-700">
+                        <td className="px-4 py-3 text-slate-700">{participant.alloggio || "-"}</td>
+                        <td className="px-4 py-3 text-slate-700">
                           {participant.quota_totale == null ? "-" : participant.quota_totale}
                         </td>
                       </tr>
@@ -1175,15 +1306,15 @@ export function ParticipantEmailCampaign() {
             </div>
           )
         ) : groupLeadersLoading ? (
-          <p className="mt-4 text-sm text-neutral-600">Loading group leaders...</p>
+          <p className="mt-4 text-sm text-slate-500">Loading group leaders...</p>
         ) : groupLeadersError ? (
           <p className="mt-4 text-sm text-red-700">{groupLeadersError}</p>
         ) : (
           <div className="mt-4 overflow-x-auto">
-            <table className="min-w-full divide-y divide-neutral-200 text-sm">
-              <thead className="bg-neutral-50 text-left text-neutral-700">
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50/50 text-left text-slate-700">
                 <tr>
-                  <th className="px-3 py-2">
+                  <th className="px-4 py-3">
                     <input
                       type="checkbox"
                       checked={allVisibleSelected}
@@ -1191,37 +1322,37 @@ export function ParticipantEmailCampaign() {
                       aria-label="Select all visible group leaders"
                     />
                   </th>
-                  <th className="px-3 py-2 font-semibold">
+                  <th className="px-4 py-3 font-semibold">
                     <button type="button" onClick={() => toggleGroupLeaderSort("nome")}>Name</button>
                   </th>
-                  <th className="px-3 py-2 font-semibold">
+                  <th className="px-4 py-3 font-semibold">
                     <button type="button" onClick={() => toggleGroupLeaderSort("cognome")}>Surname</button>
                   </th>
-                  <th className="px-3 py-2 font-semibold">
+                  <th className="px-4 py-3 font-semibold">
                     <button type="button" onClick={() => toggleGroupLeaderSort("email")}>Email</button>
                   </th>
-                  <th className="px-3 py-2 font-semibold">
+                  <th className="px-4 py-3 font-semibold">
                     <button type="button" onClick={() => toggleGroupLeaderSort("telefono")}>Phone</button>
                   </th>
-                  <th className="px-3 py-2 font-semibold">
+                  <th className="px-4 py-3 font-semibold">
                     <button type="button" onClick={() => toggleGroupLeaderSort("italia")}>Italy</button>
                   </th>
-                  <th className="px-3 py-2 font-semibold">
+                  <th className="px-4 py-3 font-semibold">
                     <button type="button" onClick={() => toggleGroupLeaderSort("roma")}>Rome</button>
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-neutral-100">
+              <tbody className="divide-y divide-slate-100">
                 {filteredSortedGroupLeaders.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-3 py-3 text-neutral-500">
+                    <td colSpan={7} className="px-3 py-3 text-slate-500">
                       No group leaders match current filters.
                     </td>
                   </tr>
                 ) : (
                   filteredSortedGroupLeaders.map((leader) => (
                     <tr key={leader.id}>
-                      <td className="px-3 py-2">
+                      <td className="px-4 py-3">
                         <input
                           type="checkbox"
                           checked={selectedGroupLeaderIds.has(leader.id)}
@@ -1229,12 +1360,12 @@ export function ParticipantEmailCampaign() {
                           aria-label={`Select ${leader.nome ?? ""} ${leader.cognome ?? ""}`}
                         />
                       </td>
-                      <td className="px-3 py-2 text-neutral-900">{leader.nome || "-"}</td>
-                      <td className="px-3 py-2 text-neutral-900">{leader.cognome || "-"}</td>
-                      <td className="px-3 py-2 text-neutral-700">{leader.email || "-"}</td>
-                      <td className="px-3 py-2 text-neutral-700">{leader.telefono || "-"}</td>
-                      <td className="px-3 py-2 text-neutral-700">{formatBoolean(leader.italia)}</td>
-                      <td className="px-3 py-2 text-neutral-700">{formatBoolean(leader.roma)}</td>
+                      <td className="px-4 py-3 text-slate-900">{leader.nome || "-"}</td>
+                      <td className="px-4 py-3 text-slate-900">{leader.cognome || "-"}</td>
+                      <td className="px-4 py-3 text-slate-700">{leader.email || "-"}</td>
+                      <td className="px-4 py-3 text-slate-700">{leader.telefono || "-"}</td>
+                      <td className="px-4 py-3 text-slate-700">{formatBoolean(leader.italia)}</td>
+                      <td className="px-4 py-3 text-slate-700">{formatBoolean(leader.roma)}</td>
                     </tr>
                   ))
                 )}
@@ -1246,24 +1377,27 @@ export function ParticipantEmailCampaign() {
 
       {showPreview && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-8">
-          <div className="max-h-full w-full max-w-3xl overflow-auto rounded border border-neutral-200 bg-white p-5 shadow-xl">
-            <h3 className="text-lg font-semibold text-neutral-900">Preview before send</h3>
-            <p className="mt-1 text-sm text-neutral-600">
+          <div className="max-h-full w-full max-w-3xl overflow-auto rounded border border-slate-200 bg-white p-5 shadow-xl">
+            <h3 className="text-lg font-semibold text-slate-900">Preview before send</h3>
+            <p className="mt-1 text-sm text-slate-500">
               Emails to send: <strong>{selectedRecipientsWithEmail.length}</strong>
             </p>
+            <p className="mt-1 text-xs text-slate-500">
+              Attachments: <strong>{attachments.length}</strong>
+            </p>
             {previewRecipient ? (
-              <p className="mt-1 text-xs text-neutral-500">
+              <p className="mt-1 text-xs text-slate-500">
                 Preview based on: {(previewRecipient as Participant | GroupLeader).nome || "-"}{" "}
                 {(previewRecipient as Participant | GroupLeader).cognome || "-"} ({(previewRecipient as Participant | GroupLeader).email || "no email"})
               </p>
             ) : null}
 
-            <div className="mt-4 rounded border border-neutral-200 bg-neutral-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+            <div className="mt-4 rounded border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Subject
               </p>
-              <p className="mt-1 text-sm text-neutral-900">{previewSubject}</p>
-              <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+              <p className="mt-1 text-sm text-slate-900">{previewSubject}</p>
+              <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Body
               </p>
               <div
@@ -1277,7 +1411,7 @@ export function ParticipantEmailCampaign() {
                 type="button"
                 disabled={sending}
                 onClick={() => setShowPreview(false)}
-                className="rounded border border-neutral-300 bg-white px-4 py-2 text-sm hover:bg-neutral-100 disabled:opacity-60"
+                className="rounded border border-slate-300 bg-white px-4 py-2 text-sm hover:bg-slate-100 disabled:opacity-60"
               >
                 Back
               </button>
@@ -1285,7 +1419,7 @@ export function ParticipantEmailCampaign() {
                 type="button"
                 disabled={sending}
                 onClick={sendCampaign}
-                className="rounded bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-60"
+                className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-60"
               >
                 {sending ? "Sending..." : "Send"}
               </button>

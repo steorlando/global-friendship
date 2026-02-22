@@ -10,7 +10,7 @@ export async function ManagerAdminEmailPage() {
   if (!user) {
     return (
       <section className="rounded border border-red-200 bg-red-50 p-6">
-        <h2 className="text-xl font-semibold text-red-800">Email Campaigns</h2>
+        <h2 className="text-xl font-bold text-red-800">Email Campaigns</h2>
         <p className="mt-2 text-sm text-red-700">Unauthorized.</p>
       </section>
     );
@@ -25,7 +25,7 @@ export async function ManagerAdminEmailPage() {
   if (error || (profile?.ruolo !== "manager" && profile?.ruolo !== "admin")) {
     return (
       <section className="rounded border border-red-200 bg-red-50 p-6">
-        <h2 className="text-xl font-semibold text-red-800">Email Campaigns</h2>
+        <h2 className="text-xl font-bold text-red-800">Email Campaigns</h2>
         <p className="mt-2 text-sm text-red-700">Forbidden.</p>
       </section>
     );
