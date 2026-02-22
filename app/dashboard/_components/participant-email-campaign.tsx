@@ -66,6 +66,31 @@ type ComposerAttachment = {
 
 const MAX_ATTACHMENT_COUNT = 5;
 const MAX_ATTACHMENT_SIZE_BYTES = 7 * 1024 * 1024;
+const SAFE_PREVIEW_TAGS = new Set([
+  "a",
+  "b",
+  "blockquote",
+  "br",
+  "code",
+  "div",
+  "em",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "hr",
+  "i",
+  "li",
+  "ol",
+  "p",
+  "pre",
+  "span",
+  "strong",
+  "u",
+  "ul",
+]);
 
 function safeLower(value: string | null): string {
   return (value ?? "").toLowerCase();
@@ -78,6 +103,69 @@ function safeIncludes(value: string | null, search: string): boolean {
 function formatBoolean(value: boolean | null): string {
   if (value === null) return "-";
   return value ? "Yes" : "No";
+}
+
+function sanitizePreviewHtml(html: string): string {
+  if (typeof window === "undefined" || !html.trim()) {
+    return "";
+  }
+
+  const parser = new window.DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
+
+  const stripNode = (element: Element) => {
+    const parent = element.parentNode;
+    if (!parent) return;
+    while (element.firstChild) {
+      parent.insertBefore(element.firstChild, element);
+    }
+    parent.removeChild(element);
+  };
+
+  for (const element of Array.from(doc.body.querySelectorAll("*"))) {
+    const tag = element.tagName.toLowerCase();
+    if (!SAFE_PREVIEW_TAGS.has(tag)) {
+      stripNode(element);
+      continue;
+    }
+
+    for (const attr of Array.from(element.attributes)) {
+      const name = attr.name.toLowerCase();
+      const value = attr.value.trim();
+      if (name.startsWith("on")) {
+        element.removeAttribute(attr.name);
+        continue;
+      }
+      if (name === "style") {
+        element.removeAttribute(attr.name);
+        continue;
+      }
+      if (name === "href") {
+        const lower = value.toLowerCase();
+        const safeHref =
+          lower.startsWith("http://") ||
+          lower.startsWith("https://") ||
+          lower.startsWith("mailto:");
+        if (!safeHref) {
+          element.removeAttribute(attr.name);
+          continue;
+        }
+      } else if (
+        !["title", "aria-label", "aria-hidden", "class", "target", "rel"].includes(
+          name
+        )
+      ) {
+        element.removeAttribute(attr.name);
+      }
+    }
+
+    if (tag === "a") {
+      element.setAttribute("target", "_blank");
+      element.setAttribute("rel", "noopener noreferrer");
+    }
+  }
+
+  return doc.body.innerHTML;
 }
 
 async function fileToBase64(file: File): Promise<string | null> {
@@ -405,6 +493,10 @@ export function ParticipantEmailCampaign() {
       : activeRecipientType === "participants"
         ? renderParticipantTemplateHtml(bodyHtml, previewRecipient as Participant)
         : renderGroupLeaderTemplateHtml(bodyHtml, previewRecipient as GroupLeader);
+  const sanitizedPreviewHtml = useMemo(
+    () => sanitizePreviewHtml(previewHtml),
+    [previewHtml]
+  );
 
   const previewSubject =
     previewRecipient == null
@@ -1402,7 +1494,7 @@ export function ParticipantEmailCampaign() {
               </p>
               <div
                 className="prose prose-sm mt-2 max-w-none rounded bg-white p-3"
-                dangerouslySetInnerHTML={{ __html: previewHtml }}
+                dangerouslySetInnerHTML={{ __html: sanitizedPreviewHtml }}
               />
             </div>
 

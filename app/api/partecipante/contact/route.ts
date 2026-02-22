@@ -14,6 +14,15 @@ type ParticipantContactRow = {
   submitted_at_tally: string | null;
 };
 
+type ParticipantContactCandidate = {
+  id: string;
+  nome: string | null;
+  cognome: string | null;
+  gruppo_id: string | null;
+  gruppo_label: string | null;
+  submitted_at_tally: string | null;
+};
+
 const ORGANIZERS_EMAIL = "info@giovaniperlapace.it";
 
 function normalizeText(value: unknown): string | null {
@@ -29,6 +38,17 @@ function pickLatest(rows: ParticipantContactRow[]): ParticipantContactRow | null
     const currentDate = current.submitted_at_tally ?? "";
     return currentDate > bestDate ? current : best;
   }, rows[0]);
+}
+
+function toCandidate(row: ParticipantContactRow): ParticipantContactCandidate {
+  return {
+    id: row.id,
+    nome: row.nome,
+    cognome: row.cognome,
+    gruppo_id: row.gruppo_id,
+    gruppo_label: row.gruppo_label,
+    submitted_at_tally: row.submitted_at_tally,
+  };
 }
 
 function buildParticipantGroup(row: ParticipantContactRow): string {
@@ -55,6 +75,7 @@ export async function POST(req: Request) {
   }
 
   const message = normalizeText(body.message);
+  const participantId = normalizeText(body.participant_id);
   if (!message) {
     return NextResponse.json({ error: "Message is required" }, { status: 400 });
   }
@@ -77,9 +98,35 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const participant = pickLatest((data ?? []) as ParticipantContactRow[]);
+  const participants = ((data ?? []) as ParticipantContactRow[]).sort((a, b) =>
+    (b.submitted_at_tally ?? "").localeCompare(a.submitted_at_tally ?? "")
+  );
+  const candidates = participants.map(toCandidate);
+  if (participants.length > 1 && !participantId) {
+    return NextResponse.json(
+      {
+        error: "Multiple participants found for this email",
+        code: "PARTICIPANT_SELECTION_REQUIRED",
+        requiresSelection: true,
+        participants: candidates,
+      },
+      { status: 409 }
+    );
+  }
+
+  const participant = participantId
+    ? participants.find((row) => row.id === participantId) ?? null
+    : pickLatest(participants);
   if (!participant) {
-    return NextResponse.json({ error: "Participant not found" }, { status: 404 });
+    return NextResponse.json(
+      {
+        error: "Participant not found",
+        code: "PARTICIPANT_NOT_FOUND",
+        requiresSelection: participants.length > 1,
+        participants: candidates,
+      },
+      { status: 404 }
+    );
   }
 
   const nome = (participant.nome ?? "").trim() || "-";

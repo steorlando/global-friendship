@@ -44,9 +44,27 @@ type ApiParticipant = ParticipantFormData & {
   email: string | null;
 };
 
+type ParticipantCandidate = {
+  id: string;
+  nome: string | null;
+  cognome: string | null;
+  gruppo_id: string | null;
+  gruppo_label: string | null;
+  submitted_at_tally: string | null;
+};
+
+const PARTICIPANT_SELECTION_STORAGE_KEY = "gf_participant_id";
+
 export function PartecipanteForm() {
   const [formData, setFormData] = useState<ParticipantFormData>(INITIAL_DATA);
   const [email, setEmail] = useState<string>("");
+  const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(
+    null
+  );
+  const [participantCandidates, setParticipantCandidates] = useState<
+    ParticipantCandidate[]
+  >([]);
+  const [requiresSelection, setRequiresSelection] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -59,19 +77,47 @@ export function PartecipanteForm() {
   const [deleteSuccess, setDeleteSuccess] = useState<string | null>(null);
 
   useEffect(() => {
-    async function loadData() {
+    async function loadData(participantId?: string) {
       try {
         setLoading(true);
         setLoadError(null);
-        const res = await fetch("/api/partecipante/me", { method: "GET" });
+        const query = participantId
+          ? `?participantId=${encodeURIComponent(participantId)}`
+          : "";
+        const res = await fetch(`/api/partecipante/me${query}`, { method: "GET" });
         const json = await res.json();
+
+        if (res.status === 409 && json.code === "PARTICIPANT_SELECTION_REQUIRED") {
+          setRequiresSelection(true);
+          setParticipantCandidates(
+            Array.isArray(json.participants) ? json.participants : []
+          );
+          setSelectedParticipantId(participantId ?? null);
+          return;
+        }
 
         if (!res.ok) {
           setLoadError(json.error ?? "Unable to load participant data.");
+          setRequiresSelection(false);
           return;
         }
 
         const participant = json.participant as ApiParticipant;
+        const returnedSelectedId =
+          typeof json.selectedParticipantId === "string"
+            ? json.selectedParticipantId
+            : participant.id;
+        setSelectedParticipantId(returnedSelectedId);
+        setParticipantCandidates(
+          Array.isArray(json.participants) ? json.participants : []
+        );
+        setRequiresSelection(false);
+        if (returnedSelectedId) {
+          window.localStorage.setItem(
+            PARTICIPANT_SELECTION_STORAGE_KEY,
+            returnedSelectedId
+          );
+        }
         setEmail(participant.email ?? "");
         setFormData({
           nome: participant.nome ?? "",
@@ -101,8 +147,58 @@ export function PartecipanteForm() {
       }
     }
 
-    loadData();
+    const storedParticipantId = window.localStorage.getItem(
+      PARTICIPANT_SELECTION_STORAGE_KEY
+    );
+    void loadData(storedParticipantId || undefined);
   }, []);
+
+  async function handleSelectionChange(participantId: string) {
+    setSelectedParticipantId(participantId);
+    setLoadError(null);
+    setSuccess(null);
+    setError(null);
+    setDeleteError(null);
+    setDeleteSuccess(null);
+    window.localStorage.setItem(PARTICIPANT_SELECTION_STORAGE_KEY, participantId);
+    try {
+      setLoading(true);
+      const res = await fetch(
+        `/api/partecipante/me?participantId=${encodeURIComponent(participantId)}`,
+        { method: "GET" }
+      );
+      const json = await res.json();
+      if (!res.ok) {
+        setLoadError(json.error ?? "Unable to load participant data.");
+        return;
+      }
+
+      const participant = json.participant as ApiParticipant;
+      setEmail(participant.email ?? "");
+      setFormData({
+        nome: participant.nome ?? "",
+        cognome: participant.cognome ?? "",
+        nazione: participant.nazione ?? "",
+        data_nascita: participant.data_nascita ?? "",
+        data_arrivo: participant.data_arrivo ?? "",
+        data_partenza: participant.data_partenza ?? "",
+        alloggio: participant.alloggio ?? "",
+        allergie: participant.allergie ?? "",
+        esigenze_alimentari: Array.isArray(participant.esigenze_alimentari)
+          ? participant.esigenze_alimentari
+          : [],
+        disabilita_accessibilita: Boolean(participant.disabilita_accessibilita),
+        difficolta_accessibilita: Array.isArray(participant.difficolta_accessibilita)
+          ? participant.difficolta_accessibilita
+          : [],
+      });
+      setRequiresSelection(false);
+    } catch {
+      setLoadError("Unable to load participant data.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   function toggleDifficolta(option: string) {
     setFormData((prev) => {
@@ -138,7 +234,10 @@ export function PartecipanteForm() {
       const res = await fetch("/api/partecipante/me", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          participant_id: selectedParticipantId,
+        }),
       });
       const json = await res.json();
 
@@ -164,7 +263,10 @@ export function PartecipanteForm() {
       const res = await fetch("/api/partecipante/me", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ confirmation_email: deleteEmailInput }),
+        body: JSON.stringify({
+          confirmation_email: deleteEmailInput,
+          participant_id: selectedParticipantId,
+        }),
       });
       const json = await res.json();
 
@@ -209,6 +311,49 @@ export function PartecipanteForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      {requiresSelection && participantCandidates.length > 0 ? (
+        <div className="rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <p className="font-medium">Multiple participant registrations found.</p>
+          <p className="mt-1">
+            Select the participant profile you want to manage with this email.
+          </p>
+        </div>
+      ) : null}
+
+      {participantCandidates.length > 1 ? (
+        <div>
+          <label className="block text-sm font-medium text-slate-700">
+            Participant profile
+          </label>
+          <select
+            value={selectedParticipantId ?? ""}
+            onChange={(e) => {
+              const nextId = e.target.value;
+              if (nextId) {
+                void handleSelectionChange(nextId);
+              }
+            }}
+            className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+          >
+            <option value="" disabled>
+              Select participant...
+            </option>
+            {participantCandidates.map((candidate) => {
+              const fullName = [candidate.nome ?? "", candidate.cognome ?? ""]
+                .join(" ")
+                .trim();
+              const groupLabel =
+                (candidate.gruppo_label ?? candidate.gruppo_id ?? "").trim() || "-";
+              return (
+                <option key={candidate.id} value={candidate.id}>
+                  {fullName || "Unnamed participant"} - Group {groupLabel}
+                </option>
+              );
+            })}
+          </select>
+        </div>
+      ) : null}
+
       <div className="grid gap-4 md:grid-cols-2">
         <div>
           <label className="block text-sm font-medium text-slate-700">Nome</label>

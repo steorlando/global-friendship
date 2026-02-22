@@ -71,6 +71,7 @@ const GROUP_LEADER_SELECT_FIELDS = "id,email,nome,cognome,ruolo,telefono,italia,
 const MAX_ATTACHMENTS = 5;
 const MAX_ATTACHMENT_BASE64_LENGTH = 10 * 1024 * 1024;
 const MAX_TOTAL_BASE64_LENGTH = 20 * 1024 * 1024;
+const SEND_CONCURRENCY = 5;
 
 const esigenzeSet = new Set<string>(ESIGENZE_ALIMENTARI_OPTIONS);
 const difficoltaSet = new Set<string>(DIFFICOLTA_ACCESSIBILITA_OPTIONS);
@@ -152,6 +153,25 @@ function parseStoredDifficolta(value: string | null): string[] {
 function buildGroupLabel(row: ParticipantRow): string {
   const value = (row.gruppo_label ?? row.gruppo_id ?? "").trim();
   return value || "-";
+}
+
+async function runWithConcurrency<T>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T) => Promise<void>
+) {
+  let index = 0;
+  const workers = Array.from(
+    { length: Math.max(1, Math.min(concurrency, items.length || 1)) },
+    async () => {
+      while (index < items.length) {
+        const current = items[index];
+        index += 1;
+        await worker(current);
+      }
+    }
+  );
+  await Promise.all(workers);
 }
 
 function toTemplateData(row: ParticipantRow): ParticipantTemplateData {
@@ -316,7 +336,7 @@ export async function POST(req: Request) {
       }
     }
 
-    for (const row of recipients) {
+    await runWithConcurrency(recipients, SEND_CONCURRENCY, async (row) => {
       const groupLeader = toGroupLeaderTemplateData({
         ...row,
         gruppi: groupsByLeader.get(row.id) ?? [],
@@ -324,7 +344,7 @@ export async function POST(req: Request) {
       const to = normalizeText(groupLeader.email);
       if (!to) {
         skipped.push({ id: row.id, reason: "Missing email" });
-        continue;
+        return;
       }
 
       const subject = renderGroupLeaderTemplateText(subjectTemplate, groupLeader);
@@ -338,7 +358,7 @@ export async function POST(req: Request) {
         const reason = sendError instanceof Error ? sendError.message : "Send failed";
         failed.push({ id: row.id, reason });
       }
-    }
+    });
   } else {
     const { data, error } = await auth.service
       .from("partecipanti")
@@ -359,12 +379,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No matching recipients found" }, { status: 404 });
     }
 
-    for (const row of recipients) {
+    await runWithConcurrency(recipients, SEND_CONCURRENCY, async (row) => {
       const participant = toTemplateData(row);
       const to = normalizeText(participant.email);
       if (!to) {
         skipped.push({ id: row.id, reason: "Missing email" });
-        continue;
+        return;
       }
 
       const subject = renderParticipantTemplateText(subjectTemplate, participant);
@@ -378,7 +398,7 @@ export async function POST(req: Request) {
         const reason = sendError instanceof Error ? sendError.message : "Send failed";
         failed.push({ id: row.id, reason });
       }
-    }
+    });
   }
 
   return NextResponse.json({

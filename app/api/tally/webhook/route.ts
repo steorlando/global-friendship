@@ -66,9 +66,11 @@ function getEnv(name: string): string {
   return value;
 }
 
-function verifySignature(rawBody: string, signatureHeader: string | null): boolean {
-  const secret = process.env.TALLY_WEBHOOK_SECRET;
-  if (!secret) return true;
+function verifySignature(
+  rawBody: string,
+  signatureHeader: string | null,
+  secret: string
+): boolean {
   if (!signatureHeader) return false;
 
   const cleaned = signatureHeader.startsWith("sha256=")
@@ -674,13 +676,20 @@ async function handlePost(req: Request) {
     getEnv("SUPABASE_URL"),
     getEnv("SUPABASE_SERVICE_ROLE_KEY")
   );
+  const webhookSecret = process.env.TALLY_WEBHOOK_SECRET?.trim() ?? "";
+  if (!webhookSecret) {
+    return NextResponse.json(
+      { error: "Server webhook secret is not configured" },
+      { status: 500 }
+    );
+  }
 
   const signatureHeader =
     req.headers.get("tally-signature") ||
     req.headers.get("x-tally-signature") ||
     req.headers.get("tally-signature-v1");
 
-  if (!verifySignature(rawBody, signatureHeader)) {
+  if (!verifySignature(rawBody, signatureHeader, webhookSecret)) {
     await logWebhookEvent(supabase, {
       submissionId: normalize(payload?.data?.submissionId || payload?.submissionId),
       respondentId: normalize(payload?.data?.respondentId || payload?.respondentId),

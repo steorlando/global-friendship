@@ -33,6 +33,15 @@ type ParticipantDbRow = {
   submitted_at_tally: string | null;
 };
 
+type ParticipantCandidate = {
+  id: string;
+  nome: string | null;
+  cognome: string | null;
+  gruppo_id: string | null;
+  gruppo_label: string | null;
+  submitted_at_tally: string | null;
+};
+
 const alloggioSet = new Set<string>(ALLOGGIO_OPTIONS);
 const esigenzeSet = new Set<string>(ESIGENZE_ALIMENTARI_OPTIONS);
 const difficoltaSet = new Set<string>(DIFFICOLTA_ACCESSIBILITA_OPTIONS);
@@ -107,6 +116,17 @@ function pickLatest(rows: ParticipantDbRow[]): ParticipantDbRow | null {
   }, rows[0]);
 }
 
+function toParticipantCandidate(row: ParticipantDbRow): ParticipantCandidate {
+  return {
+    id: row.id,
+    nome: row.nome,
+    cognome: row.cognome,
+    gruppo_id: row.gruppo_id,
+    gruppo_label: row.gruppo_label,
+    submitted_at_tally: row.submitted_at_tally,
+  };
+}
+
 async function getCurrentUserEmail() {
   const supabase = await createSupabaseServerClient();
   const {
@@ -123,9 +143,9 @@ async function getCurrentUserEmail() {
   return { email: user.email.toLowerCase() };
 }
 
-async function loadParticipantByEmail(
+async function loadParticipantsByEmail(
   email: string
-): Promise<{ participant: ParticipantDbRow | null; error: string | null }> {
+): Promise<{ participants: ParticipantDbRow[]; error: string | null }> {
   const supabase = createSupabaseServiceClient();
   const { data, error } = await supabase
     .from("partecipanti")
@@ -134,24 +154,113 @@ async function loadParticipantByEmail(
     )
     .ilike("email", email);
 
-  if (error) return { participant: null, error: error.message };
-  const participant = pickLatest((data ?? []) as ParticipantDbRow[]);
-  return { participant, error: null };
+  if (error) return { participants: [], error: error.message };
+  const participants = ((data ?? []) as ParticipantDbRow[]).sort((a, b) =>
+    (b.submitted_at_tally ?? "").localeCompare(a.submitted_at_tally ?? "")
+  );
+  return { participants, error: null };
 }
 
-export async function GET() {
+async function resolveParticipantSelection(
+  email: string,
+  participantId: string | null
+): Promise<
+  | {
+      participant: ParticipantDbRow;
+      candidates: ParticipantCandidate[];
+      requiresSelection: false;
+    }
+  | {
+      selectionResponse: NextResponse;
+    }
+> {
+  const { participants, error } = await loadParticipantsByEmail(email);
+  if (error) {
+    return {
+      selectionResponse: NextResponse.json({ error }, { status: 500 }),
+    };
+  }
+
+  if (participants.length === 0) {
+    return {
+      selectionResponse: NextResponse.json(
+        { error: "Participant not found" },
+        { status: 404 }
+      ),
+    };
+  }
+
+  const candidates = participants.map(toParticipantCandidate);
+  if (participantId) {
+    const selected = participants.find((row) => row.id === participantId);
+    if (!selected) {
+      return {
+        selectionResponse: NextResponse.json(
+          {
+            error: "Selected participant not found for this email",
+            code: "PARTICIPANT_NOT_FOUND",
+            requiresSelection: true,
+            participants: candidates,
+          },
+          { status: 404 }
+        ),
+      };
+    }
+
+    return {
+      participant: selected,
+      candidates,
+      requiresSelection: false,
+    };
+  }
+
+  if (participants.length > 1) {
+    return {
+      selectionResponse: NextResponse.json(
+        {
+          error: "Multiple participants found for this email",
+          code: "PARTICIPANT_SELECTION_REQUIRED",
+          requiresSelection: true,
+          participants: candidates,
+        },
+        { status: 409 }
+      ),
+    };
+  }
+
+  const participant = pickLatest(participants);
+  if (!participant) {
+    return {
+      selectionResponse: NextResponse.json(
+        { error: "Participant not found" },
+        { status: 404 }
+      ),
+    };
+  }
+
+  return {
+    participant,
+    candidates,
+    requiresSelection: false,
+  };
+}
+
+export async function GET(req: Request) {
   const auth = await getCurrentUserEmail();
   if ("errorResponse" in auth) return auth.errorResponse;
 
-  const { participant, error } = await loadParticipantByEmail(auth.email);
-  if (error) {
-    return NextResponse.json({ error }, { status: 500 });
-  }
-  if (!participant) {
-    return NextResponse.json({ error: "Participant not found" }, { status: 404 });
-  }
+  const url = new URL(req.url);
+  const participantId = normalizeText(
+    url.searchParams.get("participantId") ?? undefined
+  );
+  const selected = await resolveParticipantSelection(auth.email, participantId);
+  if ("selectionResponse" in selected) return selected.selectionResponse;
+  const { participant, candidates } = selected;
 
   return NextResponse.json({
+    requiresSelection: false,
+    participants: candidates,
+    selectedParticipantId: participant.id,
     participant: {
       ...participant,
       esigenze_alimentari: parseStoredEsigenze(participant.esigenze_alimentari),
@@ -166,18 +275,17 @@ export async function PATCH(req: Request) {
   const auth = await getCurrentUserEmail();
   if ("errorResponse" in auth) return auth.errorResponse;
 
-  const { participant, error } = await loadParticipantByEmail(auth.email);
-  if (error) return NextResponse.json({ error }, { status: 500 });
-  if (!participant) {
-    return NextResponse.json({ error: "Participant not found" }, { status: 404 });
-  }
-
   let body: Record<string, unknown> = {};
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
+
+  const participantId = normalizeText(body.participant_id);
+  const selected = await resolveParticipantSelection(auth.email, participantId);
+  if ("selectionResponse" in selected) return selected.selectionResponse;
+  const { participant } = selected;
 
   const nome =
     "nome" in body
@@ -323,18 +431,17 @@ export async function DELETE(req: Request) {
   const auth = await getCurrentUserEmail();
   if ("errorResponse" in auth) return auth.errorResponse;
 
-  const { participant, error } = await loadParticipantByEmail(auth.email);
-  if (error) return NextResponse.json({ error }, { status: 500 });
-  if (!participant) {
-    return NextResponse.json({ error: "Participant not found" }, { status: 404 });
-  }
-
   let body: Record<string, unknown> = {};
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
+
+  const participantId = normalizeText(body.participant_id);
+  const selected = await resolveParticipantSelection(auth.email, participantId);
+  if ("selectionResponse" in selected) return selected.selectionResponse;
+  const { participant } = selected;
 
   const confirmationEmail = normalizeText(body.confirmation_email)?.toLowerCase();
   if (!confirmationEmail) {

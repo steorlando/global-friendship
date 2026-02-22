@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import type SMTPTransport from "nodemailer/lib/smtp-transport";
 
 type SendGmailTextEmailInput = {
   to: string;
@@ -31,21 +32,21 @@ export function getGmailSenderAddress(): string {
   );
 }
 
-export async function sendGmailTextEmail(input: SendGmailTextEmailInput) {
-  await sendGmailEmail({
-    to: input.to,
-    subject: input.subject,
-    text: input.text,
-    replyTo: input.replyTo,
-    from: input.from,
-  });
-}
+let cachedTransport: {
+  key: string;
+  transporter: nodemailer.Transporter<SMTPTransport.SentMessageInfo>;
+} | null = null;
 
-export async function sendGmailEmail(input: SendGmailEmailInput) {
+function getTransporter() {
   const gmailUser = process.env.GMAIL_USER;
   const gmailAppPassword = process.env.GMAIL_APP_PASSWORD;
   if (!gmailUser || !gmailAppPassword) {
     throw new Error("Missing GMAIL_USER or GMAIL_APP_PASSWORD");
+  }
+
+  const cacheKey = `${gmailUser}:${gmailAppPassword}`;
+  if (cachedTransport && cachedTransport.key === cacheKey) {
+    return cachedTransport.transporter;
   }
 
   const transporter = nodemailer.createTransport({
@@ -57,6 +58,23 @@ export async function sendGmailEmail(input: SendGmailEmailInput) {
       pass: gmailAppPassword,
     },
   });
+
+  cachedTransport = { key: cacheKey, transporter };
+  return transporter;
+}
+
+export async function sendGmailTextEmail(input: SendGmailTextEmailInput) {
+  await sendGmailEmail({
+    to: input.to,
+    subject: input.subject,
+    text: input.text,
+    replyTo: input.replyTo,
+    from: input.from,
+  });
+}
+
+export async function sendGmailEmail(input: SendGmailEmailInput) {
+  const transporter = getTransporter();
 
   await transporter.sendMail({
     from: input.from || getGmailSenderAddress(),

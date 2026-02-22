@@ -18,7 +18,10 @@ export function OrganizersContactCard() {
       const res = await fetch("/api/partecipante/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({
+          message,
+          participant_id: window.localStorage.getItem("gf_participant_id"),
+        }),
       });
       const json = await res.json();
 

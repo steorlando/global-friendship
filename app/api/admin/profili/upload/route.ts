@@ -5,6 +5,9 @@ import { isAppRole } from "@/lib/auth/roles";
 import { parseCsvObjects } from "@/lib/csv/parse";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
+const MAX_CSV_BYTES = 5 * 1024 * 1024;
+const MAX_CSV_ROWS = 5000;
+
 function pickField(row: Record<string, string>, keys: string[]): string {
   for (const key of keys) {
     const value = row[key];
@@ -41,6 +44,12 @@ export async function POST(req: Request) {
     if (!(file instanceof File)) {
       return NextResponse.json({ error: "Missing file" }, { status: 400 });
     }
+    if (file.size > MAX_CSV_BYTES) {
+      return NextResponse.json(
+        { error: "CSV file is too large (max 5 MB)" },
+        { status: 400 }
+      );
+    }
 
     if (!isAppRole(defaultRole)) {
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
@@ -48,6 +57,12 @@ export async function POST(req: Request) {
 
     const text = await file.text();
     const rows = parseCsvObjects(text, ";");
+    if (rows.length > MAX_CSV_ROWS) {
+      return NextResponse.json(
+        { error: `Too many rows in CSV (max ${MAX_CSV_ROWS})` },
+        { status: 400 }
+      );
+    }
     const supabase = createSupabaseServiceClient();
 
     const groupedByEmail = new Map<

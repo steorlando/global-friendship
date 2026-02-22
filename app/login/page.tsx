@@ -4,17 +4,13 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
-  AVAILABLE_ROLES,
-  ROLE_LABELS,
   ROLE_ROUTES,
   isAppRole,
-  type AppRole,
 } from "@/lib/auth/roles";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<AppRole>("partecipante");
   const [status, setStatus] = useState<"idle" | "loading" | "sent" | "error">(
     "idle"
   );
@@ -33,9 +29,6 @@ export default function LoginPage() {
       const user = session?.user ?? null;
       if (!user) return;
 
-      const requestedRole = window.localStorage.getItem("gf_requested_role");
-      const requested = isAppRole(requestedRole) ? requestedRole : null;
-
       const { data: profile } = await supabase
         .from("profili")
         .select("ruolo")
@@ -43,15 +36,9 @@ export default function LoginPage() {
         .maybeSingle();
 
       const roleFromProfile = profile?.ruolo ?? null;
-      const destination = requested
-        ? ROLE_ROUTES[requested]
-        : isAppRole(roleFromProfile)
-          ? ROLE_ROUTES[roleFromProfile]
-          : "/dashboard";
-
-      if (requestedRole) {
-        window.localStorage.removeItem("gf_requested_role");
-      }
+      const destination = isAppRole(roleFromProfile)
+        ? ROLE_ROUTES[roleFromProfile]
+        : ROLE_ROUTES.partecipante;
 
       router.replace(destination);
     }
@@ -65,7 +52,6 @@ export default function LoginPage() {
     setMessage(null);
 
     try {
-      window.localStorage.setItem("gf_requested_role", role);
       const supabase = createSupabaseBrowserClient();
       const { error } = await supabase.auth.signInWithOtp({
         email,
@@ -95,8 +81,7 @@ export default function LoginPage() {
       <div className="mt-3 space-y-2 text-sm text-slate-500">
         <p className="leading-relaxed">
           Manage Global Friendship registrations from this page. Enter your
-          password and choose your role (Participant, Group Leader, etc.) to
-          continue.
+          email address to continue.
         </p>
         <p className="leading-relaxed">
           We will send a secure magic link to your email. On your first login
@@ -106,24 +91,6 @@ export default function LoginPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-slate-700">
-            Role
-          </label>
-          <select
-            required
-            value={role}
-            onChange={(e) => setRole(e.target.value as AppRole)}
-            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-          >
-            {AVAILABLE_ROLES.map((item) => (
-              <option key={item} value={item}>
-                {ROLE_LABELS[item]}
-              </option>
-            ))}
-          </select>
-        </div>
-
         <div>
           <label className="block text-sm font-medium text-slate-700">
             Email
