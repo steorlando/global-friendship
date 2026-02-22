@@ -9,6 +9,11 @@ import {
   type ParticipantTemplateData,
 } from "@/lib/email/participant-template";
 import {
+  renderGroupLeaderTemplateHtml,
+  renderGroupLeaderTemplateText,
+  type GroupLeaderTemplateData,
+} from "@/lib/email/group-leader-template";
+import {
   DIFFICOLTA_ACCESSIBILITA_OPTIONS,
   ESIGENZE_ALIMENTARI_OPTIONS,
   alloggioLongToShort,
@@ -36,8 +41,20 @@ type ParticipantRow = {
   gruppo_label: string | null;
 };
 
+type GroupLeaderRow = {
+  id: string;
+  email: string | null;
+  nome: string | null;
+  cognome: string | null;
+  ruolo: string | null;
+  telefono: string | null;
+  italia: boolean | null;
+  roma: boolean | null;
+};
+
 const SELECT_FIELDS =
   "id,nome,cognome,email,telefono,paese_residenza,nazione,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label";
+const GROUP_LEADER_SELECT_FIELDS = "id,email,nome,cognome,ruolo,telefono,italia,roma";
 
 const esigenzeSet = new Set<string>(ESIGENZE_ALIMENTARI_OPTIONS);
 const difficoltaSet = new Set<string>(DIFFICOLTA_ACCESSIBILITA_OPTIONS);
@@ -90,6 +107,19 @@ function toTemplateData(row: ParticipantRow): ParticipantTemplateData {
   };
 }
 
+function toGroupLeaderTemplateData(row: GroupLeaderRow): GroupLeaderTemplateData {
+  return {
+    id: row.id,
+    email: row.email,
+    nome: row.nome,
+    cognome: row.cognome,
+    ruolo: row.ruolo,
+    telefono: row.telefono,
+    italia: row.italia,
+    roma: row.roma,
+  };
+}
+
 async function requireManagerOrAdmin() {
   const supabase = await createSupabaseServerClient();
   const {
@@ -136,13 +166,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const participantIds = Array.isArray(body.participantIds)
-    ? [...new Set(body.participantIds.filter((item) => typeof item === "string"))]
-    : [];
+  const recipientType =
+    body.recipientType === "group_leaders" ? "group_leaders" : "participants";
+  const recipientIdsInput = Array.isArray(body.recipientIds)
+    ? body.recipientIds
+    : Array.isArray(body.participantIds)
+      ? body.participantIds
+      : [];
+  const recipientIds = [
+    ...new Set(recipientIdsInput.filter((item): item is string => typeof item === "string")),
+  ];
   const subjectTemplate = normalizeText(body.subject);
   const htmlTemplate = normalizeText(body.html);
 
-  if (participantIds.length === 0) {
+  if (recipientIds.length === 0) {
     return NextResponse.json({ error: "No recipients selected" }, { status: 400 });
   }
 
@@ -154,58 +191,97 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Message body is required" }, { status: 400 });
   }
 
-  const { data, error } = await auth.service
-    .from("partecipanti")
-    .select(SELECT_FIELDS)
-    .in("id", participantIds);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  const rows = (data ?? []) as ParticipantRow[];
-  const byId = new Map(rows.map((row) => [row.id, row]));
-  const recipients = participantIds
-    .map((id) => byId.get(id))
-    .filter((row): row is ParticipantRow => Boolean(row));
-
-  if (recipients.length === 0) {
-    return NextResponse.json({ error: "No matching recipients found" }, { status: 404 });
-  }
-
   const sentTo: string[] = [];
   const skipped: { id: string; reason: string }[] = [];
   const failed: { id: string; reason: string }[] = [];
 
-  for (const row of recipients) {
-    const participant = toTemplateData(row);
-    const to = normalizeText(participant.email);
-    if (!to) {
-      skipped.push({ id: row.id, reason: "Missing email" });
-      continue;
+  if (recipientType === "group_leaders") {
+    const { data, error } = await auth.service
+      .from("profili")
+      .select(GROUP_LEADER_SELECT_FIELDS)
+      .eq("ruolo", "capogruppo")
+      .in("id", recipientIds);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const subject = renderParticipantTemplateText(subjectTemplate, participant);
-    const html = renderParticipantTemplateHtml(htmlTemplate, participant);
-    const text = htmlToText(html);
+    const rows = (data ?? []) as GroupLeaderRow[];
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    const recipients = recipientIds
+      .map((id) => byId.get(id))
+      .filter((row): row is GroupLeaderRow => Boolean(row));
 
-    try {
-      await sendGmailEmail({
-        to,
-        subject,
-        html,
-        text,
-      });
-      sentTo.push(row.id);
-    } catch (sendError) {
-      const reason = sendError instanceof Error ? sendError.message : "Send failed";
-      failed.push({ id: row.id, reason });
+    if (recipients.length === 0) {
+      return NextResponse.json({ error: "No matching recipients found" }, { status: 404 });
+    }
+
+    for (const row of recipients) {
+      const groupLeader = toGroupLeaderTemplateData(row);
+      const to = normalizeText(groupLeader.email);
+      if (!to) {
+        skipped.push({ id: row.id, reason: "Missing email" });
+        continue;
+      }
+
+      const subject = renderGroupLeaderTemplateText(subjectTemplate, groupLeader);
+      const html = renderGroupLeaderTemplateHtml(htmlTemplate, groupLeader);
+      const text = htmlToText(html);
+
+      try {
+        await sendGmailEmail({ to, subject, html, text });
+        sentTo.push(row.id);
+      } catch (sendError) {
+        const reason = sendError instanceof Error ? sendError.message : "Send failed";
+        failed.push({ id: row.id, reason });
+      }
+    }
+  } else {
+    const { data, error } = await auth.service
+      .from("partecipanti")
+      .select(SELECT_FIELDS)
+      .in("id", recipientIds);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    const rows = (data ?? []) as ParticipantRow[];
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    const recipients = recipientIds
+      .map((id) => byId.get(id))
+      .filter((row): row is ParticipantRow => Boolean(row));
+
+    if (recipients.length === 0) {
+      return NextResponse.json({ error: "No matching recipients found" }, { status: 404 });
+    }
+
+    for (const row of recipients) {
+      const participant = toTemplateData(row);
+      const to = normalizeText(participant.email);
+      if (!to) {
+        skipped.push({ id: row.id, reason: "Missing email" });
+        continue;
+      }
+
+      const subject = renderParticipantTemplateText(subjectTemplate, participant);
+      const html = renderParticipantTemplateHtml(htmlTemplate, participant);
+      const text = htmlToText(html);
+
+      try {
+        await sendGmailEmail({ to, subject, html, text });
+        sentTo.push(row.id);
+      } catch (sendError) {
+        const reason = sendError instanceof Error ? sendError.message : "Send failed";
+        failed.push({ id: row.id, reason });
+      }
     }
   }
 
   return NextResponse.json({
-    requested: participantIds.length,
-    resolved: recipients.length,
+    recipientType,
+    requested: recipientIds.length,
+    resolved: sentTo.length + skipped.length + failed.length,
     sent: sentTo.length,
     sentIds: sentTo,
     skipped,

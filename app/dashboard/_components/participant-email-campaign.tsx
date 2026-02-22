@@ -11,10 +11,20 @@ import {
   renderParticipantTemplateText,
   type ParticipantTemplateData,
 } from "@/lib/email/participant-template";
+import {
+  GROUP_LEADER_TEMPLATE_FIELDS,
+  renderGroupLeaderTemplateHtml,
+  renderGroupLeaderTemplateText,
+  type GroupLeaderTemplateData,
+} from "@/lib/email/group-leader-template";
+
+type RecipientType = "participants" | "group_leaders";
 
 type Participant = ParticipantTemplateData;
 
-type SortKey =
+type GroupLeader = GroupLeaderTemplateData;
+
+type ParticipantSortKey =
   | "group"
   | "nome"
   | "cognome"
@@ -24,12 +34,18 @@ type SortKey =
   | "alloggio"
   | "quota_totale";
 
+type GroupLeaderSortKey = "nome" | "cognome" | "email" | "telefono" | "italia" | "roma";
+
 type SortDirection = "asc" | "desc";
 
-type LoadResponse = {
+type ParticipantsLoadResponse = {
   participants: Participant[];
   groups: string[];
   showGroupColumn: boolean;
+};
+
+type GroupLeadersLoadResponse = {
+  groupLeaders: GroupLeader[];
 };
 
 type EmailTemplate = {
@@ -48,17 +64,29 @@ function safeIncludes(value: string | null, search: string): boolean {
   return safeLower(value).includes(search.toLowerCase());
 }
 
+function formatBoolean(value: boolean | null): string {
+  if (value === null) return "-";
+  return value ? "Yes" : "No";
+}
+
 export function ParticipantEmailCampaign() {
+  const [activeRecipientType, setActiveRecipientType] = useState<RecipientType>("participants");
+
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [groups, setGroups] = useState<string[]>([]);
   const [showGroupColumn, setShowGroupColumn] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [participantsLoading, setParticipantsLoading] = useState(true);
+  const [participantsError, setParticipantsError] = useState<string | null>(null);
+
+  const [groupLeaders, setGroupLeaders] = useState<GroupLeader[]>([]);
+  const [groupLeadersLoading, setGroupLeadersLoading] = useState(true);
+  const [groupLeadersError, setGroupLeadersError] = useState<string | null>(null);
 
   const [subject, setSubject] = useState("Global Friendship update");
   const [bodyHtml, setBodyHtml] = useState(
     "<p>Hello {{nome}},</p><p>We are writing regarding your Global Friendship registration.</p><p>Best regards,<br />Global Friendship team</p>"
   );
+
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -82,44 +110,75 @@ export function ParticipantEmailCampaign() {
     immediatelyRender: false,
   });
 
-  const [search, setSearch] = useState("");
-  const [groupFilter, setGroupFilter] = useState("");
-  const [arrivoFilter, setArrivoFilter] = useState("");
-  const [partenzaFilter, setPartenzaFilter] = useState("");
-  const [alloggioFilter, setAlloggioFilter] = useState("");
-  const [sortKey, setSortKey] = useState<SortKey>("cognome");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [participantSearch, setParticipantSearch] = useState("");
+  const [participantGroupFilter, setParticipantGroupFilter] = useState("");
+  const [participantArrivoFilter, setParticipantArrivoFilter] = useState("");
+  const [participantPartenzaFilter, setParticipantPartenzaFilter] = useState("");
+  const [participantAlloggioFilter, setParticipantAlloggioFilter] = useState("");
+  const [participantSortKey, setParticipantSortKey] = useState<ParticipantSortKey>("cognome");
+  const [participantSortDirection, setParticipantSortDirection] = useState<SortDirection>("asc");
 
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [groupLeaderSearch, setGroupLeaderSearch] = useState("");
+  const [groupLeaderItaliaFilter, setGroupLeaderItaliaFilter] = useState("all");
+  const [groupLeaderRomaFilter, setGroupLeaderRomaFilter] = useState("all");
+  const [groupLeaderSortKey, setGroupLeaderSortKey] = useState<GroupLeaderSortKey>("cognome");
+  const [groupLeaderSortDirection, setGroupLeaderSortDirection] = useState<SortDirection>("asc");
+
+  const [selectedParticipantIds, setSelectedParticipantIds] = useState<Set<string>>(new Set());
+  const [selectedGroupLeaderIds, setSelectedGroupLeaderIds] = useState<Set<string>>(new Set());
 
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [sendResult, setSendResult] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+
   const [savedTemplates, setSavedTemplates] = useState<EmailTemplate[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState(true);
 
   useEffect(() => {
-    async function load() {
-      setLoading(true);
-      setLoadError(null);
+    async function loadParticipants() {
+      setParticipantsLoading(true);
+      setParticipantsError(null);
       try {
         const res = await fetch("/api/manager/participants");
-        const json = (await res.json()) as LoadResponse & { error?: string };
+        const json = (await res.json()) as ParticipantsLoadResponse & { error?: string };
         if (!res.ok) {
-          setLoadError(json.error ?? "Unable to load participants.");
+          setParticipantsError(json.error ?? "Unable to load participants.");
           return;
         }
         setParticipants(Array.isArray(json.participants) ? json.participants : []);
         setGroups(Array.isArray(json.groups) ? json.groups : []);
         setShowGroupColumn(Boolean(json.showGroupColumn));
       } catch {
-        setLoadError("Unable to load participants.");
+        setParticipantsError("Unable to load participants.");
       } finally {
-        setLoading(false);
+        setParticipantsLoading(false);
       }
     }
-    load();
+
+    loadParticipants();
+  }, []);
+
+  useEffect(() => {
+    async function loadGroupLeaders() {
+      setGroupLeadersLoading(true);
+      setGroupLeadersError(null);
+      try {
+        const res = await fetch("/api/manager/group-leaders");
+        const json = (await res.json()) as GroupLeadersLoadResponse & { error?: string };
+        if (!res.ok) {
+          setGroupLeadersError(json.error ?? "Unable to load group leaders.");
+          return;
+        }
+        setGroupLeaders(Array.isArray(json.groupLeaders) ? json.groupLeaders : []);
+      } catch {
+        setGroupLeadersError("Unable to load group leaders.");
+      } finally {
+        setGroupLeadersLoading(false);
+      }
+    }
+
+    loadGroupLeaders();
   }, []);
 
   useEffect(() => {
@@ -148,8 +207,8 @@ export function ParticipantEmailCampaign() {
 
   const filteredSortedParticipants = useMemo(() => {
     const filtered = participants.filter((participant) => {
-      if (search) {
-        const s = search.toLowerCase();
+      if (participantSearch) {
+        const s = participantSearch.toLowerCase();
         const matches =
           safeIncludes(participant.nome, s) ||
           safeIncludes(participant.cognome, s) ||
@@ -158,26 +217,35 @@ export function ParticipantEmailCampaign() {
         if (!matches) return false;
       }
 
-      if (showGroupColumn && groupFilter) {
-        if (!safeIncludes(participant.group, groupFilter)) return false;
+      if (showGroupColumn && participantGroupFilter) {
+        if (!safeIncludes(participant.group, participantGroupFilter)) return false;
       }
-      if (arrivoFilter && (participant.data_arrivo ?? "") !== arrivoFilter) return false;
-      if (partenzaFilter && (participant.data_partenza ?? "") !== partenzaFilter) return false;
-      if (alloggioFilter && (participant.alloggio ?? "") !== alloggioFilter) return false;
+      if (participantArrivoFilter && (participant.data_arrivo ?? "") !== participantArrivoFilter) {
+        return false;
+      }
+      if (
+        participantPartenzaFilter &&
+        (participant.data_partenza ?? "") !== participantPartenzaFilter
+      ) {
+        return false;
+      }
+      if (participantAlloggioFilter && (participant.alloggio ?? "") !== participantAlloggioFilter) {
+        return false;
+      }
 
       return true;
     });
 
     filtered.sort((a, b) => {
-      const direction = sortDirection === "asc" ? 1 : -1;
+      const direction = participantSortDirection === "asc" ? 1 : -1;
       const aValue =
-        sortKey === "quota_totale"
+        participantSortKey === "quota_totale"
           ? a.quota_totale ?? -Infinity
-          : ((a[sortKey] as string | null) ?? "").toLowerCase();
+          : ((a[participantSortKey] as string | null) ?? "").toLowerCase();
       const bValue =
-        sortKey === "quota_totale"
+        participantSortKey === "quota_totale"
           ? b.quota_totale ?? -Infinity
-          : ((b[sortKey] as string | null) ?? "").toLowerCase();
+          : ((b[participantSortKey] as string | null) ?? "").toLowerCase();
 
       if (aValue < bValue) return -1 * direction;
       if (aValue > bValue) return 1 * direction;
@@ -186,44 +254,135 @@ export function ParticipantEmailCampaign() {
 
     return filtered;
   }, [
-    alloggioFilter,
-    arrivoFilter,
-    groupFilter,
+    participantAlloggioFilter,
+    participantArrivoFilter,
+    participantGroupFilter,
+    participantPartenzaFilter,
+    participantSearch,
+    participantSortDirection,
+    participantSortKey,
     participants,
-    partenzaFilter,
-    search,
     showGroupColumn,
-    sortDirection,
-    sortKey,
   ]);
 
-  const visibleIds = useMemo(
+  const filteredSortedGroupLeaders = useMemo(() => {
+    const filtered = groupLeaders.filter((leader) => {
+      if (groupLeaderSearch) {
+        const s = groupLeaderSearch.toLowerCase();
+        const matches =
+          safeIncludes(leader.nome, s) ||
+          safeIncludes(leader.cognome, s) ||
+          safeIncludes(leader.email, s) ||
+          safeIncludes(leader.telefono, s);
+        if (!matches) return false;
+      }
+
+      if (groupLeaderItaliaFilter === "yes" && leader.italia !== true) return false;
+      if (groupLeaderItaliaFilter === "no" && leader.italia !== false) return false;
+      if (groupLeaderRomaFilter === "yes" && leader.roma !== true) return false;
+      if (groupLeaderRomaFilter === "no" && leader.roma !== false) return false;
+
+      return true;
+    });
+
+    filtered.sort((a, b) => {
+      const direction = groupLeaderSortDirection === "asc" ? 1 : -1;
+      const getBooleanSortValue = (value: boolean | null) => {
+        if (value === true) return 1;
+        if (value === false) return 0;
+        return -1;
+      };
+
+      let aValue: string | number = "";
+      let bValue: string | number = "";
+
+      if (groupLeaderSortKey === "italia") {
+        aValue = getBooleanSortValue(a.italia);
+        bValue = getBooleanSortValue(b.italia);
+      } else if (groupLeaderSortKey === "roma") {
+        aValue = getBooleanSortValue(a.roma);
+        bValue = getBooleanSortValue(b.roma);
+      } else {
+        aValue = ((a[groupLeaderSortKey] as string | null) ?? "").toLowerCase();
+        bValue = ((b[groupLeaderSortKey] as string | null) ?? "").toLowerCase();
+      }
+
+      if (aValue < bValue) return -1 * direction;
+      if (aValue > bValue) return 1 * direction;
+      return 0;
+    });
+
+    return filtered;
+  }, [
+    groupLeaderItaliaFilter,
+    groupLeaderRomaFilter,
+    groupLeaderSearch,
+    groupLeaderSortDirection,
+    groupLeaderSortKey,
+    groupLeaders,
+  ]);
+
+  const participantVisibleIds = useMemo(
     () => filteredSortedParticipants.map((participant) => participant.id),
     [filteredSortedParticipants]
   );
 
-  const selectedParticipants = useMemo(
-    () => participants.filter((participant) => selectedIds.has(participant.id)),
-    [participants, selectedIds]
+  const groupLeaderVisibleIds = useMemo(
+    () => filteredSortedGroupLeaders.map((groupLeader) => groupLeader.id),
+    [filteredSortedGroupLeaders]
   );
-  const selectedParticipantsWithEmail = useMemo(
-    () =>
-      selectedParticipants.filter(
-        (participant) => typeof participant.email === "string" && participant.email.trim()
-      ),
-    [selectedParticipants]
-  );
+
+  const activeVisibleIds =
+    activeRecipientType === "participants" ? participantVisibleIds : groupLeaderVisibleIds;
+
+  const activeSelectedIds =
+    activeRecipientType === "participants" ? selectedParticipantIds : selectedGroupLeaderIds;
 
   const allVisibleSelected =
-    visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
+    activeVisibleIds.length > 0 && activeVisibleIds.every((id) => activeSelectedIds.has(id));
 
-  const previewParticipant = selectedParticipantsWithEmail[0] ?? selectedParticipants[0] ?? null;
-  const previewHtml = previewParticipant
-    ? renderParticipantTemplateHtml(bodyHtml, previewParticipant)
-    : "";
-  const previewSubject = previewParticipant
-    ? renderParticipantTemplateText(subject, previewParticipant)
-    : subject;
+  const selectedParticipants = useMemo(
+    () => participants.filter((participant) => selectedParticipantIds.has(participant.id)),
+    [participants, selectedParticipantIds]
+  );
+
+  const selectedGroupLeaders = useMemo(
+    () => groupLeaders.filter((leader) => selectedGroupLeaderIds.has(leader.id)),
+    [groupLeaders, selectedGroupLeaderIds]
+  );
+
+  const selectedRecipientsWithEmail =
+    activeRecipientType === "participants"
+      ? selectedParticipants.filter(
+          (participant) => typeof participant.email === "string" && participant.email.trim()
+        )
+      : selectedGroupLeaders.filter(
+          (leader) => typeof leader.email === "string" && leader.email.trim()
+        );
+
+  const selectedRecipients =
+    activeRecipientType === "participants" ? selectedParticipants : selectedGroupLeaders;
+
+  const previewRecipient = selectedRecipientsWithEmail[0] ?? selectedRecipients[0] ?? null;
+
+  const previewHtml =
+    previewRecipient == null
+      ? ""
+      : activeRecipientType === "participants"
+        ? renderParticipantTemplateHtml(bodyHtml, previewRecipient as Participant)
+        : renderGroupLeaderTemplateHtml(bodyHtml, previewRecipient as GroupLeader);
+
+  const previewSubject =
+    previewRecipient == null
+      ? subject
+      : activeRecipientType === "participants"
+        ? renderParticipantTemplateText(subject, previewRecipient as Participant)
+        : renderGroupLeaderTemplateText(subject, previewRecipient as GroupLeader);
+
+  const activeFieldList =
+    activeRecipientType === "participants"
+      ? PARTICIPANT_TEMPLATE_FIELDS
+      : GROUP_LEADER_TEMPLATE_FIELDS;
 
   function applyFormat(
     command:
@@ -400,17 +559,39 @@ export function ParticipantEmailCampaign() {
     }
   }
 
-  function toggleSort(key: SortKey) {
-    if (sortKey === key) {
-      setSortDirection((value) => (value === "asc" ? "desc" : "asc"));
+  function toggleParticipantSort(key: ParticipantSortKey) {
+    if (participantSortKey === key) {
+      setParticipantSortDirection((value) => (value === "asc" ? "desc" : "asc"));
       return;
     }
-    setSortKey(key);
-    setSortDirection("asc");
+    setParticipantSortKey(key);
+    setParticipantSortDirection("asc");
   }
 
-  function toggleParticipant(id: string) {
-    setSelectedIds((current) => {
+  function toggleGroupLeaderSort(key: GroupLeaderSortKey) {
+    if (groupLeaderSortKey === key) {
+      setGroupLeaderSortDirection((value) => (value === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setGroupLeaderSortKey(key);
+    setGroupLeaderSortDirection("asc");
+  }
+
+  function toggleRecipient(id: string) {
+    if (activeRecipientType === "participants") {
+      setSelectedParticipantIds((current) => {
+        const next = new Set(current);
+        if (next.has(id)) {
+          next.delete(id);
+        } else {
+          next.add(id);
+        }
+        return next;
+      });
+      return;
+    }
+
+    setSelectedGroupLeaderIds((current) => {
       const next = new Set(current);
       if (next.has(id)) {
         next.delete(id);
@@ -422,12 +603,25 @@ export function ParticipantEmailCampaign() {
   }
 
   function toggleVisibleSelection() {
-    setSelectedIds((current) => {
+    if (activeRecipientType === "participants") {
+      setSelectedParticipantIds((current) => {
+        const next = new Set(current);
+        if (allVisibleSelected) {
+          participantVisibleIds.forEach((id) => next.delete(id));
+        } else {
+          participantVisibleIds.forEach((id) => next.add(id));
+        }
+        return next;
+      });
+      return;
+    }
+
+    setSelectedGroupLeaderIds((current) => {
       const next = new Set(current);
       if (allVisibleSelected) {
-        visibleIds.forEach((id) => next.delete(id));
+        groupLeaderVisibleIds.forEach((id) => next.delete(id));
       } else {
-        visibleIds.forEach((id) => next.add(id));
+        groupLeaderVisibleIds.forEach((id) => next.add(id));
       }
       return next;
     });
@@ -436,23 +630,28 @@ export function ParticipantEmailCampaign() {
   function openPreview() {
     setSendError(null);
     setSendResult(null);
-    if (selectedIds.size === 0) {
+
+    if (activeSelectedIds.size === 0) {
       setSendError("Select at least one recipient.");
       return;
     }
-    if (selectedParticipantsWithEmail.length === 0) {
-      setSendError("No selected participants have a valid email address.");
+
+    if (selectedRecipientsWithEmail.length === 0) {
+      setSendError("No selected recipients have a valid email address.");
       return;
     }
+
     if (!subject.trim()) {
       setSendError("Subject is required.");
       return;
     }
+
     const bodyText = bodyHtml.replace(/<[^>]+>/g, "").trim();
     if (!bodyText) {
       setSendError("Write the email body before continuing.");
       return;
     }
+
     setShowPreview(true);
   }
 
@@ -467,7 +666,8 @@ export function ParticipantEmailCampaign() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          participantIds: [...selectedIds],
+          recipientType: activeRecipientType,
+          recipientIds: [...activeSelectedIds],
           subject,
           html: bodyHtml,
         }),
@@ -501,8 +701,7 @@ export function ParticipantEmailCampaign() {
       <header className="rounded border border-neutral-200 bg-white p-4">
         <h2 className="text-xl font-semibold text-neutral-900">Email Campaigns</h2>
         <p className="mt-2 text-sm text-neutral-600">
-          Compose a personalized email and send it to selected participants. Use fields
-          like <code>{"{{nome}}"}</code> to personalize content.
+          Compose a personalized email and send it to selected participants or group leaders.
         </p>
       </header>
 
@@ -687,7 +886,7 @@ export function ParticipantEmailCampaign() {
             Click a field to insert it at cursor position.
           </p>
           <div className="mt-3 space-y-2">
-            {PARTICIPANT_TEMPLATE_FIELDS.map((field) => (
+            {activeFieldList.map((field) => (
               <button
                 key={field.key}
                 type="button"
@@ -703,76 +902,146 @@ export function ParticipantEmailCampaign() {
       </div>
 
       <section className="rounded border border-neutral-200 bg-white p-4">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
-              Search
-            </label>
-            <input
-              type="text"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Name, surname, email, group"
-              className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
-            />
-          </div>
-          {showGroupColumn && (
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveRecipientType("participants")}
+            className={`rounded border px-3 py-1.5 text-sm ${
+              activeRecipientType === "participants"
+                ? "border-neutral-900 bg-neutral-900 text-white"
+                : "border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-100"
+            }`}
+          >
+            Participants ({participants.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveRecipientType("group_leaders")}
+            className={`rounded border px-3 py-1.5 text-sm ${
+              activeRecipientType === "group_leaders"
+                ? "border-neutral-900 bg-neutral-900 text-white"
+                : "border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-100"
+            }`}
+          >
+            Group leaders ({groupLeaders.length})
+          </button>
+        </div>
+
+        {activeRecipientType === "participants" ? (
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
             <div>
               <label className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                Group
+                Search
               </label>
               <input
                 type="text"
-                value={groupFilter}
-                onChange={(event) => setGroupFilter(event.target.value)}
-                list="group-options"
+                value={participantSearch}
+                onChange={(event) => setParticipantSearch(event.target.value)}
+                placeholder="Name, surname, email, group"
                 className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
               />
-              <datalist id="group-options">
-                {groups.map((group) => (
-                  <option key={group} value={group} />
-                ))}
-              </datalist>
             </div>
-          )}
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
-              Arrival
-            </label>
-            <input
-              type="date"
-              value={arrivoFilter}
-              onChange={(event) => setArrivoFilter(event.target.value)}
-              className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
-            />
+            {showGroupColumn && (
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                  Group
+                </label>
+                <input
+                  type="text"
+                  value={participantGroupFilter}
+                  onChange={(event) => setParticipantGroupFilter(event.target.value)}
+                  list="group-options"
+                  className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                />
+                <datalist id="group-options">
+                  {groups.map((group) => (
+                    <option key={group} value={group} />
+                  ))}
+                </datalist>
+              </div>
+            )}
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                Arrival
+              </label>
+              <input
+                type="date"
+                value={participantArrivoFilter}
+                onChange={(event) => setParticipantArrivoFilter(event.target.value)}
+                className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                Departure
+              </label>
+              <input
+                type="date"
+                value={participantPartenzaFilter}
+                onChange={(event) => setParticipantPartenzaFilter(event.target.value)}
+                className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                Accommodation
+              </label>
+              <input
+                type="text"
+                value={participantAlloggioFilter}
+                onChange={(event) => setParticipantAlloggioFilter(event.target.value)}
+                className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+              />
+            </div>
           </div>
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
-              Departure
-            </label>
-            <input
-              type="date"
-              value={partenzaFilter}
-              onChange={(event) => setPartenzaFilter(event.target.value)}
-              className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
-            />
+        ) : (
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                Search
+              </label>
+              <input
+                type="text"
+                value={groupLeaderSearch}
+                onChange={(event) => setGroupLeaderSearch(event.target.value)}
+                placeholder="Name, surname, email, phone"
+                className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                Italy
+              </label>
+              <select
+                value={groupLeaderItaliaFilter}
+                onChange={(event) => setGroupLeaderItaliaFilter(event.target.value)}
+                className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+              >
+                <option value="all">All</option>
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                Rome
+              </label>
+              <select
+                value={groupLeaderRomaFilter}
+                onChange={(event) => setGroupLeaderRomaFilter(event.target.value)}
+                className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+              >
+                <option value="all">All</option>
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+            </div>
           </div>
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
-              Accommodation
-            </label>
-            <input
-              type="text"
-              value={alloggioFilter}
-              onChange={(event) => setAlloggioFilter(event.target.value)}
-              className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
-            />
-          </div>
-        </div>
+        )}
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-neutral-600">
-            Selected recipients: <strong>{selectedIds.size}</strong>
+            Selected recipients: <strong>{activeSelectedIds.size}</strong>
           </p>
           <div className="flex gap-2">
             <button
@@ -792,10 +1061,123 @@ export function ParticipantEmailCampaign() {
           </div>
         </div>
 
-        {loading ? (
-          <p className="mt-4 text-sm text-neutral-600">Loading participants...</p>
-        ) : loadError ? (
-          <p className="mt-4 text-sm text-red-700">{loadError}</p>
+        {activeRecipientType === "participants" ? (
+          participantsLoading ? (
+            <p className="mt-4 text-sm text-neutral-600">Loading participants...</p>
+          ) : participantsError ? (
+            <p className="mt-4 text-sm text-red-700">{participantsError}</p>
+          ) : (
+            <div className="mt-4 overflow-x-auto">
+              <table className="min-w-full divide-y divide-neutral-200 text-sm">
+                <thead className="bg-neutral-50 text-left text-neutral-700">
+                  <tr>
+                    <th className="px-3 py-2">
+                      <input
+                        type="checkbox"
+                        checked={allVisibleSelected}
+                        onChange={toggleVisibleSelection}
+                        aria-label="Select all visible participants"
+                      />
+                    </th>
+                    {showGroupColumn && (
+                      <th className="px-3 py-2 font-semibold">
+                        <button type="button" onClick={() => toggleParticipantSort("group")}>
+                          Group
+                        </button>
+                      </th>
+                    )}
+                    <th className="px-3 py-2 font-semibold">
+                      <button type="button" onClick={() => toggleParticipantSort("nome")}>Name</button>
+                    </th>
+                    <th className="px-3 py-2 font-semibold">
+                      <button type="button" onClick={() => toggleParticipantSort("cognome")}>
+                        Surname
+                      </button>
+                    </th>
+                    <th className="px-3 py-2 font-semibold">
+                      <button type="button" onClick={() => toggleParticipantSort("email")}>
+                        Email
+                      </button>
+                    </th>
+                    <th className="px-3 py-2 font-semibold">
+                      <button
+                        type="button"
+                        onClick={() => toggleParticipantSort("data_arrivo")}
+                      >
+                        Arrival
+                      </button>
+                    </th>
+                    <th className="px-3 py-2 font-semibold">
+                      <button
+                        type="button"
+                        onClick={() => toggleParticipantSort("data_partenza")}
+                      >
+                        Departure
+                      </button>
+                    </th>
+                    <th className="px-3 py-2 font-semibold">
+                      <button type="button" onClick={() => toggleParticipantSort("alloggio")}>
+                        Accommodation
+                      </button>
+                    </th>
+                    <th className="px-3 py-2 font-semibold">
+                      <button
+                        type="button"
+                        onClick={() => toggleParticipantSort("quota_totale")}
+                      >
+                        Total fee
+                      </button>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-100">
+                  {filteredSortedParticipants.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={showGroupColumn ? 9 : 8}
+                        className="px-3 py-3 text-neutral-500"
+                      >
+                        No participants match current filters.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredSortedParticipants.map((participant) => (
+                      <tr key={participant.id}>
+                        <td className="px-3 py-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedParticipantIds.has(participant.id)}
+                            onChange={() => toggleRecipient(participant.id)}
+                            aria-label={`Select ${participant.nome ?? ""} ${participant.cognome ?? ""}`}
+                          />
+                        </td>
+                        {showGroupColumn && (
+                          <td className="px-3 py-2 text-neutral-700">{participant.group || "-"}</td>
+                        )}
+                        <td className="px-3 py-2 text-neutral-900">{participant.nome || "-"}</td>
+                        <td className="px-3 py-2 text-neutral-900">{participant.cognome || "-"}</td>
+                        <td className="px-3 py-2 text-neutral-700">{participant.email || "-"}</td>
+                        <td className="px-3 py-2 text-neutral-700">
+                          {participant.data_arrivo || "-"}
+                        </td>
+                        <td className="px-3 py-2 text-neutral-700">
+                          {participant.data_partenza || "-"}
+                        </td>
+                        <td className="px-3 py-2 text-neutral-700">{participant.alloggio || "-"}</td>
+                        <td className="px-3 py-2 text-neutral-700">
+                          {participant.quota_totale == null ? "-" : participant.quota_totale}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )
+        ) : groupLeadersLoading ? (
+          <p className="mt-4 text-sm text-neutral-600">Loading group leaders...</p>
+        ) : groupLeadersError ? (
+          <p className="mt-4 text-sm text-red-700">{groupLeadersError}</p>
         ) : (
           <div className="mt-4 overflow-x-auto">
             <table className="min-w-full divide-y divide-neutral-200 text-sm">
@@ -806,90 +1188,53 @@ export function ParticipantEmailCampaign() {
                       type="checkbox"
                       checked={allVisibleSelected}
                       onChange={toggleVisibleSelection}
-                      aria-label="Select all visible participants"
+                      aria-label="Select all visible group leaders"
                     />
                   </th>
-                  {showGroupColumn && (
-                    <th className="px-3 py-2 font-semibold">
-                      <button type="button" onClick={() => toggleSort("group")}>
-                        Group
-                      </button>
-                    </th>
-                  )}
                   <th className="px-3 py-2 font-semibold">
-                    <button type="button" onClick={() => toggleSort("nome")}>
-                      Name
-                    </button>
+                    <button type="button" onClick={() => toggleGroupLeaderSort("nome")}>Name</button>
                   </th>
                   <th className="px-3 py-2 font-semibold">
-                    <button type="button" onClick={() => toggleSort("cognome")}>
-                      Surname
-                    </button>
+                    <button type="button" onClick={() => toggleGroupLeaderSort("cognome")}>Surname</button>
                   </th>
                   <th className="px-3 py-2 font-semibold">
-                    <button type="button" onClick={() => toggleSort("email")}>
-                      Email
-                    </button>
+                    <button type="button" onClick={() => toggleGroupLeaderSort("email")}>Email</button>
                   </th>
                   <th className="px-3 py-2 font-semibold">
-                    <button type="button" onClick={() => toggleSort("data_arrivo")}>
-                      Arrival
-                    </button>
+                    <button type="button" onClick={() => toggleGroupLeaderSort("telefono")}>Phone</button>
                   </th>
                   <th className="px-3 py-2 font-semibold">
-                    <button type="button" onClick={() => toggleSort("data_partenza")}>
-                      Departure
-                    </button>
+                    <button type="button" onClick={() => toggleGroupLeaderSort("italia")}>Italy</button>
                   </th>
                   <th className="px-3 py-2 font-semibold">
-                    <button type="button" onClick={() => toggleSort("alloggio")}>
-                      Accommodation
-                    </button>
-                  </th>
-                  <th className="px-3 py-2 font-semibold">
-                    <button type="button" onClick={() => toggleSort("quota_totale")}>
-                      Total fee
-                    </button>
+                    <button type="button" onClick={() => toggleGroupLeaderSort("roma")}>Rome</button>
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
-                {filteredSortedParticipants.length === 0 ? (
+                {filteredSortedGroupLeaders.length === 0 ? (
                   <tr>
-                    <td
-                      colSpan={showGroupColumn ? 9 : 8}
-                      className="px-3 py-3 text-neutral-500"
-                    >
-                      No participants match current filters.
+                    <td colSpan={7} className="px-3 py-3 text-neutral-500">
+                      No group leaders match current filters.
                     </td>
                   </tr>
                 ) : (
-                  filteredSortedParticipants.map((participant) => (
-                    <tr key={participant.id}>
+                  filteredSortedGroupLeaders.map((leader) => (
+                    <tr key={leader.id}>
                       <td className="px-3 py-2">
                         <input
                           type="checkbox"
-                          checked={selectedIds.has(participant.id)}
-                          onChange={() => toggleParticipant(participant.id)}
-                          aria-label={`Select ${participant.nome ?? ""} ${participant.cognome ?? ""}`}
+                          checked={selectedGroupLeaderIds.has(leader.id)}
+                          onChange={() => toggleRecipient(leader.id)}
+                          aria-label={`Select ${leader.nome ?? ""} ${leader.cognome ?? ""}`}
                         />
                       </td>
-                      {showGroupColumn && (
-                        <td className="px-3 py-2 text-neutral-700">{participant.group || "-"}</td>
-                      )}
-                      <td className="px-3 py-2 text-neutral-900">{participant.nome || "-"}</td>
-                      <td className="px-3 py-2 text-neutral-900">{participant.cognome || "-"}</td>
-                      <td className="px-3 py-2 text-neutral-700">{participant.email || "-"}</td>
-                      <td className="px-3 py-2 text-neutral-700">
-                        {participant.data_arrivo || "-"}
-                      </td>
-                      <td className="px-3 py-2 text-neutral-700">
-                        {participant.data_partenza || "-"}
-                      </td>
-                      <td className="px-3 py-2 text-neutral-700">{participant.alloggio || "-"}</td>
-                      <td className="px-3 py-2 text-neutral-700">
-                        {participant.quota_totale == null ? "-" : participant.quota_totale}
-                      </td>
+                      <td className="px-3 py-2 text-neutral-900">{leader.nome || "-"}</td>
+                      <td className="px-3 py-2 text-neutral-900">{leader.cognome || "-"}</td>
+                      <td className="px-3 py-2 text-neutral-700">{leader.email || "-"}</td>
+                      <td className="px-3 py-2 text-neutral-700">{leader.telefono || "-"}</td>
+                      <td className="px-3 py-2 text-neutral-700">{formatBoolean(leader.italia)}</td>
+                      <td className="px-3 py-2 text-neutral-700">{formatBoolean(leader.roma)}</td>
                     </tr>
                   ))
                 )}
@@ -904,12 +1249,12 @@ export function ParticipantEmailCampaign() {
           <div className="max-h-full w-full max-w-3xl overflow-auto rounded border border-neutral-200 bg-white p-5 shadow-xl">
             <h3 className="text-lg font-semibold text-neutral-900">Preview before send</h3>
             <p className="mt-1 text-sm text-neutral-600">
-              Emails to send: <strong>{selectedParticipantsWithEmail.length}</strong>
+              Emails to send: <strong>{selectedRecipientsWithEmail.length}</strong>
             </p>
-            {previewParticipant ? (
+            {previewRecipient ? (
               <p className="mt-1 text-xs text-neutral-500">
-                Preview based on: {previewParticipant.nome || "-"}{" "}
-                {previewParticipant.cognome || "-"} ({previewParticipant.email || "no email"})
+                Preview based on: {(previewRecipient as Participant | GroupLeader).nome || "-"}{" "}
+                {(previewRecipient as Participant | GroupLeader).cognome || "-"} ({(previewRecipient as Participant | GroupLeader).email || "no email"})
               </p>
             ) : null}
 
