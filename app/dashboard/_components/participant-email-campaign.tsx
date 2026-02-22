@@ -191,12 +191,25 @@ export function ParticipantEmailCampaign() {
     ? renderParticipantTemplateText(subject, previewParticipant)
     : subject;
 
-  function applyFormat(command: "bold" | "italic" | "underline") {
+  function applyFormat(
+    command:
+      | "bold"
+      | "italic"
+      | "underline"
+      | "heading"
+      | "bulletList"
+      | "orderedList"
+      | "clear"
+  ) {
     if (!editor) return;
     const chain = editor.chain().focus();
     if (command === "bold") chain.toggleBold().run();
     if (command === "italic") chain.toggleItalic().run();
     if (command === "underline") chain.toggleUnderline().run();
+    if (command === "heading") chain.toggleHeading({ level: 2 }).run();
+    if (command === "bulletList") chain.toggleBulletList().run();
+    if (command === "orderedList") chain.toggleOrderedList().run();
+    if (command === "clear") chain.clearNodes().unsetAllMarks().run();
   }
 
   function addLink() {
@@ -386,6 +399,39 @@ export function ParticipantEmailCampaign() {
               </button>
               <button
                 type="button"
+                onClick={() => applyFormat("heading")}
+                className={`rounded border px-2 py-1 text-xs font-semibold ${
+                  editor?.isActive("heading", { level: 2 })
+                    ? "border-neutral-900 bg-neutral-900 text-white"
+                    : "border-neutral-300 hover:bg-neutral-100"
+                }`}
+              >
+                H2
+              </button>
+              <button
+                type="button"
+                onClick={() => applyFormat("bulletList")}
+                className={`rounded border px-2 py-1 text-xs font-semibold ${
+                  editor?.isActive("bulletList")
+                    ? "border-neutral-900 bg-neutral-900 text-white"
+                    : "border-neutral-300 hover:bg-neutral-100"
+                }`}
+              >
+                Bullet list
+              </button>
+              <button
+                type="button"
+                onClick={() => applyFormat("orderedList")}
+                className={`rounded border px-2 py-1 text-xs font-semibold ${
+                  editor?.isActive("orderedList")
+                    ? "border-neutral-900 bg-neutral-900 text-white"
+                    : "border-neutral-300 hover:bg-neutral-100"
+                }`}
+              >
+                Numbered list
+              </button>
+              <button
+                type="button"
                 onClick={addLink}
                 className={`rounded border px-2 py-1 text-xs font-semibold ${
                   editor?.isActive("link")
@@ -394,6 +440,13 @@ export function ParticipantEmailCampaign() {
                 }`}
               >
                 Link
+              </button>
+              <button
+                type="button"
+                onClick={() => applyFormat("clear")}
+                className="rounded border border-neutral-300 px-2 py-1 text-xs font-semibold hover:bg-neutral-100"
+              >
+                Clear formatting
               </button>
             </div>
             <EditorContent editor={editor} className="mt-2" />
