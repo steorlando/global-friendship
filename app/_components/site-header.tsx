@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { LogoutButton } from "@/app/_components/logout-button";
 
 export function SiteHeader() {
   return (
@@ -24,14 +25,17 @@ export function SiteHeader() {
           />
         </div>
 
-        <Link
-          href="https://www.globalfriendship.eu"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-all duration-200 hover:border-indigo-600 hover:bg-indigo-600 hover:text-white"
-        >
-          globalfriendship.eu
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="https://www.globalfriendship.eu"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-all duration-200 hover:border-indigo-600 hover:bg-indigo-600 hover:text-white"
+          >
+            globalfriendship.eu
+          </Link>
+          <LogoutButton />
+        </div>
       </div>
     </header>
   );
