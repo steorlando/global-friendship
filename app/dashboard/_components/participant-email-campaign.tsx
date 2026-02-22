@@ -32,6 +32,14 @@ type LoadResponse = {
   showGroupColumn: boolean;
 };
 
+type EmailTemplate = {
+  id: string;
+  name: string;
+  subject: string;
+  html: string;
+  updatedAt: string;
+};
+
 function safeLower(value: string | null): string {
   return (value ?? "").toLowerCase();
 }
@@ -88,6 +96,8 @@ export function ParticipantEmailCampaign() {
   const [sendError, setSendError] = useState<string | null>(null);
   const [sendResult, setSendResult] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [savedTemplates, setSavedTemplates] = useState<EmailTemplate[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
@@ -110,6 +120,30 @@ export function ParticipantEmailCampaign() {
       }
     }
     load();
+  }, []);
+
+  useEffect(() => {
+    async function loadTemplates() {
+      setTemplatesLoading(true);
+      try {
+        const res = await fetch("/api/manager/email-templates");
+        const json = (await res.json()) as {
+          error?: string;
+          templates?: EmailTemplate[];
+        };
+        if (!res.ok) {
+          setSendError(json.error ?? "Unable to load saved templates.");
+          return;
+        }
+        setSavedTemplates(Array.isArray(json.templates) ? json.templates : []);
+      } catch {
+        setSendError("Unable to load saved templates.");
+      } finally {
+        setTemplatesLoading(false);
+      }
+    }
+
+    loadTemplates();
   }, []);
 
   const filteredSortedParticipants = useMemo(() => {
@@ -233,6 +267,139 @@ export function ParticipantEmailCampaign() {
     editor.chain().focus().insertContent(token).run();
   }
 
+  async function saveTemplate() {
+    const defaultName = `Template ${savedTemplates.length + 1}`;
+    const nameInput = window.prompt("Template name", defaultName);
+    if (nameInput === null) return;
+    const name = nameInput.trim();
+    if (!name) {
+      setSendError("Template name is required.");
+      return;
+    }
+
+    const existing = savedTemplates.find(
+      (template) => template.name.toLowerCase() === name.toLowerCase()
+    );
+    if (existing) {
+      const shouldOverwrite = window.confirm(
+        `A template named "${name}" already exists. Overwrite it?`
+      );
+      if (!shouldOverwrite) return;
+      await updateTemplate(existing.id, name, subject, bodyHtml);
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/manager/email-templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          subject,
+          html: bodyHtml,
+        }),
+      });
+      const json = (await res.json()) as { error?: string; template?: EmailTemplate };
+      if (!res.ok || !json.template) {
+        setSendError(json.error ?? "Unable to save template.");
+        return;
+      }
+      setSavedTemplates((current) => [json.template as EmailTemplate, ...current]);
+      setSendResult(`Template "${name}" saved.`);
+      setSendError(null);
+    } catch {
+      setSendError("Unable to save template.");
+    }
+  }
+
+  function applyTemplate(template: EmailTemplate) {
+    setSubject(template.subject);
+    setBodyHtml(template.html);
+    if (editor) {
+      editor.commands.setContent(template.html);
+    }
+    setSendResult(`Template "${template.name}" loaded.`);
+    setSendError(null);
+  }
+
+  async function editTemplate(template: EmailTemplate) {
+    const renamed = window.prompt("Edit template name", template.name);
+    if (renamed === null) return;
+    const name = renamed.trim();
+    if (!name) {
+      setSendError("Template name is required.");
+      return;
+    }
+
+    const shouldUpdateFromComposer = window.confirm(
+      "Update this template with current composer content?"
+    );
+    await updateTemplate(
+      template.id,
+      name,
+      shouldUpdateFromComposer ? subject : template.subject,
+      shouldUpdateFromComposer ? bodyHtml : template.html
+    );
+  }
+
+  async function deleteTemplate(template: EmailTemplate) {
+    const ok = window.confirm(`Delete template "${template.name}"?`);
+    if (!ok) return;
+    try {
+      const res = await fetch("/api/manager/email-templates", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: template.id }),
+      });
+      const json = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        setSendError(json.error ?? "Unable to delete template.");
+        return;
+      }
+      setSavedTemplates((current) => current.filter((item) => item.id !== template.id));
+      setSendResult(`Template "${template.name}" deleted.`);
+      setSendError(null);
+    } catch {
+      setSendError("Unable to delete template.");
+    }
+  }
+
+  async function updateTemplate(
+    id: string,
+    name: string,
+    nextSubject: string,
+    nextHtml: string
+  ) {
+    try {
+      const res = await fetch("/api/manager/email-templates", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id,
+          name,
+          subject: nextSubject,
+          html: nextHtml,
+        }),
+      });
+      const json = (await res.json()) as { error?: string; template?: EmailTemplate };
+      if (!res.ok || !json.template) {
+        setSendError(json.error ?? "Unable to update template.");
+        return;
+      }
+      const updated = json.template as EmailTemplate;
+      setSavedTemplates((current) => {
+        const next = current
+          .map((item) => (item.id === id ? updated : item))
+          .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+        return next;
+      });
+      setSendResult(`Template "${name}" updated.`);
+      setSendError(null);
+    } catch {
+      setSendError("Unable to update template.");
+    }
+  }
+
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
       setSortDirection((value) => (value === "asc" ? "desc" : "asc"));
@@ -352,7 +519,16 @@ export function ParticipantEmailCampaign() {
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
         <section className="rounded border border-neutral-200 bg-white p-4">
-          <label className="block text-sm font-medium text-neutral-700">Subject</label>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <label className="block text-sm font-medium text-neutral-700">Subject</label>
+            <button
+              type="button"
+              onClick={saveTemplate}
+              className="rounded border border-neutral-300 bg-white px-3 py-1.5 text-sm hover:bg-neutral-100"
+            >
+              Save template
+            </button>
+          </div>
           <input
             type="text"
             value={subject}
@@ -472,6 +648,54 @@ export function ParticipantEmailCampaign() {
                 <code className="text-xs text-neutral-500">{field.token}</code>
               </button>
             ))}
+          </div>
+
+          <div className="mt-6 border-t border-neutral-200 pt-4">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-700">
+              Saved Templates
+            </h3>
+            {templatesLoading ? (
+              <p className="mt-2 text-xs text-neutral-500">Loading templates...</p>
+            ) : savedTemplates.length === 0 ? (
+              <p className="mt-2 text-xs text-neutral-500">No saved templates yet.</p>
+            ) : (
+              <div className="mt-3 space-y-2">
+                {savedTemplates.map((template) => (
+                  <div
+                    key={template.id}
+                    className="rounded border border-neutral-200 px-3 py-2"
+                  >
+                    <p className="text-sm font-medium text-neutral-900">{template.name}</p>
+                    <p className="mt-1 truncate text-xs text-neutral-500">
+                      {template.subject || "(No subject)"}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => applyTemplate(template)}
+                        className="rounded border border-neutral-300 px-2 py-1 text-xs hover:bg-neutral-100"
+                      >
+                        Use
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => editTemplate(template)}
+                        className="rounded border border-neutral-300 px-2 py-1 text-xs hover:bg-neutral-100"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteTemplate(template)}
+                        className="rounded border border-red-200 px-2 py-1 text-xs text-red-700 hover:bg-red-50"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </aside>
       </div>
