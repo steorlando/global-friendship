@@ -296,7 +296,7 @@ export function PartecipanteForm() {
   if (loading) {
     return (
       <div className="rounded border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
-        Caricamento dati partecipante...
+        Loading participant data...
       </div>
     );
   }
@@ -356,7 +356,7 @@ export function PartecipanteForm() {
 
       <div className="grid gap-4 md:grid-cols-2">
         <div>
-          <label className="block text-sm font-medium text-slate-700">Nome</label>
+          <label className="block text-sm font-medium text-slate-700">Name</label>
           <input
             required
             value={formData.nome}
@@ -369,7 +369,7 @@ export function PartecipanteForm() {
 
         <div>
           <label className="block text-sm font-medium text-slate-700">
-            Cognome
+            Surname
           </label>
           <input
             required
@@ -383,7 +383,7 @@ export function PartecipanteForm() {
 
         <div>
           <label className="block text-sm font-medium text-slate-700">
-            Nazione
+            Nationality
           </label>
           <input
             value={formData.nazione}
@@ -396,7 +396,7 @@ export function PartecipanteForm() {
 
         <div>
           <label className="block text-sm font-medium text-slate-700">
-            Data di nascita
+            Date of birth
           </label>
           <input
             type="date"
@@ -410,7 +410,7 @@ export function PartecipanteForm() {
 
         <div>
           <label className="block text-sm font-medium text-slate-700">
-            Data arrivo
+            Arrival date
           </label>
           <input
             type="date"
@@ -423,13 +423,13 @@ export function PartecipanteForm() {
             className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
           />
           <p className="mt-1 text-xs text-slate-500">
-            Consentito tra {ARRIVAL_DATE_MIN} e {ARRIVAL_DATE_MAX}
+            Allowed between {ARRIVAL_DATE_MIN} and {ARRIVAL_DATE_MAX}
           </p>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-slate-700">
-            Data partenza
+            Departure date
           </label>
           <input
             type="date"
@@ -442,13 +442,13 @@ export function PartecipanteForm() {
             className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
           />
           <p className="mt-1 text-xs text-slate-500">
-            Consentito tra {DEPARTURE_DATE_MIN} e {DEPARTURE_DATE_MAX}
+            Allowed between {DEPARTURE_DATE_MIN} and {DEPARTURE_DATE_MAX}
           </p>
         </div>
 
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-slate-700">
-            Alloggio
+            Accommodation
           </label>
           <select
             value={formData.alloggio}
@@ -457,7 +457,7 @@ export function PartecipanteForm() {
             }
             className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
           >
-            <option value="">Seleziona...</option>
+            <option value="">Select...</option>
             {ALLOGGIO_OPTIONS.map((option) => (
               <option key={option} value={option}>
                 {option}
@@ -468,7 +468,7 @@ export function PartecipanteForm() {
 
         <div>
           <label className="block text-sm font-medium text-slate-700">
-            Esigenze alimentari
+            Dietary requirements
           </label>
           <div className="mt-2 grid gap-2 rounded border border-slate-200 p-3">
             {ESIGENZE_ALIMENTARI_OPTIONS.map((option) => (
@@ -487,7 +487,7 @@ export function PartecipanteForm() {
 
         <div>
           <label className="block text-sm font-medium text-slate-700">
-            Allergie
+            Allergies
           </label>
           <input
             value={formData.allergie}
@@ -515,7 +515,7 @@ export function PartecipanteForm() {
             }
             className="h-4 w-4"
           />
-          Disabilita / esigenze di accessibilita
+          Disability / accessibility needs
         </label>
 
         <div className="mt-3 grid gap-2">
@@ -542,7 +542,7 @@ export function PartecipanteForm() {
       </div>
 
       <div className="rounded border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-        Email associata: {email || "-"}
+        Associated email: {email || "-"}
       </div>
 
       {error && (
@@ -562,7 +562,7 @@ export function PartecipanteForm() {
         disabled={saving}
         className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
       >
-        {saving ? "Salvataggio..." : "Salva modifiche"}
+        {saving ? "Saving..." : "Save changes"}
       </button>
 
       <section className="rounded border border-red-200 bg-red-50 p-4">
