@@ -50,6 +50,12 @@ type GroupLeaderRow = {
   telefono: string | null;
   italia: boolean | null;
   roma: boolean | null;
+  gruppi?: string[];
+};
+
+type ProfileGroupRow = {
+  profilo_id: string | null;
+  gruppo_id: string | null;
 };
 
 const SELECT_FIELDS =
@@ -117,6 +123,7 @@ function toGroupLeaderTemplateData(row: GroupLeaderRow): GroupLeaderTemplateData
     telefono: row.telefono,
     italia: row.italia,
     roma: row.roma,
+    gruppi: row.gruppi ?? [],
   };
 }
 
@@ -216,8 +223,36 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No matching recipients found" }, { status: 404 });
     }
 
+    const groupsByLeader = new Map<string, string[]>();
+    const leaderIds = recipients.map((recipient) => recipient.id);
+    if (leaderIds.length > 0) {
+      const { data: profileGroups, error: groupsError } = await auth.service
+        .from("profili_gruppi")
+        .select("profilo_id,gruppo_id")
+        .in("profilo_id", leaderIds);
+
+      if (groupsError) {
+        return NextResponse.json({ error: groupsError.message }, { status: 500 });
+      }
+
+      for (const row of (profileGroups ?? []) as ProfileGroupRow[]) {
+        const profileId = (row.profilo_id ?? "").trim();
+        const groupId = (row.gruppo_id ?? "").trim();
+        if (!profileId || !groupId) continue;
+        const existing = groupsByLeader.get(profileId) ?? [];
+        if (!existing.includes(groupId)) {
+          existing.push(groupId);
+          existing.sort((a, b) => a.localeCompare(b));
+          groupsByLeader.set(profileId, existing);
+        }
+      }
+    }
+
     for (const row of recipients) {
-      const groupLeader = toGroupLeaderTemplateData(row);
+      const groupLeader = toGroupLeaderTemplateData({
+        ...row,
+        gruppi: groupsByLeader.get(row.id) ?? [],
+      });
       const to = normalizeText(groupLeader.email);
       if (!to) {
         skipped.push({ id: row.id, reason: "Missing email" });

@@ -7,6 +7,7 @@ export type GroupLeaderTemplateData = {
   ruolo: string | null;
   italia: boolean | null;
   roma: boolean | null;
+  gruppi: string[];
 };
 
 type TemplateField = {
@@ -23,6 +24,7 @@ export const GROUP_LEADER_TEMPLATE_FIELDS: TemplateField[] = [
   { key: "email", label: "Email", token: "{{email}}" },
   { key: "telefono", label: "Phone", token: "{{telefono}}" },
   { key: "ruolo", label: "Role", token: "{{ruolo}}" },
+  { key: "gruppi", label: "Groups", token: "{{gruppi}}" },
   { key: "italia", label: "Based in Italy", token: "{{italia}}" },
   { key: "roma", label: "Based in Rome", token: "{{roma}}" },
 ];
@@ -40,6 +42,11 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#39;");
 }
 
+function toCommaList(values: string[] | null | undefined): string {
+  const cleaned = (values ?? []).map((item) => item.trim()).filter(Boolean);
+  return cleaned.join(", ");
+}
+
 function buildTemplateMap(groupLeader: GroupLeaderTemplateData): Record<string, string> {
   const nome = normalizeString(groupLeader.nome);
   const cognome = normalizeString(groupLeader.cognome);
@@ -53,6 +60,7 @@ function buildTemplateMap(groupLeader: GroupLeaderTemplateData): Record<string, 
     email: normalizeString(groupLeader.email),
     telefono: normalizeString(groupLeader.telefono),
     ruolo: normalizeString(groupLeader.ruolo),
+    gruppi: toCommaList(groupLeader.gruppi),
     italia: groupLeader.italia == null ? "" : groupLeader.italia ? "Yes" : "No",
     roma: groupLeader.roma == null ? "" : groupLeader.roma ? "Yes" : "No",
   };

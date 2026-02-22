@@ -13,6 +13,11 @@ type GroupLeaderRow = {
   roma: boolean | null;
 };
 
+type ProfileGroupRow = {
+  profilo_id: string | null;
+  gruppo_id: string | null;
+};
+
 const SELECT_FIELDS = "id,email,nome,cognome,ruolo,telefono,italia,roma";
 
 async function requireManagerContext() {
@@ -71,5 +76,37 @@ export async function GET() {
     return (a.nome ?? "").localeCompare(b.nome ?? "");
   });
 
-  return NextResponse.json({ groupLeaders });
+  const leaderIds = groupLeaders.map((leader) => leader.id);
+  const groupsByLeader = new Map<string, string[]>();
+
+  if (leaderIds.length > 0) {
+    const { data: profileGroups, error: groupsError } = await auth.service
+      .from("profili_gruppi")
+      .select("profilo_id,gruppo_id")
+      .in("profilo_id", leaderIds);
+
+    if (groupsError) {
+      return NextResponse.json({ error: groupsError.message }, { status: 500 });
+    }
+
+    for (const row of (profileGroups ?? []) as ProfileGroupRow[]) {
+      const profileId = (row.profilo_id ?? "").trim();
+      const groupId = (row.gruppo_id ?? "").trim();
+      if (!profileId || !groupId) continue;
+
+      const existing = groupsByLeader.get(profileId) ?? [];
+      if (!existing.includes(groupId)) {
+        existing.push(groupId);
+        existing.sort((a, b) => a.localeCompare(b));
+        groupsByLeader.set(profileId, existing);
+      }
+    }
+  }
+
+  return NextResponse.json({
+    groupLeaders: groupLeaders.map((leader) => ({
+      ...leader,
+      gruppi: groupsByLeader.get(leader.id) ?? [],
+    })),
+  });
 }
