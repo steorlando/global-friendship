@@ -73,7 +73,7 @@ export function ParticipantEmailCampaign() {
     editorProps: {
       attributes: {
         class:
-          "min-h-52 rounded border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300",
+          "min-h-52 rounded border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 [&_h2]:mt-3 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:leading-tight [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:my-1 [&_p]:my-2",
       },
     },
     onUpdate: ({ editor: currentEditor }) => {
@@ -517,140 +517,120 @@ export function ParticipantEmailCampaign() {
         </div>
       )}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
-        <section className="rounded border border-neutral-200 bg-white p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <label className="block text-sm font-medium text-neutral-700">Subject</label>
-            <button
-              type="button"
-              onClick={saveTemplate}
-              className="rounded border border-neutral-300 bg-white px-3 py-1.5 text-sm hover:bg-neutral-100"
-            >
-              Save template
-            </button>
-          </div>
-          <input
-            type="text"
-            value={subject}
-            onChange={(event) => setSubject(event.target.value)}
-            className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
-            placeholder="Email subject"
-          />
-
-          <div className="mt-4">
-            <p className="text-sm font-medium text-neutral-700">Message</p>
-            <div className="mt-2 flex flex-wrap gap-2">
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
+        <div className="space-y-6">
+          <section className="rounded border border-neutral-200 bg-white p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label className="block text-sm font-medium text-neutral-700">Subject</label>
               <button
                 type="button"
-                onClick={() => applyFormat("bold")}
-                className={`rounded border px-2 py-1 text-xs font-semibold ${
-                  editor?.isActive("bold")
-                    ? "border-neutral-900 bg-neutral-900 text-white"
-                    : "border-neutral-300 hover:bg-neutral-100"
-                }`}
+                onClick={saveTemplate}
+                className="rounded border border-neutral-300 bg-white px-3 py-1.5 text-sm hover:bg-neutral-100"
               >
-                Bold
-              </button>
-              <button
-                type="button"
-                onClick={() => applyFormat("italic")}
-                className={`rounded border px-2 py-1 text-xs font-semibold ${
-                  editor?.isActive("italic")
-                    ? "border-neutral-900 bg-neutral-900 text-white"
-                    : "border-neutral-300 hover:bg-neutral-100"
-                }`}
-              >
-                Italic
-              </button>
-              <button
-                type="button"
-                onClick={() => applyFormat("underline")}
-                className={`rounded border px-2 py-1 text-xs font-semibold ${
-                  editor?.isActive("underline")
-                    ? "border-neutral-900 bg-neutral-900 text-white"
-                    : "border-neutral-300 hover:bg-neutral-100"
-                }`}
-              >
-                Underline
-              </button>
-              <button
-                type="button"
-                onClick={() => applyFormat("heading")}
-                className={`rounded border px-2 py-1 text-xs font-semibold ${
-                  editor?.isActive("heading", { level: 2 })
-                    ? "border-neutral-900 bg-neutral-900 text-white"
-                    : "border-neutral-300 hover:bg-neutral-100"
-                }`}
-              >
-                H2
-              </button>
-              <button
-                type="button"
-                onClick={() => applyFormat("bulletList")}
-                className={`rounded border px-2 py-1 text-xs font-semibold ${
-                  editor?.isActive("bulletList")
-                    ? "border-neutral-900 bg-neutral-900 text-white"
-                    : "border-neutral-300 hover:bg-neutral-100"
-                }`}
-              >
-                Bullet list
-              </button>
-              <button
-                type="button"
-                onClick={() => applyFormat("orderedList")}
-                className={`rounded border px-2 py-1 text-xs font-semibold ${
-                  editor?.isActive("orderedList")
-                    ? "border-neutral-900 bg-neutral-900 text-white"
-                    : "border-neutral-300 hover:bg-neutral-100"
-                }`}
-              >
-                Numbered list
-              </button>
-              <button
-                type="button"
-                onClick={addLink}
-                className={`rounded border px-2 py-1 text-xs font-semibold ${
-                  editor?.isActive("link")
-                    ? "border-neutral-900 bg-neutral-900 text-white"
-                    : "border-neutral-300 hover:bg-neutral-100"
-                }`}
-              >
-                Link
-              </button>
-              <button
-                type="button"
-                onClick={() => applyFormat("clear")}
-                className="rounded border border-neutral-300 px-2 py-1 text-xs font-semibold hover:bg-neutral-100"
-              >
-                Clear formatting
+                Save template
               </button>
             </div>
-            <EditorContent editor={editor} className="mt-2" />
-          </div>
-        </section>
+            <input
+              type="text"
+              value={subject}
+              onChange={(event) => setSubject(event.target.value)}
+              className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+              placeholder="Email subject"
+            />
 
-        <aside className="h-max rounded border border-neutral-200 bg-white p-4 xl:sticky xl:top-24">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-700">
-            Personalization Fields
-          </h3>
-          <p className="mt-2 text-xs text-neutral-500">
-            Click a field to insert it at cursor position.
-          </p>
-          <div className="mt-3 space-y-2">
-            {PARTICIPANT_TEMPLATE_FIELDS.map((field) => (
-              <button
-                key={field.key}
-                type="button"
-                onClick={() => insertToken(field.token)}
-                className="flex w-full items-center justify-between rounded border border-neutral-200 px-3 py-2 text-left hover:bg-neutral-50"
-              >
-                <span className="text-sm text-neutral-800">{field.label}</span>
-                <code className="text-xs text-neutral-500">{field.token}</code>
-              </button>
-            ))}
-          </div>
+            <div className="mt-4">
+              <p className="text-sm font-medium text-neutral-700">Message</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => applyFormat("bold")}
+                  className={`rounded border px-2 py-1 text-xs font-semibold ${
+                    editor?.isActive("bold")
+                      ? "border-neutral-900 bg-neutral-900 text-white"
+                      : "border-neutral-300 hover:bg-neutral-100"
+                  }`}
+                >
+                  Bold
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyFormat("italic")}
+                  className={`rounded border px-2 py-1 text-xs font-semibold ${
+                    editor?.isActive("italic")
+                      ? "border-neutral-900 bg-neutral-900 text-white"
+                      : "border-neutral-300 hover:bg-neutral-100"
+                  }`}
+                >
+                  Italic
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyFormat("underline")}
+                  className={`rounded border px-2 py-1 text-xs font-semibold ${
+                    editor?.isActive("underline")
+                      ? "border-neutral-900 bg-neutral-900 text-white"
+                      : "border-neutral-300 hover:bg-neutral-100"
+                  }`}
+                >
+                  Underline
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyFormat("heading")}
+                  className={`rounded border px-2 py-1 text-xs font-semibold ${
+                    editor?.isActive("heading", { level: 2 })
+                      ? "border-neutral-900 bg-neutral-900 text-white"
+                      : "border-neutral-300 hover:bg-neutral-100"
+                  }`}
+                >
+                  H2
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyFormat("bulletList")}
+                  className={`rounded border px-2 py-1 text-xs font-semibold ${
+                    editor?.isActive("bulletList")
+                      ? "border-neutral-900 bg-neutral-900 text-white"
+                      : "border-neutral-300 hover:bg-neutral-100"
+                  }`}
+                >
+                  Bullet list
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyFormat("orderedList")}
+                  className={`rounded border px-2 py-1 text-xs font-semibold ${
+                    editor?.isActive("orderedList")
+                      ? "border-neutral-900 bg-neutral-900 text-white"
+                      : "border-neutral-300 hover:bg-neutral-100"
+                  }`}
+                >
+                  Numbered list
+                </button>
+                <button
+                  type="button"
+                  onClick={addLink}
+                  className={`rounded border px-2 py-1 text-xs font-semibold ${
+                    editor?.isActive("link")
+                      ? "border-neutral-900 bg-neutral-900 text-white"
+                      : "border-neutral-300 hover:bg-neutral-100"
+                  }`}
+                >
+                  Link
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyFormat("clear")}
+                  className="rounded border border-neutral-300 px-2 py-1 text-xs font-semibold hover:bg-neutral-100"
+                >
+                  Clear formatting
+                </button>
+              </div>
+              <EditorContent editor={editor} className="mt-2" />
+            </div>
+          </section>
 
-          <div className="mt-6 border-t border-neutral-200 pt-4">
+          <section className="rounded border border-neutral-200 bg-white p-4">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-700">
               Saved Templates
             </h3>
@@ -659,7 +639,7 @@ export function ParticipantEmailCampaign() {
             ) : savedTemplates.length === 0 ? (
               <p className="mt-2 text-xs text-neutral-500">No saved templates yet.</p>
             ) : (
-              <div className="mt-3 space-y-2">
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 {savedTemplates.map((template) => (
                   <div
                     key={template.id}
@@ -696,6 +676,28 @@ export function ParticipantEmailCampaign() {
                 ))}
               </div>
             )}
+          </section>
+        </div>
+
+        <aside className="h-max rounded border border-neutral-200 bg-white p-4 xl:sticky xl:top-24">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-700">
+            Personalization Fields
+          </h3>
+          <p className="mt-2 text-xs text-neutral-500">
+            Click a field to insert it at cursor position.
+          </p>
+          <div className="mt-3 space-y-2">
+            {PARTICIPANT_TEMPLATE_FIELDS.map((field) => (
+              <button
+                key={field.key}
+                type="button"
+                onClick={() => insertToken(field.token)}
+                className="flex w-full items-center justify-between rounded border border-neutral-200 px-3 py-2 text-left hover:bg-neutral-50"
+              >
+                <span className="text-sm text-neutral-800">{field.label}</span>
+                <code className="text-xs text-neutral-500">{field.token}</code>
+              </button>
+            ))}
           </div>
         </aside>
       </div>
