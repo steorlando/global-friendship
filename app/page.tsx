@@ -1,39 +1,58 @@
-import { redirect } from "next/navigation";
+"use client";
 
-type SearchParams = Record<string, string | string[] | undefined>;
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
-function firstValue(value: string | string[] | undefined): string | null {
-  if (Array.isArray(value)) return value[0] ?? null;
-  return value ?? null;
+const AUTH_KEYS = [
+  "code",
+  "token_hash",
+  "token",
+  "type",
+  "error",
+  "error_code",
+  "error_description",
+];
+
+function hasAuthQuery(params: URLSearchParams): boolean {
+  return AUTH_KEYS.some((key) => {
+    const value = params.get(key);
+    return Boolean(value && value.trim().length > 0);
+  });
 }
 
-export default async function Home({
-  searchParams,
-}: {
-  searchParams?: Promise<SearchParams>;
-}) {
-  const params = (await searchParams) ?? {};
+export default function Home() {
+  const router = useRouter();
 
-  const authKeys = [
-    "code",
-    "token_hash",
-    "token",
-    "type",
-    "error",
-    "error_code",
-    "error_description",
-  ] as const;
+  useEffect(() => {
+    async function run() {
+      const query = window.location.search ?? "";
+      const hash = window.location.hash ?? "";
+      const hasAuthInQuery = hasAuthQuery(new URLSearchParams(query));
+      const hasAuthInHash = hasAuthQuery(
+        new URLSearchParams(hash.startsWith("#") ? hash.slice(1) : hash)
+      );
 
-  const hasAuthParams = authKeys.some((key) => Boolean(firstValue(params[key])));
-  if (hasAuthParams) {
-    const forward = new URLSearchParams();
-    for (const key of authKeys) {
-      const value = firstValue(params[key]);
-      if (value) forward.set(key, value);
+      if (hasAuthInQuery || hasAuthInHash) {
+        router.replace(`/auth/callback${query}${hash}`);
+        return;
+      }
+
+      const supabase = createSupabaseBrowserClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (session?.user) {
+        router.replace("/dashboard");
+        return;
+      }
+
+      router.replace("/login");
     }
-    const query = forward.toString();
-    redirect(query ? `/auth/callback?${query}` : "/auth/callback");
-  }
 
-  redirect("/login");
+    run();
+  }, [router]);
+
+  return null;
 }
