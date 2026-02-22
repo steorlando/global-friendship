@@ -1,16 +1,63 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { AVAILABLE_ROLES, ROLE_LABELS, type AppRole } from "@/lib/auth/roles";
+import {
+  AVAILABLE_ROLES,
+  ROLE_LABELS,
+  ROLE_ROUTES,
+  isAppRole,
+  type AppRole,
+} from "@/lib/auth/roles";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<AppRole>("partecipante");
   const [status, setStatus] = useState<"idle" | "loading" | "sent" | "error">(
     "idle"
   );
   const [message, setMessage] = useState<string | null>(null);
+  const appBaseUrl =
+    process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/+$/, "") ||
+    (typeof window !== "undefined" ? window.location.origin : "");
+
+  useEffect(() => {
+    async function redirectIfAuthenticated() {
+      const supabase = createSupabaseBrowserClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      const user = session?.user ?? null;
+      if (!user) return;
+
+      const requestedRole = window.localStorage.getItem("gf_requested_role");
+      const requested = isAppRole(requestedRole) ? requestedRole : null;
+
+      const { data: profile } = await supabase
+        .from("profili")
+        .select("ruolo")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      const roleFromProfile = profile?.ruolo ?? null;
+      const destination = requested
+        ? ROLE_ROUTES[requested]
+        : isAppRole(roleFromProfile)
+          ? ROLE_ROUTES[roleFromProfile]
+          : "/dashboard";
+
+      if (requestedRole) {
+        window.localStorage.removeItem("gf_requested_role");
+      }
+
+      router.replace(destination);
+    }
+
+    redirectIfAuthenticated();
+  }, [router]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -23,7 +70,7 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?role=${encodeURIComponent(
+          emailRedirectTo: `${appBaseUrl}/auth/callback?role=${encodeURIComponent(
             role
           )}`,
         },
