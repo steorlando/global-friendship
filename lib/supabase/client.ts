@@ -12,7 +12,7 @@ export function createSupabaseBrowserClient() {
 
   return createBrowserClient(url, key, {
     auth: {
-      flowType: "implicit",
+      flowType: "pkce",
     },
   });
 }

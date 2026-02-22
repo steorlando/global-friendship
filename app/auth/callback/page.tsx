@@ -5,6 +5,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ROLE_ROUTES, isAppRole } from "@/lib/auth/roles";
 
+const OTP_TYPES = new Set([
+  "magiclink",
+  "recovery",
+  "invite",
+  "email",
+  "email_change",
+]);
+
 function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -13,6 +21,8 @@ function AuthCallbackContent() {
   useEffect(() => {
     async function run() {
       const code = searchParams.get("code");
+      const tokenHash = searchParams.get("token_hash");
+      const otpType = searchParams.get("type");
       const requestedRoleFromQuery = searchParams.get("role");
       const requestedRoleFromStorage =
         window.localStorage.getItem("gf_requested_role");
@@ -22,6 +32,14 @@ function AuthCallbackContent() {
         const { error } = await supabase.auth.exchangeCodeForSession(code);
         if (error) {
           console.warn("Code exchange failed, trying session fallback", error);
+        }
+      } else if (tokenHash && otpType && OTP_TYPES.has(otpType)) {
+        const { error } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: otpType,
+        });
+        if (error) {
+          console.warn("Token verification failed, trying session fallback", error);
         }
       }
 
