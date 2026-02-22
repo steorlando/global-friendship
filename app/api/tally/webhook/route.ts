@@ -115,6 +115,25 @@ function parseBool(value: string): boolean | null {
   return null;
 }
 
+function normalizeCountry(value: string): string {
+  const normalized = normalize(value);
+  if (!normalized) return "";
+
+  const lower = normalized.toLowerCase();
+  const aliasToCanonical: Record<string, string> = {
+    italy: "Italy",
+    italia: "Italy",
+    it: "Italy",
+  };
+
+  return aliasToCanonical[lower] ?? normalized;
+}
+
+function isItaly(value: string): boolean {
+  const normalized = normalize(value).toLowerCase();
+  return normalized === "italy" || normalized === "italia" || normalized === "it";
+}
+
 function pickAnswer(answers: Record<string, string>, labels: string[]): string {
   for (const label of labels) {
     const value = answers[label];
@@ -508,10 +527,18 @@ function normalizeSubmission(
     "Nationality/Nazionalità/Nacionalidad/Nationalitè",
     "Nationality",
   ]);
-  const paeseResidenza = pickAnswer(answers, [
-    "Country of residence / Paese di residenza / País de residencia / Pays de résidence",
-    "Country of residence",
-  ]);
+  const paeseResidenzaRaw =
+    pickAnswer(answers, [
+      "Country of residence / Paese di residenza / País de residencia / Pays de résidence",
+      "Country of residence",
+    ]) ||
+    pickAnswerContains(answers, [
+      "country of residence",
+      "paese di residenza",
+      "país de residencia",
+      "pays de résidence",
+    ]);
+  const paeseResidenza = normalizeCountry(paeseResidenzaRaw);
   const citta = pickAnswer(answers, ["City", "Città"]);
   const gruppoRoma = pickAnswer(answers, ["Gruppo di Roma"]);
   const groupLeader = pickAnswer(answers, [
@@ -529,9 +556,8 @@ function normalizeSubmission(
   const gruppoLabel =
     citta.toLowerCase() === "roma"
       ? gruppoRoma
-      : paeseResidenza.toLowerCase() === "italy" ||
-          paeseResidenza.toLowerCase() === "italia"
-        ? citta
+      : isItaly(paeseResidenza)
+        ? citta || gruppoRoma || paeseResidenza
         : paeseResidenza;
 
   const alloggio = pickAnswer(answers, [

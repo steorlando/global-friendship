@@ -20,6 +20,7 @@ type ParticipantRow = {
   cognome: string | null;
   email: string | null;
   telefono: string | null;
+  paese_residenza: string | null;
   nazione: string | null;
   data_nascita: string | null;
   data_arrivo: string | null;
@@ -36,7 +37,7 @@ type ParticipantRow = {
 };
 
 const SELECT_FIELDS =
-  "id,nome,cognome,email,telefono,nazione,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label";
+  "id,nome,cognome,email,telefono,paese_residenza,nazione,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label";
 
 const esigenzeSet = new Set<string>(ESIGENZE_ALIMENTARI_OPTIONS);
 const difficoltaSet = new Set<string>(DIFFICOLTA_ACCESSIBILITA_OPTIONS);
@@ -74,6 +75,7 @@ function toTemplateData(row: ParticipantRow): ParticipantTemplateData {
     cognome: row.cognome,
     email: row.email,
     telefono: row.telefono,
+    paese_residenza: row.paese_residenza,
     nazione: row.nazione,
     data_nascita: row.data_nascita,
     data_arrivo: row.data_arrivo,
