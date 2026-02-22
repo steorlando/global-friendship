@@ -2,16 +2,21 @@
 
 import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import type { EmailOtpType } from "@supabase/supabase-js";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ROLE_ROUTES, isAppRole } from "@/lib/auth/roles";
 
-const OTP_TYPES = new Set([
+const OTP_TYPES: readonly EmailOtpType[] = [
   "magiclink",
   "recovery",
   "invite",
   "email",
   "email_change",
-]);
+];
+
+function isOtpType(value: string | null): value is EmailOtpType {
+  return Boolean(value && OTP_TYPES.includes(value as EmailOtpType));
+}
 
 function AuthCallbackContent() {
   const router = useRouter();
@@ -33,7 +38,7 @@ function AuthCallbackContent() {
         if (error) {
           console.warn("Code exchange failed, trying session fallback", error);
         }
-      } else if (tokenHash && otpType && OTP_TYPES.has(otpType)) {
+      } else if (tokenHash && isOtpType(otpType)) {
         const { error } = await supabase.auth.verifyOtp({
           token_hash: tokenHash,
           type: otpType,
