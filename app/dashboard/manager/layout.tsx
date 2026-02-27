@@ -8,6 +8,7 @@ const tabs = [
   { href: "/dashboard/manager", label: "Statistics" },
   { href: "/dashboard/manager/participants", label: "Participants" },
   { href: "/dashboard/manager/participation-fees", label: "Participation Fees" },
+  { href: "/dashboard/manager/event-finance", label: "Event Finance" },
   { href: "/dashboard/manager/email-campaigns", label: "Email Campaigns" },
 ];
 
