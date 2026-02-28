@@ -58,7 +58,7 @@ type NormalizedSubmission = {
 const GROUP_NAMESPACE_UUID = "6ba7b811-9dad-11d1-80b4-00c04fd430c8";
 const GROUP_LEADER_PORTAL_URL =
   process.env.GROUP_LEADER_PORTAL_URL ||
-  "https://portal.globalfriendship.eu/dashboard/capogruppo";
+  "https://portal.globalfriendship.eu";
 const WEBHOOK_EVENT_MISSING_TABLE_CODES = new Set(["42P01", "PGRST204"]);
 
 type GroupLeaderRecipient = {
