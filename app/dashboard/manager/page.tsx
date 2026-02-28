@@ -154,6 +154,10 @@ function pointValueAtOrBefore(series: TrendPoint[], day: number): number {
   return point ? point.value : 0;
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
 async function parseHistoryCsv(
   filename: string
 ): Promise<{ raw: Map<number, number>; minDay: number | null }> {
@@ -256,23 +260,57 @@ async function buildTrendSeries(participants: ParticipantStatRow[]): Promise<Tre
     observedCurrentDays.length > 0 ? observedCurrentDays[observedCurrentDays.length - 1] : minDay;
   const latestCurrentValue = pointValueAtOrBefore(currentFilled, latestCurrentDay);
 
-  const windowStart = Math.max(minDay, latestCurrentDay - 21);
-  const windowStartValue = pointValueAtOrBefore(currentFilled, windowStart);
-  const windowLength = Math.max(1, latestCurrentDay - windowStart);
-  const dailyRate = (latestCurrentValue - windowStartValue) / windowLength;
-  const remainingDays = Math.max(0, 0 - latestCurrentDay);
-  const forecastFinal = Math.max(
-    latestCurrentValue,
-    Math.round(latestCurrentValue + dailyRate * remainingDays)
-  );
+  let forecast: TrendPoint[] = [{ day: 0, value: latestCurrentValue }];
+  let forecastFinal = latestCurrentValue;
 
-  const forecast =
-    latestCurrentDay >= 0
-      ? [{ day: 0, value: latestCurrentValue }]
-      : [
-          { day: latestCurrentDay, value: latestCurrentValue },
-          { day: 0, value: forecastFinal },
-        ];
+  if (latestCurrentDay < 0) {
+    const eps = 1e-6;
+    const histAtLatest = pointValueAtOrBefore(historyAverage, latestCurrentDay);
+    const histFinal = pointValueAtOrBefore(historyAverage, 0);
+
+    const levelRatio =
+      histAtLatest > eps ? latestCurrentValue / histAtLatest : 1;
+
+    const growthWindowStart = Math.max(minDay, latestCurrentDay - 14);
+    const currentAtWindowStart = pointValueAtOrBefore(currentFilled, growthWindowStart);
+    const histAtWindowStart = pointValueAtOrBefore(historyAverage, growthWindowStart);
+    const currentGrowth = Math.max(0, latestCurrentValue - currentAtWindowStart);
+    const histGrowth = Math.max(0, histAtLatest - histAtWindowStart);
+    const growthRatio =
+      histGrowth > eps ? currentGrowth / histGrowth : levelRatio;
+
+    // Blend level-fit and recent-growth fit; keep it bounded to avoid unstable tails.
+    const shapeScale = clamp(0.7 * levelRatio + 0.3 * growthRatio, 0.35, 3.5);
+
+    const rawCurve: TrendPoint[] = [];
+    let previous = latestCurrentValue;
+    for (let day = latestCurrentDay; day <= 0; day += 1) {
+      const histValue = pointValueAtOrBefore(historyAverage, day);
+      const centered = Math.max(0, histValue - histAtLatest);
+      const projected = latestCurrentValue + shapeScale * centered;
+      const value = Math.max(previous, Math.round(projected));
+      rawCurve.push({ day, value });
+      previous = value;
+    }
+
+    const terminalFromShape =
+      rawCurve.length > 0 ? rawCurve[rawCurve.length - 1].value : latestCurrentValue;
+    const fallbackLinear = Math.round(
+      latestCurrentValue +
+        ((latestCurrentValue - currentAtWindowStart) / Math.max(1, latestCurrentDay - growthWindowStart)) *
+          Math.max(0, 0 - latestCurrentDay)
+    );
+
+    forecastFinal = Math.max(
+      latestCurrentValue,
+      terminalFromShape,
+      histFinal > eps ? Math.round(shapeScale * histFinal) : latestCurrentValue,
+      fallbackLinear
+    );
+
+    rawCurve[rawCurve.length - 1] = { day: 0, value: forecastFinal };
+    forecast = rawCurve;
+  }
 
   return {
     minDay,
