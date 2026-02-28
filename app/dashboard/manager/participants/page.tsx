@@ -1,11 +1,13 @@
 import { ParticipantsTable } from "../../_components/participants-table";
+import { getServerTranslator } from "@/lib/i18n/server";
 
-export default function ManagerParticipantsPage() {
+export default async function ManagerParticipantsPage() {
+  const { t } = await getServerTranslator();
   return (
     <section>
       <ParticipantsTable
         apiBasePath="/api/manager/participants"
-        groupSummaryLabel="Gruppi presenti"
+        groupSummaryLabel={t("participants.table.header.group")}
       />
     </section>
   );

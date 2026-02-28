@@ -3,23 +3,24 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
-
-const tabs = [
-  { href: "/dashboard/manager", label: "Statistics" },
-  { href: "/dashboard/manager/participants", label: "Participants" },
-  { href: "/dashboard/manager/participation-fees", label: "Participation Fees" },
-  { href: "/dashboard/manager/event-finance", label: "Event Finance" },
-  { href: "/dashboard/manager/email-campaigns", label: "Email Campaigns" },
-];
+import { useI18n } from "@/lib/i18n/provider";
 
 export default function ManagerLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const { t } = useI18n();
+  const tabs = [
+    { href: "/dashboard/manager", label: t("dashboard.manager.tab.statistics") },
+    { href: "/dashboard/manager/participants", label: t("dashboard.manager.tab.participants") },
+    { href: "/dashboard/manager/participation-fees", label: t("dashboard.manager.tab.fees") },
+    { href: "/dashboard/manager/event-finance", label: t("dashboard.manager.tab.finance") },
+    { href: "/dashboard/manager/email-campaigns", label: t("dashboard.manager.tab.email") },
+  ];
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-10">
-      <h1 className="text-2xl font-bold text-slate-900">Manager Dashboard</h1>
+      <h1 className="text-2xl font-bold text-slate-900">{t("dashboard.manager.title")}</h1>
       <p className="mt-2 text-sm text-slate-500">
-        Manage statistics and participant data.
+        {t("dashboard.manager.subtitle")}
       </p>
 
       <header className="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">

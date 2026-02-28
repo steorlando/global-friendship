@@ -10,6 +10,7 @@ import {
   DIFFICOLTA_ACCESSIBILITA_OPTIONS,
   ESIGENZE_ALIMENTARI_OPTIONS,
 } from "@/lib/partecipante/constants";
+import { useI18n } from "@/lib/i18n/provider";
 
 type Participant = {
   id: string;
@@ -112,6 +113,7 @@ export function ParticipantsTable({
   apiBasePath,
   groupSummaryLabel,
 }: ParticipantsTableProps) {
+  const { t } = useI18n();
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [showGroupColumn, setShowGroupColumn] = useState(false);
   const [groups, setGroups] = useState<string[]>([]);
@@ -226,7 +228,7 @@ export function ParticipantsTable({
         const json = await res.json();
 
         if (!res.ok) {
-          setLoadError(json.error ?? "Impossibile caricare i partecipanti.");
+          setLoadError(json.error ?? t("participants.table.loadError"));
           return;
         }
 
@@ -234,14 +236,14 @@ export function ParticipantsTable({
         setShowGroupColumn(Boolean(json.showGroupColumn));
         setGroups(Array.isArray(json.groups) ? json.groups : []);
       } catch {
-        setLoadError("Impossibile caricare i partecipanti.");
+        setLoadError(t("participants.table.loadError"));
       } finally {
         setLoading(false);
       }
     }
 
     loadParticipants();
-  }, [apiBasePath]);
+  }, [apiBasePath, t]);
 
   function openEditModal(participant: Participant) {
     setEditingId(participant.id);
@@ -326,7 +328,7 @@ export function ParticipantsTable({
 
       const json = await res.json();
       if (!res.ok) {
-        setError(json.error ?? "Salvataggio non riuscito.");
+        setError(json.error ?? t("participants.table.saveError"));
         return;
       }
 
@@ -334,13 +336,13 @@ export function ParticipantsTable({
       setParticipants((prev) =>
         prev.map((row) => (row.id === updated.id ? updated : row))
       );
-      setSuccess("Partecipante aggiornato correttamente.");
+      setSuccess(t("participants.table.saveSuccess"));
 
       setTimeout(() => {
         closeEditModal();
       }, 500);
     } catch {
-      setError("Salvataggio non riuscito.");
+      setError(t("participants.table.saveError"));
     } finally {
       setSaving(false);
     }
@@ -349,7 +351,7 @@ export function ParticipantsTable({
   async function handleDelete() {
     if (!editingId || deleting || saving) return;
     const confirmed = window.confirm(
-      "Are you sure you want to delete this participant? This action cannot be undone."
+      t("participants.table.deleteConfirm")
     );
     if (!confirmed) return;
 
@@ -366,14 +368,14 @@ export function ParticipantsTable({
       const json = await res.json();
 
       if (!res.ok) {
-        setError(json.error ?? "Delete failed.");
+        setError(json.error ?? t("participants.table.deleteError"));
         return;
       }
 
       setParticipants((prev) => prev.filter((row) => row.id !== editingId));
       closeEditModal();
     } catch {
-      setError("Delete failed.");
+      setError(t("participants.table.deleteError"));
     } finally {
       setDeleting(false);
     }
@@ -382,7 +384,7 @@ export function ParticipantsTable({
   if (loading) {
     return (
       <div className="rounded border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
-        Caricamento partecipanti...
+        {t("common.loadingParticipants")}
       </div>
     );
   }
@@ -399,7 +401,7 @@ export function ParticipantsTable({
     <>
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <p className="text-sm text-slate-500">
-          {groupSummaryLabel}: {groups.length > 0 ? groups.join(", ") : "Nessun gruppo"}
+          {groupSummaryLabel}: {groups.length > 0 ? groups.join(", ") : t("participants.table.noGroup")}
         </p>
 
         <div className="mt-4 overflow-x-auto rounded border border-slate-200">
@@ -409,41 +411,41 @@ export function ParticipantsTable({
                 {showGroupColumn && (
                   <th className="px-4 py-3">
                     <button type="button" onClick={() => toggleSort("group")}>
-                      Group {sortLabel("group")}
+                      {t("participants.table.header.group")} {sortLabel("group")}
                     </button>
                   </th>
                 )}
                 <th className="px-4 py-3">
                   <button type="button" onClick={() => toggleSort("nome")}>
-                    First name {sortLabel("nome")}
+                    {t("participants.table.header.firstName")} {sortLabel("nome")}
                   </button>
                 </th>
                 <th className="px-4 py-3">
                   <button type="button" onClick={() => toggleSort("cognome")}>
-                    Last name {sortLabel("cognome")}
+                    {t("participants.table.header.lastName")} {sortLabel("cognome")}
                   </button>
                 </th>
                 <th className="px-4 py-3">
                   <button type="button" onClick={() => toggleSort("data_arrivo")}>
-                    Arrival date {sortLabel("data_arrivo")}
+                    {t("participants.table.header.arrivalDate")} {sortLabel("data_arrivo")}
                   </button>
                 </th>
                 <th className="px-4 py-3">
                   <button type="button" onClick={() => toggleSort("data_partenza")}>
-                    Departure date {sortLabel("data_partenza")}
+                    {t("participants.table.header.departureDate")} {sortLabel("data_partenza")}
                   </button>
                 </th>
                 <th className="px-4 py-3">
                   <button type="button" onClick={() => toggleSort("alloggio")}>
-                    Accommodation {sortLabel("alloggio")}
+                    {t("participants.table.header.accommodation")} {sortLabel("alloggio")}
                   </button>
                 </th>
                 <th className="px-4 py-3">
                   <button type="button" onClick={() => toggleSort("quota_totale")}>
-                    Total fee {sortLabel("quota_totale")}
+                    {t("participants.table.header.totalFee")} {sortLabel("quota_totale")}
                   </button>
                 </th>
-                <th className="px-4 py-3">Actions</th>
+                <th className="px-4 py-3">{t("participants.table.header.actions")}</th>
               </tr>
               <tr>
                 {showGroupColumn && (
@@ -451,7 +453,7 @@ export function ParticipantsTable({
                     <input
                       value={groupFilter}
                       onChange={(e) => setGroupFilter(e.target.value)}
-                      placeholder="Filter group"
+                      placeholder={t("participants.table.filter.group")}
                       className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
                     />
                   </th>
@@ -460,7 +462,7 @@ export function ParticipantsTable({
                   <input
                     value={nomeFilter}
                     onChange={(e) => setNomeFilter(e.target.value)}
-                    placeholder="Filter first name"
+                    placeholder={t("participants.table.filter.firstName")}
                     className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
                   />
                 </th>
@@ -468,7 +470,7 @@ export function ParticipantsTable({
                   <input
                     value={cognomeFilter}
                     onChange={(e) => setCognomeFilter(e.target.value)}
-                    placeholder="Filter last name"
+                    placeholder={t("participants.table.filter.lastName")}
                     className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
                   />
                 </th>
@@ -494,7 +496,7 @@ export function ParticipantsTable({
                     onChange={(e) => setAlloggioFilter(e.target.value)}
                     className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
                   >
-                    <option value="">All</option>
+                    <option value="">{t("common.all")}</option>
                     {ALLOGGIO_SHORT_OPTIONS.map((option) => (
                       <option key={option} value={option}>
                         {option}
@@ -506,14 +508,14 @@ export function ParticipantsTable({
                   <div className="grid grid-cols-2 gap-1">
                     <input
                       type="number"
-                      placeholder="Min"
+                      placeholder={t("participants.table.filter.min")}
                       value={quotaMinFilter}
                       onChange={(e) => setQuotaMinFilter(e.target.value)}
                       className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
                     />
                     <input
                       type="number"
-                      placeholder="Max"
+                      placeholder={t("participants.table.filter.max")}
                       value={quotaMaxFilter}
                       onChange={(e) => setQuotaMaxFilter(e.target.value)}
                       className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
@@ -526,7 +528,7 @@ export function ParticipantsTable({
                     onClick={resetFilters}
                     className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100"
                   >
-                    Reset
+                    {t("common.reset")}
                   </button>
                 </th>
               </tr>
@@ -538,7 +540,7 @@ export function ParticipantsTable({
                     className="px-4 py-4 text-slate-500"
                     colSpan={showGroupColumn ? 8 : 7}
                   >
-                    No participants found with the current filters.
+                    {t("participants.table.noResults")}
                   </td>
                 </tr>
               ) : (
@@ -575,7 +577,7 @@ export function ParticipantsTable({
                         onClick={() => openEditModal(participant)}
                         className="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
                       >
-                        Edit
+                        {t("common.edit")}
                       </button>
                     </td>
                   </tr>
@@ -591,7 +593,7 @@ export function ParticipantsTable({
           <div className="w-full max-w-3xl rounded-lg border border-slate-200 bg-white p-5 shadow-xl">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">Modifica partecipante</h2>
+                <h2 className="text-lg font-semibold text-slate-900">{t("participants.table.modal.editTitle")}</h2>
                 <p className="text-sm text-slate-500">
                   {editingParticipant.nome} {editingParticipant.cognome}
                 </p>
@@ -601,14 +603,14 @@ export function ParticipantsTable({
                 onClick={closeEditModal}
                 className="rounded border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
               >
-                Chiudi
+                {t("participants.table.modal.close")}
               </button>
             </div>
 
             <form onSubmit={handleSave} className="space-y-5">
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700">Nome</label>
+                  <label className="block text-sm font-medium text-slate-700">{t("participant.form.name")}</label>
                   <input
                     required
                     value={form.nome}
@@ -618,7 +620,7 @@ export function ParticipantsTable({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700">Cognome</label>
+                  <label className="block text-sm font-medium text-slate-700">{t("participant.form.surname")}</label>
                   <input
                     required
                     value={form.cognome}
@@ -628,7 +630,7 @@ export function ParticipantsTable({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700">Nazione</label>
+                  <label className="block text-sm font-medium text-slate-700">{t("participant.form.nationality")}</label>
                   <input
                     value={form.nazione}
                     onChange={(e) => setForm((prev) => ({ ...prev, nazione: e.target.value }))}
@@ -637,7 +639,7 @@ export function ParticipantsTable({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700">Email</label>
+                  <label className="block text-sm font-medium text-slate-700">{t("auth.login.email")}</label>
                   <input
                     type="email"
                     required
@@ -648,7 +650,7 @@ export function ParticipantsTable({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700">Telefono</label>
+                  <label className="block text-sm font-medium text-slate-700">{t("participants.table.phone")}</label>
                   <input
                     value={form.telefono}
                     onChange={(e) => setForm((prev) => ({ ...prev, telefono: e.target.value }))}
@@ -658,7 +660,7 @@ export function ParticipantsTable({
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700">
-                    Data nascita
+                    {t("participant.form.dateOfBirth")}
                   </label>
                   <input
                     type="date"
@@ -671,7 +673,7 @@ export function ParticipantsTable({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700">Data arrivo</label>
+                  <label className="block text-sm font-medium text-slate-700">{t("participant.form.arrivalDate")}</label>
                   <input
                     type="date"
                     min={ARRIVAL_DATE_MIN}
@@ -686,7 +688,7 @@ export function ParticipantsTable({
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700">
-                    Data partenza
+                    {t("participant.form.departureDate")}
                   </label>
                   <input
                     type="date"
@@ -701,13 +703,13 @@ export function ParticipantsTable({
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700">Alloggio</label>
+                  <label className="block text-sm font-medium text-slate-700">{t("participant.form.accommodation")}</label>
                   <select
                     value={form.alloggio}
                     onChange={(e) => setForm((prev) => ({ ...prev, alloggio: e.target.value }))}
                     className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
                   >
-                    <option value="">Seleziona...</option>
+                    <option value="">{t("participant.form.select")}</option>
                     {ALLOGGIO_SHORT_OPTIONS.map((option) => (
                       <option key={option} value={option}>
                         {option}
@@ -717,7 +719,7 @@ export function ParticipantsTable({
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700">Allergie</label>
+                  <label className="block text-sm font-medium text-slate-700">{t("participant.form.allergies")}</label>
                   <textarea
                     rows={2}
                     value={form.allergie}
@@ -728,7 +730,7 @@ export function ParticipantsTable({
 
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-slate-700">
-                    Esigenze alimentari
+                    {t("participant.form.dietaryRequirements")}
                   </label>
                   <div className="mt-2 grid gap-2 rounded border border-slate-200 p-3 md:grid-cols-2">
                     {ESIGENZE_ALIMENTARI_OPTIONS.map((option) => (
@@ -759,7 +761,7 @@ export function ParticipantsTable({
                         }))
                       }
                     />
-                    Disabilita / accessibilita
+                    {t("participants.table.modal.accessibility")}
                   </label>
 
                   <div className="mt-3 grid gap-2 md:grid-cols-2">
@@ -800,7 +802,7 @@ export function ParticipantsTable({
                   disabled={saving || deleting}
                   className="mr-auto rounded border border-red-300 px-4 py-2 text-sm text-red-700 hover:bg-red-50 disabled:opacity-60"
                 >
-                  {deleting ? "Deleting..." : "Delete"}
+                  {deleting ? "Deleting..." : t("common.delete")}
                 </button>
                 <button
                   type="button"
@@ -808,14 +810,14 @@ export function ParticipantsTable({
                   disabled={saving || deleting}
                   className="rounded border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
                 >
-                  Annulla
+                  {t("participants.table.modal.cancel")}
                 </button>
                 <button
                   type="submit"
                   disabled={saving || deleting}
                   className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
                 >
-                  {saving ? "Salvataggio..." : "Salva"}
+                  {saving ? t("participants.table.modal.saving") : t("common.save")}
                 </button>
               </div>
             </form>

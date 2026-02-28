@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useI18n } from "@/lib/i18n/provider";
 import {
   AVAILABLE_ROLES,
-  ROLE_LABELS,
   ROLE_ROUTES,
   isAppRole,
   type AppRole,
@@ -13,6 +13,7 @@ import {
 
 export default function LoginPage() {
   const router = useRouter();
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<AppRole>("partecipante");
   const [status, setStatus] = useState<"idle" | "loading" | "sent" | "error">(
@@ -26,9 +27,18 @@ export default function LoginPage() {
   useEffect(() => {
     async function redirectIfAuthenticated() {
       const supabase = createSupabaseBrowserClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      let session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"] =
+        null;
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error?.message?.toLowerCase().includes("refresh token")) {
+          await supabase.auth.signOut({ scope: "local" });
+          return;
+        }
+        session = data.session;
+      } catch {
+        return;
+      }
 
       const user = session?.user ?? null;
       if (!user) return;
@@ -79,33 +89,28 @@ export default function LoginPage() {
       }
 
       setStatus("sent");
-      setMessage("Check your email for the magic link.");
+      setMessage(t("auth.login.sent"));
     } catch {
       setStatus("error");
-      setMessage("Error while sending the magic link.");
+      setMessage(t("auth.login.error"));
     }
   };
 
   return (
     <main className="mx-auto max-w-md px-6 py-12">
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h1 className="text-2xl font-bold text-slate-900">Login / Accesso</h1>
+      <div className="flex items-start justify-between gap-3">
+        <h1 className="text-2xl font-bold text-slate-900">{t("auth.login.title")}</h1>
+      </div>
       <div className="mt-3 space-y-2 text-sm text-slate-500">
-        <p className="leading-relaxed">
-          Manage Global Friendship registrations from this page. Enter your
-          email and choose the role you want to access.
-        </p>
-        <p className="leading-relaxed">
-          We will send a secure magic link to your email. On your first login
-          attempt, the message may land in your Spam/Junk folder, so check there
-          if you do not see it in your inbox.
-        </p>
+        <p className="leading-relaxed">{t("auth.login.description1")}</p>
+        <p className="leading-relaxed">{t("auth.login.description2")}</p>
       </div>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         <div>
           <label className="block text-sm font-medium text-slate-700">
-            Role
+            {t("auth.login.role")}
           </label>
           <select
             required
@@ -115,7 +120,7 @@ export default function LoginPage() {
           >
             {AVAILABLE_ROLES.map((item) => (
               <option key={item} value={item}>
-                {ROLE_LABELS[item]}
+                {t(`roles.${item}`)}
               </option>
             ))}
           </select>
@@ -123,7 +128,7 @@ export default function LoginPage() {
 
         <div>
           <label className="block text-sm font-medium text-slate-700">
-            Email
+            {t("auth.login.email")}
           </label>
           <input
             type="email"
@@ -131,7 +136,7 @@ export default function LoginPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-            placeholder="name@email.com"
+            placeholder={t("auth.login.emailPlaceholder")}
           />
         </div>
 
@@ -140,7 +145,7 @@ export default function LoginPage() {
           disabled={status === "loading"}
           className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-500 disabled:opacity-60"
         >
-          {status === "loading" ? "Invio in corso..." : "Invia Magic Link"}
+          {status === "loading" ? t("auth.login.submitting") : t("auth.login.submit")}
         </button>
 
         {message && (

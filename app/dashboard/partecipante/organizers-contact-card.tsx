@@ -1,8 +1,10 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { useI18n } from "@/lib/i18n/provider";
 
 export function OrganizersContactCard() {
+  const { t } = useI18n();
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,14 +28,14 @@ export function OrganizersContactCard() {
       const json = await res.json();
 
       if (!res.ok) {
-        setError(json.error ?? "Unable to send your message.");
+        setError(json.error ?? t("participant.contact.error"));
         return;
       }
 
-      setSuccess("Your message has been sent to the organizers.");
+      setSuccess(t("participant.contact.success"));
       setMessage("");
     } catch {
-      setError("Unable to send your message.");
+      setError(t("participant.contact.error"));
     } finally {
       setSending(false);
     }
@@ -41,11 +43,8 @@ export function OrganizersContactCard() {
 
   return (
     <aside className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h2 className="text-lg font-semibold text-slate-900">Contact Organizers</h2>
-      <p className="mt-2 text-sm text-slate-500">
-        If you need support or have any updates, write your message in the box
-        below. It will be sent directly to the organizers.
-      </p>
+      <h2 className="text-lg font-semibold text-slate-900">{t("participant.contact.title")}</h2>
+      <p className="mt-2 text-sm text-slate-500">{t("participant.contact.description")}</p>
 
       <form className="mt-4 space-y-3" onSubmit={onSubmit}>
         <textarea
@@ -55,7 +54,7 @@ export function OrganizersContactCard() {
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           rows={7}
-          placeholder="Write your message for the organizers..."
+          placeholder={t("participant.contact.placeholder")}
           className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
         />
 
@@ -76,7 +75,7 @@ export function OrganizersContactCard() {
           disabled={sending}
           className="w-full rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
         >
-          {sending ? "Sending..." : "Send"}
+          {sending ? t("common.sending") : t("common.send")}
         </button>
       </form>
     </aside>

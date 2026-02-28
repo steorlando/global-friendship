@@ -8,6 +8,7 @@ import {
   DEPARTURE_DATE_MAX,
   DEPARTURE_DATE_MIN,
 } from "@/lib/partecipante/constants";
+import { useI18n } from "@/lib/i18n/provider";
 
 type Participant = {
   id: string;
@@ -70,6 +71,7 @@ function formatCurrency(value: number) {
 }
 
 export function ParticipationFeesTable() {
+  const { t } = useI18n();
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [groups, setGroups] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -100,21 +102,21 @@ export function ParticipationFeesTable() {
         const json = await res.json();
 
         if (!res.ok) {
-          setLoadError(json.error ?? "Unable to load participation fees.");
+          setLoadError(json.error ?? t("fees.loadError"));
           return;
         }
 
         setParticipants(Array.isArray(json.participants) ? json.participants : []);
         setGroups(Array.isArray(json.groups) ? json.groups : []);
       } catch {
-        setLoadError("Unable to load participation fees.");
+        setLoadError(t("fees.loadError"));
       } finally {
         setLoading(false);
       }
     }
 
     loadParticipants();
-  }, []);
+  }, [t]);
 
   const visibleParticipants = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -177,7 +179,7 @@ export function ParticipationFeesTable() {
 
     for (const participant of visibleParticipants) {
       const rawGroup = (participant.group ?? "").trim();
-      const group = rawGroup && rawGroup !== "-" ? rawGroup : "No group";
+      const group = rawGroup && rawGroup !== "-" ? rawGroup : t("participants.table.noGroup");
       const totalExpectedFee = participant.quota_totale ?? 0;
       const totalPaidFee = participant.fee_paid ?? 0;
 
@@ -200,7 +202,7 @@ export function ParticipationFeesTable() {
     }
 
     return [...byGroup.values()].sort((a, b) => a.group.localeCompare(b.group));
-  }, [visibleParticipants]);
+  }, [t, visibleParticipants]);
 
   const allVisibleSelected =
     visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
@@ -243,7 +245,7 @@ export function ParticipationFeesTable() {
     const normalized = normalizeFeeInput(nextValue);
 
     if (normalized === "invalid") {
-      setActionError("Fee paid must be a valid number greater than or equal to 0.");
+      setActionError(t("fees.invalidValue"));
       return;
     }
 
@@ -264,7 +266,7 @@ export function ParticipationFeesTable() {
       const json = await res.json();
 
       if (!res.ok) {
-        setActionError(json.error ?? "Unable to save fee paid value.");
+        setActionError(json.error ?? t("fees.saveError"));
         return;
       }
 
@@ -275,9 +277,9 @@ export function ParticipationFeesTable() {
         delete next[participant.id];
         return next;
       });
-      setActionSuccess("Payment value saved.");
+      setActionSuccess(t("fees.saveSuccess"));
     } catch {
-      setActionError("Unable to save fee paid value.");
+      setActionError(t("fees.saveError"));
     } finally {
       setSavingIds((prev) => {
         const next = new Set(prev);
@@ -331,7 +333,7 @@ export function ParticipationFeesTable() {
       const json = await res.json();
 
       if (!res.ok) {
-        setActionError(json.error ?? "Unable to mark selected participants as fully paid.");
+        setActionError(json.error ?? t("fees.bulkError"));
         return;
       }
 
@@ -351,9 +353,9 @@ export function ParticipationFeesTable() {
         return next;
       });
 
-      setActionSuccess("Selected participants marked as fully paid.");
+      setActionSuccess(t("fees.bulkSuccess"));
     } catch {
-      setActionError("Unable to mark selected participants as fully paid.");
+      setActionError(t("fees.bulkError"));
     } finally {
       setBulkSaving(false);
     }
@@ -362,7 +364,7 @@ export function ParticipationFeesTable() {
   if (loading) {
     return (
       <div className="rounded border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
-        Loading participation fees...
+        {t("common.loading")}
       </div>
     );
   }
@@ -379,26 +381,26 @@ export function ParticipationFeesTable() {
     <div className="space-y-4">
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-base font-semibold text-slate-900">Group Fees Summary</h3>
-          <p className="text-xs text-slate-500">Based on current filters</p>
+          <h3 className="text-base font-semibold text-slate-900">{t("fees.groupSummary")}</h3>
+          <p className="text-xs text-slate-500">{t("fees.groupSummaryHint")}</p>
         </div>
 
         <div className="mt-4 overflow-x-auto rounded border border-slate-200">
           <table className="w-full border-collapse text-left text-sm">
             <thead className="bg-slate-50 text-slate-700">
               <tr>
-                <th className="px-4 py-3">Group name</th>
-                <th className="px-4 py-3">Participants count</th>
-                <th className="px-4 py-3">Total expected fee</th>
-                <th className="px-4 py-3">Total paid</th>
-                <th className="px-4 py-3">Outstanding amount</th>
+                <th className="px-4 py-3">{t("fees.groupName")}</th>
+                <th className="px-4 py-3">{t("fees.participantsCount")}</th>
+                <th className="px-4 py-3">{t("fees.totalExpected")}</th>
+                <th className="px-4 py-3">{t("fees.totalPaid")}</th>
+                <th className="px-4 py-3">{t("fees.outstanding")}</th>
               </tr>
             </thead>
             <tbody>
               {groupSummaryRows.length === 0 ? (
                 <tr>
                   <td className="px-4 py-4 text-slate-500" colSpan={5}>
-                    No groups found for the current dataset.
+                    {t("fees.noGroups")}
                   </td>
                 </tr>
               ) : (
@@ -420,9 +422,9 @@ export function ParticipationFeesTable() {
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">Participation Fees</h2>
+          <h2 className="text-lg font-semibold text-slate-900">{t("fees.title")}</h2>
           <p className="text-sm text-slate-500">
-            Group filter supports all existing participant groups ({groups.length}).
+            {t("fees.groupFilterHint", { count: groups.length })}
           </p>
         </div>
         <button
@@ -431,7 +433,7 @@ export function ParticipationFeesTable() {
           disabled={bulkSaving || selectedIds.size === 0}
           className="rounded border border-indigo-600 bg-indigo-600 px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {bulkSaving ? "Saving..." : "Mark as fully paid"}
+          {bulkSaving ? t("participant.form.saving") : t("fees.markFullyPaid")}
         </button>
       </div>
 
@@ -455,47 +457,47 @@ export function ParticipationFeesTable() {
                   type="checkbox"
                   checked={allVisibleSelected}
                   onChange={toggleSelectAllVisible}
-                  aria-label="Select all visible participants"
+                  aria-label={t("fees.selectAll")}
                 />
               </th>
               <th className="px-4 py-3">
                 <button type="button" onClick={() => toggleSort("group")}>
-                  Group {sortLabel("group")}
+                  {t("participants.table.header.group")} {sortLabel("group")}
                 </button>
               </th>
               <th className="px-4 py-3">
                 <button type="button" onClick={() => toggleSort("nome")}>
-                  First name {sortLabel("nome")}
+                  {t("participants.table.header.firstName")} {sortLabel("nome")}
                 </button>
               </th>
               <th className="px-4 py-3">
                 <button type="button" onClick={() => toggleSort("cognome")}>
-                  Last name {sortLabel("cognome")}
+                  {t("participants.table.header.lastName")} {sortLabel("cognome")}
                 </button>
               </th>
               <th className="px-4 py-3">
                 <button type="button" onClick={() => toggleSort("data_arrivo")}>
-                  Arrival date {sortLabel("data_arrivo")}
+                  {t("participants.table.header.arrivalDate")} {sortLabel("data_arrivo")}
                 </button>
               </th>
               <th className="px-4 py-3">
                 <button type="button" onClick={() => toggleSort("data_partenza")}>
-                  Departure date {sortLabel("data_partenza")}
+                  {t("participants.table.header.departureDate")} {sortLabel("data_partenza")}
                 </button>
               </th>
               <th className="px-4 py-3">
                 <button type="button" onClick={() => toggleSort("alloggio")}>
-                  alloggio_short {sortLabel("alloggio")}
+                  {t("participants.table.header.accommodation")} {sortLabel("alloggio")}
                 </button>
               </th>
               <th className="px-4 py-3">
                 <button type="button" onClick={() => toggleSort("quota_totale")}>
-                  Calculated fee {sortLabel("quota_totale")}
+                  {t("fees.calculatedFee")} {sortLabel("quota_totale")}
                 </button>
               </th>
               <th className="px-4 py-3">
                 <button type="button" onClick={() => toggleSort("fee_paid")}>
-                  Fee paid {sortLabel("fee_paid")}
+                  {t("fees.feePaid")} {sortLabel("fee_paid")}
                 </button>
               </th>
             </tr>
@@ -506,14 +508,14 @@ export function ParticipationFeesTable() {
                   onClick={resetFilters}
                   className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100"
                 >
-                  Reset
+                  {t("common.reset")}
                 </button>
               </th>
               <th className="px-2 pb-3">
                 <input
                   value={groupFilter}
                   onChange={(e) => setGroupFilter(e.target.value)}
-                  placeholder="Filter group"
+                  placeholder={t("participants.table.filter.group")}
                   className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
                 />
               </th>
@@ -521,7 +523,7 @@ export function ParticipationFeesTable() {
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search name/group"
+                  placeholder={t("fees.searchNameGroup")}
                   className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
                 />
               </th>
@@ -547,7 +549,7 @@ export function ParticipationFeesTable() {
                   onChange={(e) => setAlloggioFilter(e.target.value)}
                   className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
                 >
-                  <option value="">All</option>
+                  <option value="">{t("common.all")}</option>
                   {ALLOGGIO_SHORT_OPTIONS.map((option) => (
                     <option key={option} value={option}>
                       {option}
@@ -563,7 +565,7 @@ export function ParticipationFeesTable() {
             {visibleParticipants.length === 0 ? (
               <tr>
                 <td className="px-4 py-4 text-slate-500" colSpan={9}>
-                  No participants found with the current filters.
+                  {t("participants.table.noResults")}
                 </td>
               </tr>
             ) : (
@@ -576,7 +578,7 @@ export function ParticipationFeesTable() {
                         type="checkbox"
                         checked={selectedIds.has(participant.id)}
                         onChange={() => toggleParticipantSelection(participant.id)}
-                        aria-label={`Select ${participant.nome ?? "participant"} ${participant.cognome ?? ""}`}
+                        aria-label={`${t("common.select")} ${participant.nome ?? t("roles.partecipante")} ${participant.cognome ?? ""}`}
                       />
                     </td>
                     <td className="px-4 py-3">{participant.group || "-"}</td>
@@ -613,7 +615,7 @@ export function ParticipationFeesTable() {
                           }
                         }}
                         disabled={isSaving}
-                        placeholder="0.00"
+                        placeholder={t("fees.amountPlaceholder")}
                         className="w-28 rounded border border-slate-300 px-2 py-1 text-xs"
                       />
                     </td>

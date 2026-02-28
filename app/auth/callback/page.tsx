@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ROLE_ROUTES, isAppRole } from "@/lib/auth/roles";
+import { useI18n } from "@/lib/i18n/provider";
 
 const OTP_TYPES: readonly EmailOtpType[] = [
   "magiclink",
@@ -21,7 +22,8 @@ function isOtpType(value: string | null): value is EmailOtpType {
 function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const message = "Completing sign in...";
+  const { t } = useI18n();
+  const message = t("auth.callback.message");
 
   useEffect(() => {
     async function run() {
@@ -90,21 +92,23 @@ function AuthCallbackContent() {
 
   return (
     <>
-      <h1 className="text-2xl font-bold text-slate-900">Signing In</h1>
+      <h1 className="text-2xl font-bold text-slate-900">{t("auth.callback.title")}</h1>
       <p className="mt-2 text-sm text-slate-500">{message}</p>
     </>
   );
 }
 
 export default function AuthCallbackPage() {
+  const { t } = useI18n();
+
   return (
     <main className="mx-auto max-w-md px-6 py-12">
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <Suspense
           fallback={
             <>
-              <h1 className="text-2xl font-bold text-slate-900">Signing In</h1>
-              <p className="mt-2 text-sm text-slate-500">Completing sign in...</p>
+              <h1 className="text-2xl font-bold text-slate-900">{t("auth.callback.title")}</h1>
+              <p className="mt-2 text-sm text-slate-500">{t("auth.callback.message")}</p>
             </>
           }
         >

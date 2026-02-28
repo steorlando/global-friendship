@@ -10,6 +10,7 @@ import {
   DIFFICOLTA_ACCESSIBILITA_OPTIONS,
   ESIGENZE_ALIMENTARI_OPTIONS,
 } from "@/lib/partecipante/constants";
+import { useI18n } from "@/lib/i18n/provider";
 
 type ParticipantFormData = {
   nome: string;
@@ -56,6 +57,7 @@ type ParticipantCandidate = {
 const PARTICIPANT_SELECTION_STORAGE_KEY = "gf_participant_id";
 
 export function PartecipanteForm() {
+  const { t } = useI18n();
   const [formData, setFormData] = useState<ParticipantFormData>(INITIAL_DATA);
   const [email, setEmail] = useState<string>("");
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(
@@ -97,7 +99,7 @@ export function PartecipanteForm() {
         }
 
         if (!res.ok) {
-          setLoadError(json.error ?? "Unable to load participant data.");
+          setLoadError(json.error ?? t("participant.form.loadError"));
           setRequiresSelection(false);
           return;
         }
@@ -141,7 +143,7 @@ export function PartecipanteForm() {
             : [],
         });
       } catch {
-        setLoadError("Unable to load participant data.");
+        setLoadError(t("participant.form.loadError"));
       } finally {
         setLoading(false);
       }
@@ -151,7 +153,7 @@ export function PartecipanteForm() {
       PARTICIPANT_SELECTION_STORAGE_KEY
     );
     void loadData(storedParticipantId || undefined);
-  }, []);
+  }, [t]);
 
   async function handleSelectionChange(participantId: string) {
     setSelectedParticipantId(participantId);
@@ -169,7 +171,7 @@ export function PartecipanteForm() {
       );
       const json = await res.json();
       if (!res.ok) {
-        setLoadError(json.error ?? "Unable to load participant data.");
+        setLoadError(json.error ?? t("participant.form.loadError"));
         return;
       }
 
@@ -194,7 +196,7 @@ export function PartecipanteForm() {
       });
       setRequiresSelection(false);
     } catch {
-      setLoadError("Unable to load participant data.");
+      setLoadError(t("participant.form.loadError"));
     } finally {
       setLoading(false);
     }
@@ -242,13 +244,13 @@ export function PartecipanteForm() {
       const json = await res.json();
 
       if (!res.ok) {
-        setError(json.error ?? "Unable to save data.");
+        setError(json.error ?? t("participant.form.saveError"));
         return;
       }
 
-      setSuccess("Dati aggiornati con successo.");
+      setSuccess(t("participant.form.saveSuccess"));
     } catch {
-      setError("Unable to save data.");
+      setError(t("participant.form.saveError"));
     } finally {
       setSaving(false);
     }
@@ -271,23 +273,23 @@ export function PartecipanteForm() {
       const json = await res.json();
 
       if (!res.ok) {
-        setDeleteError(json.error ?? "Unable to cancel registration.");
+        setDeleteError(json.error ?? t("participant.form.deleteError"));
         return;
       }
 
       if (json.emailSent === false) {
         setDeleteSuccess(
-          "Registration cancelled. Confirmation email could not be sent."
+          t("participant.form.deleteSuccessNoEmail")
         );
       } else {
-        setDeleteSuccess("Registration cancelled. Confirmation email sent.");
+        setDeleteSuccess(t("participant.form.deleteSuccess"));
       }
 
       setTimeout(() => {
         window.location.replace("/login?cancelled=1");
       }, 1400);
     } catch {
-      setDeleteError("Unable to cancel registration.");
+      setDeleteError(t("participant.form.deleteError"));
     } finally {
       setDeleting(false);
     }
@@ -296,7 +298,7 @@ export function PartecipanteForm() {
   if (loading) {
     return (
       <div className="rounded border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
-        Loading participant data...
+        {t("common.loadingParticipantData")}
       </div>
     );
   }
@@ -313,9 +315,9 @@ export function PartecipanteForm() {
     <form onSubmit={handleSubmit} className="space-y-5">
       {requiresSelection && participantCandidates.length > 0 ? (
         <div className="rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          <p className="font-medium">Multiple participant registrations found.</p>
+          <p className="font-medium">{t("participant.form.multipleFoundTitle")}</p>
           <p className="mt-1">
-            Select the participant profile you want to manage with this email.
+            {t("participant.form.multipleFoundBody")}
           </p>
         </div>
       ) : null}
@@ -323,7 +325,7 @@ export function PartecipanteForm() {
       {participantCandidates.length > 1 ? (
         <div>
           <label className="block text-sm font-medium text-slate-700">
-            Participant profile
+            {t("participant.form.profile")}
           </label>
           <select
             value={selectedParticipantId ?? ""}
@@ -336,7 +338,7 @@ export function PartecipanteForm() {
             className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
           >
             <option value="" disabled>
-              Select participant...
+              {t("participant.form.selectParticipant")}
             </option>
             {participantCandidates.map((candidate) => {
               const fullName = [candidate.nome ?? "", candidate.cognome ?? ""]
@@ -346,7 +348,7 @@ export function PartecipanteForm() {
                 (candidate.gruppo_label ?? candidate.gruppo_id ?? "").trim() || "-";
               return (
                 <option key={candidate.id} value={candidate.id}>
-                  {fullName || "Unnamed participant"} - Group {groupLabel}
+                  {fullName || t("participant.form.unnamedParticipant")} - {t("participant.form.group")} {groupLabel}
                 </option>
               );
             })}
@@ -356,7 +358,7 @@ export function PartecipanteForm() {
 
       <div className="grid gap-4 md:grid-cols-2">
         <div>
-          <label className="block text-sm font-medium text-slate-700">Name</label>
+          <label className="block text-sm font-medium text-slate-700">{t("participant.form.name")}</label>
           <input
             required
             value={formData.nome}
@@ -369,7 +371,7 @@ export function PartecipanteForm() {
 
         <div>
           <label className="block text-sm font-medium text-slate-700">
-            Surname
+            {t("participant.form.surname")}
           </label>
           <input
             required
@@ -383,7 +385,7 @@ export function PartecipanteForm() {
 
         <div>
           <label className="block text-sm font-medium text-slate-700">
-            Nationality
+            {t("participant.form.nationality")}
           </label>
           <input
             value={formData.nazione}
@@ -396,7 +398,7 @@ export function PartecipanteForm() {
 
         <div>
           <label className="block text-sm font-medium text-slate-700">
-            Date of birth
+            {t("participant.form.dateOfBirth")}
           </label>
           <input
             type="date"
@@ -410,7 +412,7 @@ export function PartecipanteForm() {
 
         <div>
           <label className="block text-sm font-medium text-slate-700">
-            Arrival date
+            {t("participant.form.arrivalDate")}
           </label>
           <input
             type="date"
@@ -423,13 +425,13 @@ export function PartecipanteForm() {
             className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
           />
           <p className="mt-1 text-xs text-slate-500">
-            Allowed between {ARRIVAL_DATE_MIN} and {ARRIVAL_DATE_MAX}
+            {t("participant.form.allowedBetween", { min: ARRIVAL_DATE_MIN, max: ARRIVAL_DATE_MAX })}
           </p>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-slate-700">
-            Departure date
+            {t("participant.form.departureDate")}
           </label>
           <input
             type="date"
@@ -442,13 +444,16 @@ export function PartecipanteForm() {
             className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
           />
           <p className="mt-1 text-xs text-slate-500">
-            Allowed between {DEPARTURE_DATE_MIN} and {DEPARTURE_DATE_MAX}
+            {t("participant.form.allowedBetween", {
+              min: DEPARTURE_DATE_MIN,
+              max: DEPARTURE_DATE_MAX,
+            })}
           </p>
         </div>
 
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-slate-700">
-            Accommodation
+            {t("participant.form.accommodation")}
           </label>
           <select
             value={formData.alloggio}
@@ -457,7 +462,7 @@ export function PartecipanteForm() {
             }
             className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
           >
-            <option value="">Select...</option>
+            <option value="">{t("participant.form.select")}</option>
             {ALLOGGIO_OPTIONS.map((option) => (
               <option key={option} value={option}>
                 {option}
@@ -468,7 +473,7 @@ export function PartecipanteForm() {
 
         <div>
           <label className="block text-sm font-medium text-slate-700">
-            Dietary requirements
+            {t("participant.form.dietaryRequirements")}
           </label>
           <div className="mt-2 grid gap-2 rounded border border-slate-200 p-3">
             {ESIGENZE_ALIMENTARI_OPTIONS.map((option) => (
@@ -487,7 +492,7 @@ export function PartecipanteForm() {
 
         <div>
           <label className="block text-sm font-medium text-slate-700">
-            Allergies
+            {t("participant.form.allergies")}
           </label>
           <input
             value={formData.allergie}
@@ -515,7 +520,7 @@ export function PartecipanteForm() {
             }
             className="h-4 w-4"
           />
-          Disability / accessibility needs
+          {t("participant.form.accessibilityNeeds")}
         </label>
 
         <div className="mt-3 grid gap-2">
@@ -542,7 +547,7 @@ export function PartecipanteForm() {
       </div>
 
       <div className="rounded border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-        Associated email: {email || "-"}
+        {t("participant.form.associatedEmail", { email: email || "-" })}
       </div>
 
       {error && (
@@ -562,14 +567,13 @@ export function PartecipanteForm() {
         disabled={saving}
         className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
       >
-        {saving ? "Saving..." : "Save changes"}
+        {saving ? t("participant.form.saving") : t("participant.form.saveChanges")}
       </button>
 
       <section className="rounded border border-red-200 bg-red-50 p-4">
-        <h3 className="text-sm font-semibold text-red-900">Delete Registration</h3>
+        <h3 className="text-sm font-semibold text-red-900">{t("participant.form.deleteTitle")}</h3>
         <p className="mt-1 text-sm text-red-800">
-          This action is permanent. To confirm cancellation, click the button and
-          type your associated email address.
+          {t("participant.form.deleteDescription")}
         </p>
 
         {!showDeleteConfirm ? (
@@ -582,13 +586,13 @@ export function PartecipanteForm() {
             }}
             className="mt-3 rounded bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-800"
           >
-            Cancel Registration
+            {t("participant.form.cancelRegistration")}
           </button>
         ) : (
           <div className="mt-3 space-y-3">
             <div>
               <label className="block text-sm font-medium text-red-900">
-                Confirm email
+                {t("participant.form.confirmEmail")}
               </label>
               <input
                 type="email"
@@ -597,9 +601,7 @@ export function PartecipanteForm() {
                 placeholder={email || "your@email.com"}
                 className="mt-1 w-full rounded border border-red-300 bg-white px-3 py-2 text-sm"
               />
-              <p className="mt-1 text-xs text-red-700">
-                Insert exactly: {email || "-"}
-              </p>
+              <p className="mt-1 text-xs text-red-700">{t("participant.form.insertExactly", { email: email || "-" })}</p>
             </div>
 
             {deleteError && (
@@ -625,7 +627,7 @@ export function PartecipanteForm() {
                 }
                 className="rounded bg-red-700 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {deleting ? "Cancelling..." : "Confirm Cancellation"}
+                {deleting ? t("participant.form.cancelling") : t("participant.form.confirmCancellation")}
               </button>
               <button
                 type="button"
@@ -638,7 +640,7 @@ export function PartecipanteForm() {
                 disabled={deleting}
                 className="rounded border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-800 disabled:opacity-60"
               >
-                Keep Registration
+                {t("participant.form.keepRegistration")}
               </button>
             </div>
           </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useI18n } from "@/lib/i18n/provider";
 
 type AccommodationFilter = "both" | "organization" | "autonomous";
 
@@ -65,6 +66,7 @@ function shouldIncludeByAccommodation(
 }
 
 export function DailyPresenceSection({ participants }: DailyPresenceSectionProps) {
+  const { t } = useI18n();
   const [accommodationFilter, setAccommodationFilter] =
     useState<AccommodationFilter>("both");
 
@@ -92,9 +94,9 @@ export function DailyPresenceSection({ participants }: DailyPresenceSectionProps
   return (
     <section id="daily-presence" className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <h3 className="text-lg font-semibold text-slate-900">Daily presence</h3>
+        <h3 className="text-lg font-semibold text-slate-900">{t("manager.presence.title")}</h3>
         <label className="flex flex-col gap-1 text-sm text-slate-700">
-          Accommodation filter
+          {t("manager.presence.filter")}
           <select
             value={accommodationFilter}
             onChange={(event) =>
@@ -102,9 +104,9 @@ export function DailyPresenceSection({ participants }: DailyPresenceSectionProps
             }
             className="rounded border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900"
           >
-            <option value="both">Both</option>
-            <option value="organization">Provided by organization</option>
-            <option value="autonomous">Atonoumous</option>
+            <option value="both">{t("manager.presence.filter.both")}</option>
+            <option value="organization">{t("manager.presence.filter.organization")}</option>
+            <option value="autonomous">{t("manager.presence.filter.autonomous")}</option>
           </select>
         </label>
       </div>
@@ -113,15 +115,15 @@ export function DailyPresenceSection({ participants }: DailyPresenceSectionProps
         <table className="min-w-full divide-y divide-slate-200 text-sm">
           <thead className="bg-slate-50/50 text-left text-slate-700">
             <tr>
-              <th className="px-4 py-3 font-semibold">Date</th>
-              <th className="px-4 py-3 font-semibold">Present</th>
+              <th className="px-4 py-3 font-semibold">{t("manager.presence.date")}</th>
+              <th className="px-4 py-3 font-semibold">{t("manager.presence.present")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {dailyRows.length === 0 ? (
               <tr>
                 <td colSpan={2} className="px-3 py-3 text-slate-500">
-                  No presence data available for the selected filter.
+                  {t("manager.presence.empty")}
                 </td>
               </tr>
             ) : (

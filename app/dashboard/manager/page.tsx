@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { DailyPresenceSection } from "./daily-presence-section";
 import { RegistrationsTabsSection } from "./registrations-tabs-section";
+import { getServerTranslator } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,11 @@ const ENROLLMENT_BUCKETS: EnrollmentBucket[] = [
   "University-Worker",
   "Operator",
 ];
+const ENROLLMENT_BUCKET_LABEL_KEYS: Record<EnrollmentBucket, string> = {
+  "Higher students": "enrollment.bucket.higherStudents",
+  "University-Worker": "enrollment.bucket.universityWorker",
+  Operator: "enrollment.bucket.operator",
+};
 
 const SELECT_FIELDS =
   "tipo_iscrizione,paese_residenza,nazione,gruppo_label,gruppo_id,data_arrivo,data_partenza,alloggio_short,alloggio,created_at";
@@ -265,12 +271,18 @@ function toSvgPath(points: TrendPoint[], x: (day: number) => number, y: (value: 
     .join(" ");
 }
 
-function RegistrationTrendSection({ series }: { series: TrendSeries | null }) {
+function RegistrationTrendSection({
+  series,
+  t,
+}: {
+  series: TrendSeries | null;
+  t: (key: string, params?: Record<string, string | number>) => string;
+}) {
   if (!series) {
     return (
       <section id="trend" className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h3 className="text-lg font-semibold text-slate-900">Registration trend</h3>
-        <p className="mt-2 text-sm text-slate-500">Trend data is not available yet.</p>
+        <h3 className="text-lg font-semibold text-slate-900">{t("manager.trend.title")}</h3>
+        <p className="mt-2 text-sm text-slate-500">{t("manager.trend.unavailable")}</p>
       </section>
     );
   }
@@ -307,20 +319,23 @@ function RegistrationTrendSection({ series }: { series: TrendSeries | null }) {
     <section id="trend" className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h3 className="text-lg font-semibold text-slate-900">Registration trend</h3>
+          <h3 className="text-lg font-semibold text-slate-900">{t("manager.trend.title")}</h3>
           <p className="mt-1 text-sm text-slate-500">
-            Current year vs average trend (2023-2025), aligned by days to event.
+            {t("manager.trend.subtitle")}
           </p>
         </div>
         <div className="grid gap-1 text-sm text-slate-700">
           <p>
-            Today ({series.todayDay} days): <span className="font-semibold">{series.currentToday}</span>
+            {t("manager.trend.today", {
+              day: series.todayDay,
+              value: series.currentToday,
+            })}
           </p>
           <p>
-            Historical average: <span className="font-semibold">{series.historyToday}</span>
+            {t("manager.trend.historicalAverage", { value: series.historyToday })}
           </p>
           <p>
-            Forecast at day 0: <span className="font-semibold">{series.forecastFinal}</span>
+            {t("manager.trend.forecast", { value: series.forecastFinal })}
           </p>
         </div>
       </div>
@@ -381,7 +396,7 @@ function RegistrationTrendSection({ series }: { series: TrendSeries | null }) {
           <path d={forecastPath} fill="none" stroke="#16a34a" strokeWidth="2.2" strokeDasharray="6 4" />
 
           <text x={width / 2} y={height - 8} textAnchor="middle" fontSize="12" fill="#334155">
-            Days to event
+            {t("manager.trend.axisDays")}
           </text>
           <text
             x={14}
@@ -391,20 +406,20 @@ function RegistrationTrendSection({ series }: { series: TrendSeries | null }) {
             fill="#334155"
             transform={`rotate(-90 14 ${height / 2})`}
           >
-            Cumulative registrations
+            {t("manager.trend.axisCumulative")}
           </text>
         </svg>
       </div>
 
       <div className="mt-3 flex flex-wrap gap-4 text-sm text-slate-700">
         <span className="inline-flex items-center gap-2">
-          <span className="h-0.5 w-6 bg-blue-600" /> Current year
+          <span className="h-0.5 w-6 bg-blue-600" /> {t("manager.trend.currentYear")}
         </span>
         <span className="inline-flex items-center gap-2">
-          <span className="h-0.5 w-6 bg-red-600" /> Average 2023-2025
+          <span className="h-0.5 w-6 bg-red-600" /> {t("manager.trend.averageYears")}
         </span>
         <span className="inline-flex items-center gap-2">
-          <span className="h-0.5 w-6 bg-green-600" /> Forecast
+          <span className="h-0.5 w-6 bg-green-600" /> {t("manager.trend.forecastLabel")}
         </span>
       </div>
     </section>
@@ -412,6 +427,7 @@ function RegistrationTrendSection({ series }: { series: TrendSeries | null }) {
 }
 
 export default async function ManagerStatisticsPage() {
+  const { t } = await getServerTranslator();
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
@@ -420,8 +436,8 @@ export default async function ManagerStatisticsPage() {
   if (!user) {
     return (
       <section className="rounded border border-red-200 bg-red-50 p-6">
-        <h2 className="text-xl font-bold text-red-800">Statistics</h2>
-        <p className="mt-2 text-sm text-red-700">Unauthorized.</p>
+        <h2 className="text-xl font-bold text-red-800">{t("manager.statistics.title")}</h2>
+        <p className="mt-2 text-sm text-red-700">{t("common.errorUnauthorized")}</p>
       </section>
     );
   }
@@ -435,8 +451,8 @@ export default async function ManagerStatisticsPage() {
   if (profileError || (profile?.ruolo !== "manager" && profile?.ruolo !== "admin")) {
     return (
       <section className="rounded border border-red-200 bg-red-50 p-6">
-        <h2 className="text-xl font-bold text-red-800">Statistics</h2>
-        <p className="mt-2 text-sm text-red-700">Forbidden.</p>
+        <h2 className="text-xl font-bold text-red-800">{t("manager.statistics.title")}</h2>
+        <p className="mt-2 text-sm text-red-700">{t("common.errorForbidden")}</p>
       </section>
     );
   }
@@ -447,7 +463,7 @@ export default async function ManagerStatisticsPage() {
   if (error) {
     return (
       <section className="rounded border border-red-200 bg-red-50 p-6">
-        <h2 className="text-xl font-bold text-red-800">Statistics</h2>
+        <h2 className="text-xl font-bold text-red-800">{t("manager.statistics.title")}</h2>
         <p className="mt-2 text-sm text-red-700">{error.message}</p>
       </section>
     );
@@ -508,47 +524,46 @@ export default async function ManagerStatisticsPage() {
   return (
     <section className="space-y-6">
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-xl font-bold text-slate-900">Statistics</h2>
-        <p className="mt-2 text-sm text-slate-500">
-          Participant overview dashboard. Enrollment-type statistics exclude
-          &quot;Driver - Autista&quot;.
-        </p>
+        <h2 className="text-xl font-bold text-slate-900">{t("manager.statistics.title")}</h2>
+        <p className="mt-2 text-sm text-slate-500">{t("manager.statistics.subtitle")}</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
         <aside className="h-max rounded-xl border border-slate-200 bg-white p-4 shadow-sm lg:sticky lg:top-6">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Sections
+            {t("manager.statistics.sections")}
           </p>
           <nav className="mt-3 flex flex-col gap-2 text-sm">
             <a href="#top-counters" className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
-              Counters
+              {t("manager.statistics.counters")}
             </a>
             <a href="#registrations" className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
-              Registrations
+              {t("manager.statistics.registrations")}
             </a>
             <a href="#trend" className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
-              Trend
+              {t("manager.statistics.trend")}
             </a>
             <a href="#daily-presence" className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
-              Daily presence
+              {t("manager.statistics.dailyPresence")}
             </a>
           </nav>
         </aside>
 
         <div className="space-y-6">
           <section id="top-counters" className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h3 className="text-lg font-semibold text-slate-900">Top counters</h3>
+            <h3 className="text-lg font-semibold text-slate-900">{t("manager.statistics.topCounters")}</h3>
             <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <article className="rounded border border-slate-200 bg-slate-50 p-4">
                 <p className="text-xs uppercase tracking-wide text-slate-500">
-                  Total registrations
+                  {t("manager.statistics.totalRegistrations")}
                 </p>
                 <p className="mt-2 text-2xl font-bold text-slate-900">{totalWithoutDrivers}</p>
               </article>
               {ENROLLMENT_BUCKETS.map((bucket) => (
                 <article key={bucket} className="rounded border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs uppercase tracking-wide text-slate-500">{bucket}</p>
+                  <p className="text-xs uppercase tracking-wide text-slate-500">
+                    {t(ENROLLMENT_BUCKET_LABEL_KEYS[bucket])}
+                  </p>
                   <p className="mt-2 text-2xl font-bold text-slate-900">{counters[bucket]}</p>
                 </article>
               ))}
@@ -563,7 +578,7 @@ export default async function ManagerStatisticsPage() {
 
           <DailyPresenceSection participants={participants} />
 
-          <RegistrationTrendSection series={trendSeries} />
+          <RegistrationTrendSection series={trendSeries} t={t} />
         </div>
       </div>
     </section>

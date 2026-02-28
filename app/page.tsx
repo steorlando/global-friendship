@@ -39,9 +39,20 @@ export default function Home() {
       }
 
       const supabase = createSupabaseBrowserClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      let session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"] =
+        null;
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error?.message?.toLowerCase().includes("refresh token")) {
+          await supabase.auth.signOut({ scope: "local" });
+          router.replace("/login");
+          return;
+        }
+        session = data.session;
+      } catch {
+        router.replace("/login");
+        return;
+      }
 
       if (session?.user) {
         router.replace("/dashboard");

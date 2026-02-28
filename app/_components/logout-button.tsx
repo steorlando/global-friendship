@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useI18n } from "@/lib/i18n/provider";
 
 const LOCAL_STORAGE_KEYS_TO_CLEAR = ["gf_requested_role", "gf_participant_id"];
 
 export function LogoutButton() {
   const [signingOut, setSigningOut] = useState(false);
+  const { t } = useI18n();
 
   async function handleLogout() {
     if (signingOut) return;
@@ -32,7 +34,7 @@ export function LogoutButton() {
       disabled={signingOut}
       className="rounded-full border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 transition-all duration-200 hover:border-red-500 hover:bg-red-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
     >
-      {signingOut ? "Signing out..." : "Log out"}
+      {signingOut ? t("common.signingOut") : t("common.logOut")}
     </button>
   );
 }

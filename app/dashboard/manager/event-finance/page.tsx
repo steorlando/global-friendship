@@ -1,7 +1,9 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { EventFinanceManager } from "../../_components/event-finance-manager";
+import { getServerTranslator } from "@/lib/i18n/server";
 
 export default async function ManagerEventFinancePage() {
+  const { t } = await getServerTranslator();
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
@@ -10,8 +12,8 @@ export default async function ManagerEventFinancePage() {
   if (!user) {
     return (
       <section className="rounded border border-red-200 bg-red-50 p-6">
-        <h2 className="text-xl font-bold text-red-800">Event Finance</h2>
-        <p className="mt-2 text-sm text-red-700">Unauthorized.</p>
+        <h2 className="text-xl font-bold text-red-800">{t("finance.title")}</h2>
+        <p className="mt-2 text-sm text-red-700">{t("common.errorUnauthorized")}</p>
       </section>
     );
   }
@@ -25,8 +27,8 @@ export default async function ManagerEventFinancePage() {
   if (error || profile?.ruolo !== "manager") {
     return (
       <section className="rounded border border-red-200 bg-red-50 p-6">
-        <h2 className="text-xl font-bold text-red-800">Event Finance</h2>
-        <p className="mt-2 text-sm text-red-700">Forbidden.</p>
+        <h2 className="text-xl font-bold text-red-800">{t("finance.title")}</h2>
+        <p className="mt-2 text-sm text-red-700">{t("common.errorForbidden")}</p>
       </section>
     );
   }
