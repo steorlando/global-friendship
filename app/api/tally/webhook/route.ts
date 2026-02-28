@@ -1,8 +1,9 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import { computeParticipantCalculatedFields } from "../../../../lib/tally/calculated-fields";
+import { computeParticipantCalculatedFields } from "@/lib/tally/calculated-fields";
+import { sendGmailTextEmail } from "@/lib/email/gmail";
 import { alloggioLongToShort } from "@/lib/partecipante/constants";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
 type TallyOption = {
   id?: string;
@@ -55,13 +56,45 @@ type NormalizedSubmission = {
 };
 
 const GROUP_NAMESPACE_UUID = "6ba7b811-9dad-11d1-80b4-00c04fd430c8";
+const GROUP_LEADER_PORTAL_URL =
+  process.env.GROUP_LEADER_PORTAL_URL ||
+  "https://portal.globalfriendship.eu/dashboard/capogruppo";
+const WEBHOOK_EVENT_MISSING_TABLE_CODES = new Set(["42P01", "PGRST204"]);
 
-function getEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing ${name}`);
+type GroupLeaderRecipient = {
+  id: string;
+  nome: string | null;
+  cognome: string | null;
+  email: string | null;
+};
+
+type ProfileGroupLink = {
+  profilo_id: string | null;
+};
+
+type SupabaseServiceClient = ReturnType<typeof createSupabaseServiceClient>;
+type SupabaseErrorLike = { code?: string | null; message?: string | null };
+type SupabaseWriteResult = { error: SupabaseErrorLike | null };
+
+type TallyPayload = Record<string, unknown> & {
+  data?: {
+    fields?: TallyField[];
+    submissionId?: unknown;
+    respondentId?: unknown;
+    createdAt?: unknown;
+  };
+  fields?: TallyField[];
+  submissionId?: unknown;
+  respondentId?: unknown;
+  createdAt?: unknown;
+  submittedAt?: unknown;
+};
+
+function asTallyPayload(value: unknown): TallyPayload {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as TallyPayload;
   }
-  return value;
+  return {};
 }
 
 function verifySignature(
@@ -308,7 +341,7 @@ function parseArrivalDeparture(answers: Record<string, string>) {
   return { arrival, departure };
 }
 
-function extractAnswers(payload: any): Record<string, string> {
+function extractAnswers(payload: TallyPayload): Record<string, string> {
   const answers: Record<string, string> = {};
 
   const fields: TallyField[] = payload?.data?.fields ?? payload?.fields ?? [];
@@ -364,21 +397,22 @@ function uuidV5FromString(name: string, namespace: string): string {
 }
 
 async function logWebhookEvent(
-  supabase: any,
+  supabase: SupabaseServiceClient,
   entry: {
     submissionId: string;
     respondentId: string;
     email: string;
     status: string;
+    eventType?: string;
     errorCode?: string | null;
     errorMessage?: string | null;
-    payload: any;
-    normalized?: any;
+    payload: unknown;
+    normalized?: unknown;
   }
 ): Promise<void> {
   const { error } = await supabase.from("webhook_events").insert({
     source: "tally",
-    event_type: "form_submission",
+    event_type: entry.eventType ?? "form_submission",
     submission_id: entry.submissionId || null,
     respondent_id: entry.respondentId || null,
     email: entry.email || null,
@@ -389,13 +423,13 @@ async function logWebhookEvent(
     normalized: entry.normalized ?? null,
   });
 
-  if (error && !["42P01", "PGRST204"].includes(error.code ?? "")) {
+  if (error && !WEBHOOK_EVENT_MISSING_TABLE_CODES.has(error.code ?? "")) {
     console.error("Webhook event logging failed", error);
   }
 }
 
 async function findGroupByColumn(
-  supabase: any,
+  supabase: SupabaseServiceClient,
   column: string,
   value: string
 ): Promise<string | null> {
@@ -419,7 +453,7 @@ async function findGroupByColumn(
 }
 
 async function ensureGroupById(
-  supabase: any,
+  supabase: SupabaseServiceClient,
   groupId: string,
   label: string
 ): Promise<string | null> {
@@ -463,7 +497,10 @@ async function ensureGroupById(
   return finalCheck?.id ?? null;
 }
 
-async function resolveGruppoId(supabase: any, rawValue: string): Promise<string | null> {
+async function resolveGruppoId(
+  supabase: SupabaseServiceClient,
+  rawValue: string
+): Promise<string | null> {
   const value = rawValue.trim();
   if (!value) return null;
 
@@ -501,8 +538,241 @@ async function resolveGruppoId(supabase: any, rawValue: string): Promise<string 
   return null;
 }
 
+function buildFullName(nome: string | null | undefined, cognome: string | null | undefined): string {
+  return [normalize(nome), normalize(cognome)].filter(Boolean).join(" ").trim();
+}
+
+function buildNotificationKey(args: {
+  submissionId: string;
+  respondentId: string;
+  participantFullName: string;
+  participantEmail: string;
+  submittedAtIso: string | null;
+}): string {
+  if (args.submissionId) return args.submissionId;
+  if (args.respondentId) return args.respondentId;
+
+  return crypto
+    .createHash("sha1")
+    .update(
+      [
+        normalize(args.participantEmail).toLowerCase(),
+        normalize(args.participantFullName).toLowerCase(),
+        args.submittedAtIso ?? "",
+      ].join("|")
+    )
+    .digest("hex");
+}
+
+async function loadGroupLeadersForGroup(
+  supabase: SupabaseServiceClient,
+  gruppoId: string
+): Promise<GroupLeaderRecipient[]> {
+  const { data: links, error: linksError } = await supabase
+    .from("profili_gruppi")
+    .select("profilo_id")
+    .eq("gruppo_id", gruppoId);
+
+  if (linksError) {
+    throw new Error(`Unable to load group links: ${linksError.message}`);
+  }
+
+  const leaderIds = [
+    ...new Set(
+      ((links ?? []) as ProfileGroupLink[])
+        .map((row) => normalize(row.profilo_id))
+        .filter(Boolean)
+    ),
+  ];
+
+  if (leaderIds.length === 0) return [];
+
+  const { data: leaders, error: leadersError } = await supabase
+    .from("profili")
+    .select("id,nome,cognome,email")
+    .eq("ruolo", "capogruppo")
+    .in("id", leaderIds);
+
+  if (leadersError) {
+    throw new Error(`Unable to load group leaders: ${leadersError.message}`);
+  }
+
+  const normalizedLeaders = ((leaders ?? []) as GroupLeaderRecipient[]).sort((a, b) =>
+    buildFullName(a.nome, a.cognome).localeCompare(buildFullName(b.nome, b.cognome))
+  );
+
+  return normalizedLeaders;
+}
+
+async function loadSuccessfulLeaderNotificationEmails(
+  supabase: SupabaseServiceClient,
+  notificationKey: string
+): Promise<{ dedupeAvailable: boolean; sentEmails: Set<string>; sentLeaderIds: Set<string> }> {
+  const { data, error } = await supabase
+    .from("webhook_events")
+    .select("email,normalized")
+    .eq("source", "tally")
+    .eq("event_type", "group_leader_notification")
+    .eq("status", "success")
+    .eq("submission_id", notificationKey);
+
+  if (error) {
+    const code = error.code ?? "";
+    if (WEBHOOK_EVENT_MISSING_TABLE_CODES.has(code)) {
+      return {
+        dedupeAvailable: false,
+        sentEmails: new Set<string>(),
+        sentLeaderIds: new Set<string>(),
+      };
+    }
+
+    throw new Error(`Unable to check sent notifications: ${error.message}`);
+  }
+
+  const sentEmails = new Set<string>();
+  const sentLeaderIds = new Set<string>();
+  for (const row of (data ?? []) as Array<{ email?: string | null; normalized?: unknown }>) {
+    const email = normalize(row.email).toLowerCase();
+    if (email) sentEmails.add(email);
+
+    const normalizedData =
+      row.normalized && typeof row.normalized === "object"
+        ? (row.normalized as Record<string, unknown>)
+        : null;
+    const leaderId = normalize(normalizedData?.groupLeaderId);
+    if (leaderId) sentLeaderIds.add(leaderId);
+  }
+
+  return { dedupeAvailable: true, sentEmails, sentLeaderIds };
+}
+
+async function notifyGroupLeadersAboutRegistration(args: {
+  supabase: SupabaseServiceClient;
+  gruppoId: string | null;
+  participantFullName: string;
+  notificationKey: string;
+  payload: unknown;
+  respondentId: string;
+  duplicateSubmission: boolean;
+}): Promise<{ sent: number; skipped: number }> {
+  if (!args.gruppoId) return { sent: 0, skipped: 0 };
+
+  const leaders = await loadGroupLeadersForGroup(args.supabase, args.gruppoId);
+  if (leaders.length === 0) return { sent: 0, skipped: 0 };
+
+  const { dedupeAvailable, sentEmails, sentLeaderIds } =
+    await loadSuccessfulLeaderNotificationEmails(
+    args.supabase,
+    args.notificationKey
+    );
+
+  if (args.duplicateSubmission && !dedupeAvailable) {
+    console.warn(
+      "Duplicate submission detected but notification dedupe storage is unavailable; skipping emails."
+    );
+    return { sent: 0, skipped: leaders.length };
+  }
+
+  let sent = 0;
+  let skipped = 0;
+  const failures: string[] = [];
+  const useLeaderIdDedupe = sentLeaderIds.size > 0;
+
+  for (const leader of leaders) {
+    const to = normalize(leader.email).toLowerCase();
+    if (!to) {
+      skipped += 1;
+      continue;
+    }
+
+    const alreadySent =
+      sentLeaderIds.has(leader.id) || (!useLeaderIdDedupe && sentEmails.has(to));
+    if (alreadySent) {
+      skipped += 1;
+      continue;
+    }
+
+    const leaderFullName = buildFullName(leader.nome, leader.cognome) || "Group Leader";
+    const subject = `New registration in your group: ${args.participantFullName}`;
+    const text = [
+      `Dear ${leaderFullName},`,
+      "",
+      `A new participant, ${args.participantFullName}, has registered in your group.`,
+      "",
+      "You can review the current situations of participants in your group here:",
+      GROUP_LEADER_PORTAL_URL,
+      "",
+      "Global Friendship",
+    ].join("\n");
+
+    try {
+      await sendGmailTextEmail({ to, subject, text });
+      sent += 1;
+      sentLeaderIds.add(leader.id);
+      await logWebhookEvent(args.supabase, {
+        eventType: "group_leader_notification",
+        submissionId: args.notificationKey,
+        respondentId: args.respondentId,
+        email: to,
+        status: "success",
+        payload: args.payload,
+        normalized: {
+          gruppoId: args.gruppoId,
+          groupLeaderId: leader.id,
+          participantFullName: args.participantFullName,
+        },
+      });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : "Send failed";
+      failures.push(`${to}: ${reason}`);
+      await logWebhookEvent(args.supabase, {
+        eventType: "group_leader_notification",
+        submissionId: args.notificationKey,
+        respondentId: args.respondentId,
+        email: to,
+        status: "error",
+        errorCode: "500",
+        errorMessage: reason,
+        payload: args.payload,
+        normalized: {
+          gruppoId: args.gruppoId,
+          groupLeaderId: leader.id,
+          participantFullName: args.participantFullName,
+        },
+      });
+    }
+  }
+
+  if (failures.length > 0) {
+    throw new Error(`Unable to send ${failures.length} leader notification(s): ${failures.join("; ")}`);
+  }
+
+  return { sent, skipped };
+}
+
+async function participantExistsBySubmissionId(
+  supabase: SupabaseServiceClient,
+  tallySubmissionId: string
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("partecipanti")
+    .select("id")
+    .eq("tally_submission_id", tallySubmissionId)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    const code = error.code ?? "";
+    if (["PGRST116"].includes(code)) return false;
+    if (["42703", "PGRST204"].includes(code)) return false;
+    throw new Error(`Unable to check existing participant submission: ${error.message}`);
+  }
+
+  return Boolean(data?.id);
+}
+
 function normalizeSubmission(
-  payload: any,
+  payload: TallyPayload,
   answers: Record<string, string>
 ): NormalizedSubmission {
   const nome = pickAnswer(answers, ["Name/Nome/Nombre/Prenom", "Nome", "Name"]);
@@ -660,18 +930,15 @@ function normalizeSubmission(
 
 async function handlePost(req: Request) {
   const rawBody = await req.text();
-  let payload: any = { raw: rawBody };
+  let payload: TallyPayload = { raw: rawBody };
 
   try {
-    payload = JSON.parse(rawBody);
+    payload = asTallyPayload(JSON.parse(rawBody));
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const supabase = createClient(
-    getEnv("SUPABASE_URL"),
-    getEnv("SUPABASE_SERVICE_ROLE_KEY")
-  );
+  const supabase = createSupabaseServiceClient();
   const webhookSecret = process.env.TALLY_WEBHOOK_SECRET?.trim() ?? "";
   if (!webhookSecret) {
     return NextResponse.json(
@@ -734,6 +1001,15 @@ async function handlePost(req: Request) {
 
   const gruppoId = await resolveGruppoId(supabase, normalized.gruppoLabel);
   const submittedAtIso = parseDate(normalized.submittedAtTally)?.toISOString() || null;
+  const participantFullName = buildFullName(normalized.nome, normalized.cognome);
+  const notificationKey = buildNotificationKey({
+    submissionId: normalized.tallySubmissionId || submissionId,
+    respondentId: normalized.tallyRespondentId || respondentId,
+    participantFullName,
+    participantEmail: normalized.email,
+    submittedAtIso,
+  });
+  const submissionIdForDedupe = normalize(normalized.tallySubmissionId || submissionId);
 
   const fullInsert = {
     nome: normalized.nome,
@@ -770,7 +1046,22 @@ async function handlePost(req: Request) {
     dati_tally: payload,
   };
 
-  let insertResult = await supabase.from("partecipanti").insert(fullInsert);
+  let duplicateSubmission = false;
+  if (submissionIdForDedupe) {
+    duplicateSubmission = await participantExistsBySubmissionId(
+      supabase,
+      submissionIdForDedupe
+    );
+  }
+
+  let insertResult: SupabaseWriteResult = { error: null };
+  if (!duplicateSubmission) {
+    insertResult = await supabase
+      .from("partecipanti")
+      .insert(fullInsert)
+      .select("id")
+      .single();
+  }
 
   if (insertResult.error) {
     const code = insertResult.error.code ?? "";
@@ -787,60 +1078,106 @@ async function handlePost(req: Request) {
         message,
       });
 
-      insertResult = await supabase.from("partecipanti").insert({
-        nome: normalized.nome,
-        cognome: normalized.cognome,
-        email: normalized.email,
-        nazione: normalized.nazione || null,
-        "città": normalized.citta || null,
-        gruppo_id: gruppoId,
-        tally_submission_id: normalized.tallySubmissionId || null,
-        tally_respondent_id: normalized.tallyRespondentId || null,
-        dati_tally: payload,
-      });
+      insertResult = await supabase
+        .from("partecipanti")
+        .insert({
+          nome: normalized.nome,
+          cognome: normalized.cognome,
+          email: normalized.email,
+          nazione: normalized.nazione || null,
+          "città": normalized.citta || null,
+          gruppo_id: gruppoId,
+          tally_submission_id: normalized.tallySubmissionId || null,
+          tally_respondent_id: normalized.tallyRespondentId || null,
+          dati_tally: payload,
+        })
+        .select("id")
+        .single();
     }
   }
 
   if (insertResult.error) {
     const err = insertResult.error;
+    const errMessage = err.message ?? "";
+    const isSubmissionUniqueViolation =
+      err.code === "23505" &&
+      /(tally_submission_id|partecipanti_tally_submission_id)/i.test(errMessage);
     const isEmailUniqueViolation =
-      err.code === "23505" && /partecipanti_email_key/i.test(err.message);
+      err.code === "23505" && /partecipanti_email_key/i.test(errMessage);
+
+    if (isSubmissionUniqueViolation) {
+      duplicateSubmission = true;
+    } else {
+      await logWebhookEvent(supabase, {
+        submissionId,
+        respondentId,
+        email: normalized.email,
+        status: "error",
+        errorCode: err.code,
+        errorMessage: err.message,
+        payload,
+        normalized: { ...normalized, gruppoId },
+      });
+
+      if (isEmailUniqueViolation) {
+        return NextResponse.json(
+          {
+            error:
+              "Email duplicata bloccata da vincolo DB. Rimuovi il constraint partecipanti_email_key per consentire più partecipanti con la stessa email.",
+          },
+          { status: 409 }
+        );
+      }
+
+      console.error("Supabase insert error", err);
+      return NextResponse.json({ error: err.message }, { status: 500 });
+    }
+  }
+
+  try {
+    await notifyGroupLeadersAboutRegistration({
+      supabase,
+      gruppoId,
+      participantFullName,
+      notificationKey,
+      payload,
+      respondentId,
+      duplicateSubmission,
+    });
+  } catch (notificationError) {
+    const reason =
+      notificationError instanceof Error
+        ? notificationError.message
+        : "Unable to notify group leaders";
 
     await logWebhookEvent(supabase, {
       submissionId,
       respondentId,
       email: normalized.email,
-      status: "error",
-      errorCode: err.code,
-      errorMessage: err.message,
+      status: "notification_error",
+      errorCode: "500",
+      errorMessage: reason,
       payload,
-      normalized: { ...normalized, gruppoId },
+      normalized: { ...normalized, gruppoId, notificationKey, duplicateSubmission },
     });
 
-    if (isEmailUniqueViolation) {
-      return NextResponse.json(
-        {
-          error:
-            "Email duplicata bloccata da vincolo DB. Rimuovi il constraint partecipanti_email_key per consentire più partecipanti con la stessa email.",
-        },
-        { status: 409 }
-      );
-    }
-
-    console.error("Supabase insert error", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: reason }, { status: 500 });
   }
 
   await logWebhookEvent(supabase, {
     submissionId,
     respondentId,
     email: normalized.email,
-    status: "success",
+    status: duplicateSubmission ? "success_duplicate_submission" : "success",
     payload,
-    normalized: { ...normalized, gruppoId },
+    normalized: { ...normalized, gruppoId, notificationKey, duplicateSubmission },
   });
 
-  return NextResponse.json({ ok: true, gruppo_id: gruppoId });
+  return NextResponse.json({
+    ok: true,
+    gruppo_id: gruppoId,
+    duplicate_submission: duplicateSubmission,
+  });
 }
 
 export async function POST(req: Request) {
