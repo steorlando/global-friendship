@@ -89,7 +89,7 @@ export default function LoginPage() {
   return (
     <main className="mx-auto max-w-md px-6 py-12">
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h1 className="text-2xl font-bold text-slate-900">Login</h1>
+      <h1 className="text-2xl font-bold text-slate-900">Login / Accesso</h1>
       <div className="mt-3 space-y-2 text-sm text-slate-500">
         <p className="leading-relaxed">
           Manage Global Friendship registrations from this page. Enter your
