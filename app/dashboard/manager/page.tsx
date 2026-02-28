@@ -9,6 +9,10 @@ import { getServerTranslator } from "@/lib/i18n/server";
 export const dynamic = "force-dynamic";
 
 type ParticipantStatRow = {
+  id: string;
+  nome: string | null;
+  cognome: string | null;
+  email: string | null;
   tipo_iscrizione: string | null;
   paese_residenza: string | null;
   nazione: string | null;
@@ -19,6 +23,25 @@ type ParticipantStatRow = {
   alloggio_short: string | null;
   alloggio: string | null;
   created_at: string | null;
+};
+
+type ProfileLinkRow = {
+  profilo_id: string | null;
+  gruppo_id: string | null;
+};
+
+type ProfileRoleRow = {
+  id: string;
+};
+
+type DuplicateCandidateRow = {
+  id: string;
+  nome: string | null;
+  cognome: string | null;
+  email: string | null;
+  group: string;
+  reason: string;
+  matchedWith: string[];
 };
 
 type EnrollmentBucket = "Higher students" | "University-Worker" | "Operator";
@@ -35,7 +58,7 @@ const ENROLLMENT_BUCKET_LABEL_KEYS: Record<EnrollmentBucket, string> = {
 };
 
 const SELECT_FIELDS =
-  "tipo_iscrizione,paese_residenza,nazione,gruppo_label,gruppo_id,data_arrivo,data_partenza,alloggio_short,alloggio,created_at";
+  "id,nome,cognome,email,tipo_iscrizione,paese_residenza,nazione,gruppo_label,gruppo_id,data_arrivo,data_partenza,alloggio_short,alloggio,created_at";
 const CURRENT_EVENT_DATE = "2026-10-28";
 const HISTORY_FILES = ["history_2023.csv", "history_2024.csv", "history_2025.csv"] as const;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -271,6 +294,266 @@ function toSvgPath(points: TrendPoint[], x: (day: number) => number, y: (value: 
     .join(" ");
 }
 
+function normalizePersonPart(value: string | null | undefined): string {
+  return (value ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9 ]+/g, "")
+    .replace(/\s+/g, " ");
+}
+
+function participantGroupValue(row: ParticipantStatRow): string {
+  return (row.gruppo_label ?? row.gruppo_id ?? "").trim() || "-";
+}
+
+function levenshtein(a: string, b: string): number {
+  if (a === b) return 0;
+  if (!a) return b.length;
+  if (!b) return a.length;
+
+  const prev = new Array<number>(b.length + 1);
+  const curr = new Array<number>(b.length + 1);
+  for (let j = 0; j <= b.length; j += 1) prev[j] = j;
+
+  for (let i = 1; i <= a.length; i += 1) {
+    curr[0] = i;
+    for (let j = 1; j <= b.length; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(
+        prev[j] + 1,
+        curr[j - 1] + 1,
+        prev[j - 1] + cost
+      );
+    }
+    for (let j = 0; j <= b.length; j += 1) prev[j] = curr[j];
+  }
+
+  return prev[b.length];
+}
+
+function namesAreVerySimilar(
+  nomeA: string,
+  cognomeA: string,
+  nomeB: string,
+  cognomeB: string
+): boolean {
+  if (!nomeA || !cognomeA || !nomeB || !cognomeB) return false;
+  if (nomeA === nomeB && cognomeA === cognomeB) return false;
+
+  const surnameDistance = levenshtein(cognomeA, cognomeB);
+  const nameDistance = levenshtein(nomeA, nomeB);
+
+  if (surnameDistance <= 1 && nameDistance <= 2) return true;
+  if (surnameDistance === 0 && nameDistance <= 3) return true;
+  if (nameDistance === 0 && surnameDistance <= 2) return true;
+
+  return false;
+}
+
+function buildDuplicateCandidates(participants: ParticipantStatRow[]): DuplicateCandidateRow[] {
+  const byKey = new Map<string, ParticipantStatRow[]>();
+  const normalizedById = new Map<string, { nome: string; cognome: string }>();
+  for (const participant of participants) {
+    const nome = normalizePersonPart(participant.nome);
+    const cognome = normalizePersonPart(participant.cognome);
+    normalizedById.set(participant.id, { nome, cognome });
+    const key = `${nome}|${cognome}`;
+    const list = byKey.get(key) ?? [];
+    list.push(participant);
+    byKey.set(key, list);
+  }
+
+  const reasonsById = new Map<string, Set<string>>();
+  const matchesById = new Map<string, Set<string>>();
+
+  for (const [, group] of byKey.entries()) {
+    if (group.length < 2) continue;
+    for (const participant of group) {
+      const reasons = reasonsById.get(participant.id) ?? new Set<string>();
+      reasons.add("Nome e cognome uguali");
+      reasonsById.set(participant.id, reasons);
+
+      const matches = matchesById.get(participant.id) ?? new Set<string>();
+      for (const other of group) {
+        if (other.id === participant.id) continue;
+        const otherName = [other.nome ?? "", other.cognome ?? ""].join(" ").trim();
+        matches.add(otherName || other.id);
+      }
+      matchesById.set(participant.id, matches);
+    }
+  }
+
+  const list = [...participants];
+  for (let i = 0; i < list.length; i += 1) {
+    for (let j = i + 1; j < list.length; j += 1) {
+      const a = list[i];
+      const b = list[j];
+      const normA = normalizedById.get(a.id);
+      const normB = normalizedById.get(b.id);
+      if (!normA || !normB) continue;
+
+      if (
+        !namesAreVerySimilar(normA.nome, normA.cognome, normB.nome, normB.cognome)
+      ) {
+        continue;
+      }
+
+      const reasonsA = reasonsById.get(a.id) ?? new Set<string>();
+      reasonsA.add("Nome e cognome molto simili");
+      reasonsById.set(a.id, reasonsA);
+      const reasonsB = reasonsById.get(b.id) ?? new Set<string>();
+      reasonsB.add("Nome e cognome molto simili");
+      reasonsById.set(b.id, reasonsB);
+
+      const matchesA = matchesById.get(a.id) ?? new Set<string>();
+      matchesA.add([b.nome ?? "", b.cognome ?? ""].join(" ").trim() || b.id);
+      matchesById.set(a.id, matchesA);
+      const matchesB = matchesById.get(b.id) ?? new Set<string>();
+      matchesB.add([a.nome ?? "", a.cognome ?? ""].join(" ").trim() || a.id);
+      matchesById.set(b.id, matchesB);
+    }
+  }
+
+  return participants
+    .filter((participant) => reasonsById.has(participant.id))
+    .map((participant) => ({
+      id: participant.id,
+      nome: participant.nome,
+      cognome: participant.cognome,
+      email: participant.email,
+      group: participantGroupValue(participant),
+      reason: [...(reasonsById.get(participant.id) ?? [])].join(" + "),
+      matchedWith: [...(matchesById.get(participant.id) ?? [])].sort((a, b) =>
+        a.localeCompare(b)
+      ),
+    }))
+    .sort((a, b) => {
+      const bySurname = (a.cognome ?? "").localeCompare(b.cognome ?? "");
+      if (bySurname !== 0) return bySurname;
+      return (a.nome ?? "").localeCompare(b.nome ?? "");
+    });
+}
+
+function buildUnassignedParticipants(
+  participants: ParticipantStatRow[],
+  leaderGroupIds: Set<string>
+): ParticipantStatRow[] {
+  return participants.filter((participant) => {
+    const candidateGroups = [
+      (participant.gruppo_id ?? "").trim(),
+      (participant.gruppo_label ?? "").trim(),
+    ].filter(Boolean);
+
+    if (candidateGroups.length === 0) return false;
+    return !candidateGroups.some((groupId) => leaderGroupIds.has(groupId));
+  });
+}
+
+function DuplicateAndUnassignedSection({
+  duplicateCandidates,
+  unassignedParticipants,
+}: {
+  duplicateCandidates: DuplicateCandidateRow[];
+  unassignedParticipants: ParticipantStatRow[];
+}) {
+  return (
+    <section
+      id="duplicates-non-associated"
+      className="rounded-xl border border-amber-200 bg-amber-50/30 p-6 shadow-sm"
+    >
+      <h3 className="text-lg font-semibold text-slate-900">Duplicate e Non-associati</h3>
+      <p className="mt-2 text-sm text-slate-600">
+        Verifica possibili registrazioni duplicate e partecipanti in gruppi senza capogruppo
+        associato.
+      </p>
+
+      <div className="mt-5 space-y-6">
+        <div>
+          <h4 className="text-base font-semibold text-slate-900">
+            Possibili duplicati ({duplicateCandidates.length})
+          </h4>
+          <div className="mt-3 overflow-auto rounded-lg border border-slate-200 bg-white">
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50 text-left">
+                <tr>
+                  <th className="px-3 py-2 font-semibold text-slate-700">Partecipante</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700">Email</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700">Gruppo</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700">Motivo</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700">Confronta con</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {duplicateCandidates.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-3 py-3 text-slate-500">
+                      Nessun possibile duplicato rilevato.
+                    </td>
+                  </tr>
+                ) : (
+                  duplicateCandidates.map((participant) => (
+                    <tr key={participant.id}>
+                      <td className="px-3 py-2 text-slate-900">
+                        {[participant.nome ?? "", participant.cognome ?? ""].join(" ").trim() || "-"}
+                      </td>
+                      <td className="px-3 py-2 text-slate-700">{participant.email ?? "-"}</td>
+                      <td className="px-3 py-2 text-slate-700">{participant.group}</td>
+                      <td className="px-3 py-2 text-slate-700">{participant.reason}</td>
+                      <td className="px-3 py-2 text-slate-700">
+                        {participant.matchedWith.length > 0
+                          ? participant.matchedWith.join(", ")
+                          : "-"}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div>
+          <h4 className="text-base font-semibold text-slate-900">
+            Gruppi senza capogruppo ({unassignedParticipants.length})
+          </h4>
+          <div className="mt-3 overflow-auto rounded-lg border border-slate-200 bg-white">
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50 text-left">
+                <tr>
+                  <th className="px-3 py-2 font-semibold text-slate-700">Partecipante</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700">Email</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700">Gruppo</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {unassignedParticipants.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="px-3 py-3 text-slate-500">
+                      Nessun partecipante in gruppo privo di capogruppo.
+                    </td>
+                  </tr>
+                ) : (
+                  unassignedParticipants.map((participant) => (
+                    <tr key={participant.id}>
+                      <td className="px-3 py-2 text-slate-900">
+                        {[participant.nome ?? "", participant.cognome ?? ""].join(" ").trim() || "-"}
+                      </td>
+                      <td className="px-3 py-2 text-slate-700">{participant.email ?? "-"}</td>
+                      <td className="px-3 py-2 text-slate-700">{participantGroupValue(participant)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function RegistrationTrendSection({
   series,
   t,
@@ -470,6 +753,42 @@ export default async function ManagerStatisticsPage() {
   }
 
   const participants = (data ?? []) as ParticipantStatRow[];
+  const { data: leaderProfiles, error: leaderProfilesError } = await service
+    .from("profili")
+    .select("id")
+    .eq("ruolo", "capogruppo");
+
+  if (leaderProfilesError) {
+    return (
+      <section className="rounded border border-red-200 bg-red-50 p-6">
+        <h2 className="text-xl font-bold text-red-800">{t("manager.statistics.title")}</h2>
+        <p className="mt-2 text-sm text-red-700">{leaderProfilesError.message}</p>
+      </section>
+    );
+  }
+
+  const leaderIds = ((leaderProfiles ?? []) as ProfileRoleRow[]).map((profile) => profile.id);
+  const leaderGroupIds = new Set<string>();
+  if (leaderIds.length > 0) {
+    const { data: links, error: linksError } = await service
+      .from("profili_gruppi")
+      .select("profilo_id,gruppo_id")
+      .in("profilo_id", leaderIds);
+
+    if (linksError) {
+      return (
+        <section className="rounded border border-red-200 bg-red-50 p-6">
+          <h2 className="text-xl font-bold text-red-800">{t("manager.statistics.title")}</h2>
+          <p className="mt-2 text-sm text-red-700">{linksError.message}</p>
+        </section>
+      );
+    }
+
+    for (const row of (links ?? []) as ProfileLinkRow[]) {
+      const groupId = (row.gruppo_id ?? "").trim();
+      if (groupId) leaderGroupIds.add(groupId);
+    }
+  }
 
   const counters = createEmptyBucketCounts();
   const byCountry = new Map<string, Record<EnrollmentBucket, number>>();
@@ -520,6 +839,11 @@ export default async function ManagerStatisticsPage() {
   } catch {
     trendSeries = null;
   }
+  const duplicateCandidates = buildDuplicateCandidates(participants);
+  const unassignedParticipants = buildUnassignedParticipants(
+    participants,
+    leaderGroupIds
+  );
 
   return (
     <section className="space-y-6">
@@ -545,6 +869,12 @@ export default async function ManagerStatisticsPage() {
             </a>
             <a href="#daily-presence" className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
               {t("manager.statistics.dailyPresence")}
+            </a>
+            <a
+              href="#duplicates-non-associated"
+              className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50"
+            >
+              Duplicate e Non-associati
             </a>
           </nav>
         </aside>
@@ -579,6 +909,11 @@ export default async function ManagerStatisticsPage() {
           <DailyPresenceSection participants={participants} />
 
           <RegistrationTrendSection series={trendSeries} t={t} />
+
+          <DuplicateAndUnassignedSection
+            duplicateCandidates={duplicateCandidates}
+            unassignedParticipants={unassignedParticipants}
+          />
         </div>
       </div>
     </section>

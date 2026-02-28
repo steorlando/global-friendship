@@ -24,6 +24,8 @@ type ProfiloRow = {
   created_at: string;
 };
 
+const GROUP_COLUMN_MISSING_CODES = new Set(["42703", "PGRST204", "PGRST116"]);
+
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
@@ -147,6 +149,61 @@ export async function listProfili(supabase: SupabaseClient) {
 function normalizeGroups(input: string[] | null | undefined): string[] {
   if (!input) return [];
   return [...new Set(input.map((group) => group.trim()).filter(Boolean))];
+}
+
+async function findGroupIdByColumn(
+  supabase: SupabaseClient,
+  column: string,
+  value: string
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("gruppi")
+    .select("id")
+    .ilike(column, value)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    if (GROUP_COLUMN_MISSING_CODES.has(error.code ?? "")) {
+      return null;
+    }
+    throw new Error(error.message);
+  }
+
+  return (data?.id as string | null) ?? null;
+}
+
+async function resolveCanonicalGroupId(
+  supabase: SupabaseClient,
+  rawGroupId: string
+): Promise<string> {
+  const normalized = rawGroupId.trim();
+  if (!normalized) return "";
+
+  const { data: byId, error: byIdError } = await supabase
+    .from("gruppi")
+    .select("id")
+    .eq("id", normalized)
+    .maybeSingle();
+
+  if (byIdError && !GROUP_COLUMN_MISSING_CODES.has(byIdError.code ?? "")) {
+    throw new Error(byIdError.message);
+  }
+  if (byId?.id) return String(byId.id);
+
+  const byNome = await findGroupIdByColumn(supabase, "nome", normalized);
+  if (byNome) return byNome;
+
+  const byName = await findGroupIdByColumn(supabase, "name", normalized);
+  if (byName) return byName;
+
+  const byLabel = await findGroupIdByColumn(supabase, "label", normalized);
+  if (byLabel) return byLabel;
+
+  const byGruppoLabel = await findGroupIdByColumn(supabase, "gruppo_label", normalized);
+  if (byGruppoLabel) return byGruppoLabel;
+
+  return normalized;
 }
 
 export async function upsertProfiloByEmail(
@@ -289,10 +346,12 @@ export async function linkProfiloToGruppo(
 ) {
   const normalizedGroup = gruppoId.trim();
   if (!normalizedGroup) return;
+  const canonicalGroupId = await resolveCanonicalGroupId(supabase, normalizedGroup);
+  if (!canonicalGroupId) return;
 
   const { error: groupError } = await supabase
     .from("gruppi")
-    .upsert({ id: normalizedGroup, nome: normalizedGroup }, { onConflict: "id" });
+    .upsert({ id: canonicalGroupId, nome: normalizedGroup }, { onConflict: "id" });
 
   if (groupError) throw new Error(groupError.message);
 
@@ -301,7 +360,7 @@ export async function linkProfiloToGruppo(
     .upsert(
       {
         profilo_id: profiloId,
-        gruppo_id: normalizedGroup,
+        gruppo_id: canonicalGroupId,
       },
       { onConflict: "profilo_id,gruppo_id" }
     );
@@ -324,16 +383,36 @@ export async function setProfiloGruppi(
   if (deleteError) throw new Error(deleteError.message);
   if (normalizedGroups.length === 0) return;
 
-  const gruppoRows = normalizedGroups.map((groupId) => ({ id: groupId, nome: groupId }));
+  const resolvedPairs = await Promise.all(
+    normalizedGroups.map(async (groupInput) => {
+      const canonicalId = await resolveCanonicalGroupId(supabase, groupInput);
+      return { canonicalId, displayName: groupInput };
+    })
+  );
+
+  const uniquePairs = [
+    ...new Map(
+      resolvedPairs
+        .filter((item) => item.canonicalId)
+        .map((item) => [item.canonicalId, item.displayName])
+    ).entries(),
+  ].map(([canonicalId, displayName]) => ({ canonicalId, displayName }));
+
+  if (uniquePairs.length === 0) return;
+
+  const gruppoRows = uniquePairs.map((item) => ({
+    id: item.canonicalId,
+    nome: item.displayName,
+  }));
   const { error: groupError } = await supabase
     .from("gruppi")
     .upsert(gruppoRows, { onConflict: "id" });
 
   if (groupError) throw new Error(groupError.message);
 
-  const linkRows = normalizedGroups.map((groupId) => ({
+  const linkRows = uniquePairs.map((item) => ({
     profilo_id: profiloId,
-    gruppo_id: groupId,
+    gruppo_id: item.canonicalId,
   }));
   const { error: linkError } = await supabase
     .from("profili_gruppi")
