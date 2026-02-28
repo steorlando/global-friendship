@@ -109,6 +109,55 @@ function displayDate(value: string | null, min: string, max: string) {
   return dateInRange(value, min, max) ? value : "-";
 }
 
+function accommodationOptionLabel(option: string, t: (key: string) => string) {
+  if (option === "Provided by organization") {
+    return t("manager.presence.filter.organization");
+  }
+  if (option === "Atonoumous") {
+    return t("manager.presence.filter.autonomous");
+  }
+  return option;
+}
+
+function dietaryOptionLabel(option: string, t: (key: string) => string) {
+  if (option === "Vegetarian") return t("participant.option.dietary.vegetarian");
+  if (option === "Vegan") return t("participant.option.dietary.vegan");
+  if (option === "I don't eat pork") return t("participant.option.dietary.noPork");
+  if (option === "Other") return t("participant.option.dietary.other");
+  return option;
+}
+
+function accessibilityOptionLabel(option: string, t: (key: string) => string) {
+  if (option === "Difficulty seeing, even when wearing glasses") {
+    return t("participant.option.accessibility.seeing");
+  }
+  if (option === "Difficulty hearing, even when using a hearing aid") {
+    return t("participant.option.accessibility.hearing");
+  }
+  if (option === "Difficulty walking or climbing steps") {
+    return t("participant.option.accessibility.walking");
+  }
+  if (option === "Difficulty with self-care (washing or dressing)") {
+    return t("participant.option.accessibility.selfCare");
+  }
+  if (option === "Difficulty concentrating or remembering") {
+    return t("participant.option.accessibility.concentration");
+  }
+  if (option === "Difficulty communicating or being understood") {
+    return t("participant.option.accessibility.communicating");
+  }
+  if (option === "I use a wheelchair or mobility aid") {
+    return t("participant.option.accessibility.wheelchair");
+  }
+  if (option === "I need accessible accommodation") {
+    return t("participant.option.accessibility.accessibleAccommodation");
+  }
+  if (option === "I need assistance during the event") {
+    return t("participant.option.accessibility.assistance");
+  }
+  return option;
+}
+
 export function ParticipantsTable({
   apiBasePath,
   groupSummaryLabel,
@@ -499,7 +548,7 @@ export function ParticipantsTable({
                     <option value="">{t("common.all")}</option>
                     {ALLOGGIO_SHORT_OPTIONS.map((option) => (
                       <option key={option} value={option}>
-                        {option}
+                        {accommodationOptionLabel(option, t)}
                       </option>
                     ))}
                   </select>
@@ -712,7 +761,7 @@ export function ParticipantsTable({
                     <option value="">{t("participant.form.select")}</option>
                     {ALLOGGIO_SHORT_OPTIONS.map((option) => (
                       <option key={option} value={option}>
-                        {option}
+                        {accommodationOptionLabel(option, t)}
                       </option>
                     ))}
                   </select>
@@ -740,7 +789,7 @@ export function ParticipantsTable({
                           checked={form.esigenze_alimentari.includes(option)}
                           onChange={() => toggleEsigenza(option)}
                         />
-                        <span>{option}</span>
+                        <span>{dietaryOptionLabel(option, t)}</span>
                       </label>
                     ))}
                   </div>
@@ -776,7 +825,7 @@ export function ParticipantsTable({
                           checked={form.difficolta_accessibilita.includes(option)}
                           onChange={() => toggleDifficolta(option)}
                         />
-                        <span>{option}</span>
+                        <span>{accessibilityOptionLabel(option, t)}</span>
                       </label>
                     ))}
                   </div>
@@ -802,7 +851,7 @@ export function ParticipantsTable({
                   disabled={saving || deleting}
                   className="mr-auto rounded border border-red-300 px-4 py-2 text-sm text-red-700 hover:bg-red-50 disabled:opacity-60"
                 >
-                  {deleting ? "Deleting..." : t("common.delete")}
+                  {deleting ? t("participants.table.deleting") : t("common.delete")}
                 </button>
                 <button
                   type="button"
