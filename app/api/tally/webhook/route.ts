@@ -50,8 +50,6 @@ type NormalizedSubmission = {
   submittedAtTally: string;
   dataArrivo: string;
   dataPartenza: string;
-  nights: number | null;
-  quotaTotale: number | null;
   eta: number | null;
   isMinorenne: boolean | null;
 };
@@ -655,8 +653,6 @@ function normalizeSubmission(
     submittedAtTally,
     dataArrivo: formatDateOnly(arrival) || "",
     dataPartenza: formatDateOnly(departure) || "",
-    nights: calculated.giorniPermanenza,
-    quotaTotale: calculated.quotaTotale,
     eta: calculated.eta,
     isMinorenne: calculated.isMinorenne,
   };
@@ -745,8 +741,6 @@ async function handlePost(req: Request) {
     email: normalized.email,
     nazione: normalized.nazione || null,
     "città": normalized.citta || null,
-    giorni_permanenza: normalized.nights ?? undefined,
-    quota_totale: normalized.quotaTotale ?? undefined,
     gruppo_id: gruppoId,
     telefono: normalized.telefono || null,
     email_secondaria: normalized.emailSecondaria || null,
@@ -799,8 +793,6 @@ async function handlePost(req: Request) {
         email: normalized.email,
         nazione: normalized.nazione || null,
         "città": normalized.citta || null,
-        giorni_permanenza: normalized.nights ?? undefined,
-        quota_totale: normalized.quotaTotale ?? undefined,
         gruppo_id: gruppoId,
         tally_submission_id: normalized.tallySubmissionId || null,
         tally_respondent_id: normalized.tallyRespondentId || null,

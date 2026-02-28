@@ -362,8 +362,6 @@ export async function PATCH(req: Request) {
       disabilita_accessibilita: disabilitaAccessibilita,
       difficolta_accessibilita:
         normalizedDifficolta.length > 0 ? normalizedDifficolta.join(", ") : null,
-      giorni_permanenza: calculated.giorniPermanenza,
-      quota_totale: calculated.quotaTotale,
       eta: calculated.eta,
       is_minorenne: calculated.isMinorenne,
     })
