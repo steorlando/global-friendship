@@ -454,42 +454,55 @@ function buildUnassignedParticipants(
 function DuplicateAndUnassignedSection({
   duplicateCandidates,
   unassignedParticipants,
+  t,
 }: {
   duplicateCandidates: DuplicateCandidateRow[];
   unassignedParticipants: ParticipantStatRow[];
+  t: (key: string, params?: Record<string, string | number>) => string;
 }) {
   return (
     <section
       id="duplicates-non-associated"
       className="rounded-xl border border-amber-200 bg-amber-50/30 p-6 shadow-sm"
     >
-      <h3 className="text-lg font-semibold text-slate-900">Duplicate e Non-associati</h3>
+      <h3 className="text-lg font-semibold text-slate-900">
+        {t("manager.duplicates.section")}
+      </h3>
       <p className="mt-2 text-sm text-slate-600">
-        Verifica possibili registrazioni duplicate e partecipanti in gruppi senza capogruppo
-        associato.
+        {t("manager.duplicates.subtitle")}
       </p>
 
       <div className="mt-5 space-y-6">
         <div>
           <h4 className="text-base font-semibold text-slate-900">
-            Possibili duplicati ({duplicateCandidates.length})
+            {t("manager.duplicates.possible", { count: duplicateCandidates.length })}
           </h4>
           <div className="mt-3 overflow-auto rounded-lg border border-slate-200 bg-white">
             <table className="min-w-full divide-y divide-slate-200 text-sm">
               <thead className="bg-slate-50 text-left">
                 <tr>
-                  <th className="px-3 py-2 font-semibold text-slate-700">Partecipante</th>
-                  <th className="px-3 py-2 font-semibold text-slate-700">Email</th>
-                  <th className="px-3 py-2 font-semibold text-slate-700">Gruppo</th>
-                  <th className="px-3 py-2 font-semibold text-slate-700">Motivo</th>
-                  <th className="px-3 py-2 font-semibold text-slate-700">Confronta con</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700">
+                    {t("manager.duplicates.participant")}
+                  </th>
+                  <th className="px-3 py-2 font-semibold text-slate-700">
+                    {t("manager.duplicates.email")}
+                  </th>
+                  <th className="px-3 py-2 font-semibold text-slate-700">
+                    {t("manager.duplicates.group")}
+                  </th>
+                  <th className="px-3 py-2 font-semibold text-slate-700">
+                    {t("manager.duplicates.reason")}
+                  </th>
+                  <th className="px-3 py-2 font-semibold text-slate-700">
+                    {t("manager.duplicates.compareWith")}
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {duplicateCandidates.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-3 py-3 text-slate-500">
-                      Nessun possibile duplicato rilevato.
+                      {t("manager.duplicates.none")}
                     </td>
                   </tr>
                 ) : (
@@ -516,22 +529,28 @@ function DuplicateAndUnassignedSection({
 
         <div>
           <h4 className="text-base font-semibold text-slate-900">
-            Gruppi senza capogruppo ({unassignedParticipants.length})
+            {t("manager.unassigned.title", { count: unassignedParticipants.length })}
           </h4>
           <div className="mt-3 overflow-auto rounded-lg border border-slate-200 bg-white">
             <table className="min-w-full divide-y divide-slate-200 text-sm">
               <thead className="bg-slate-50 text-left">
                 <tr>
-                  <th className="px-3 py-2 font-semibold text-slate-700">Partecipante</th>
-                  <th className="px-3 py-2 font-semibold text-slate-700">Email</th>
-                  <th className="px-3 py-2 font-semibold text-slate-700">Gruppo</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700">
+                    {t("manager.duplicates.participant")}
+                  </th>
+                  <th className="px-3 py-2 font-semibold text-slate-700">
+                    {t("manager.duplicates.email")}
+                  </th>
+                  <th className="px-3 py-2 font-semibold text-slate-700">
+                    {t("manager.duplicates.group")}
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {unassignedParticipants.length === 0 ? (
                   <tr>
                     <td colSpan={3} className="px-3 py-3 text-slate-500">
-                      Nessun partecipante in gruppo privo di capogruppo.
+                      {t("manager.unassigned.none")}
                     </td>
                   </tr>
                 ) : (
@@ -874,7 +893,7 @@ export default async function ManagerStatisticsPage() {
               href="#duplicates-non-associated"
               className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50"
             >
-              Duplicate e Non-associati
+              {t("manager.duplicates.section")}
             </a>
           </nav>
         </aside>
@@ -913,6 +932,7 @@ export default async function ManagerStatisticsPage() {
           <DuplicateAndUnassignedSection
             duplicateCandidates={duplicateCandidates}
             unassignedParticipants={unassignedParticipants}
+            t={t}
           />
         </div>
       </div>
