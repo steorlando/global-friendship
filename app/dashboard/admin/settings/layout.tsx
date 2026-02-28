@@ -15,8 +15,8 @@ export default function AdminSettingsLayout({ children }: { children: ReactNode 
   ];
 
   return (
-    <section className="grid items-start gap-6 lg:grid-cols-[240px,minmax(0,1fr)]">
-      <aside className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm lg:sticky lg:top-6">
+    <section className="space-y-6 lg:space-y-0 lg:flex lg:items-start lg:gap-6">
+      <aside className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm lg:sticky lg:top-6 lg:w-64 lg:shrink-0">
         <h2 className="text-lg font-semibold text-slate-900">Settings</h2>
         <p className="mt-1 text-sm text-slate-600">
           Manage platform configuration used by operational features.
@@ -39,7 +39,7 @@ export default function AdminSettingsLayout({ children }: { children: ReactNode 
         </nav>
       </aside>
 
-      <div className="min-w-0">{children}</div>
+      <div className="min-w-0 lg:flex-1">{children}</div>
     </section>
   );
 }
