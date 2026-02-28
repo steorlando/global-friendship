@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import type SMTPTransport from "nodemailer/lib/smtp-transport";
+import { DEFAULT_GMAIL_SENDER_EMAIL } from "./settings";
 
 type SendGmailTextEmailInput = {
   to: string;
@@ -24,12 +25,14 @@ type SendGmailEmailInput = {
   from?: string | null;
 };
 
+type GmailTransportCredentials = {
+  gmailUser: string;
+  gmailAppPassword: string;
+  senderEmail?: string | null;
+};
+
 export function getGmailSenderAddress(): string {
-  return (
-    process.env.PARTECIPANTE_CONTACT_FROM_EMAIL ||
-    process.env.GMAIL_USER ||
-    "europeanyouthmeeting@gmail.com"
-  );
+  return DEFAULT_GMAIL_SENDER_EMAIL;
 }
 
 let cachedTransport: {
@@ -38,8 +41,16 @@ let cachedTransport: {
 } | null = null;
 
 function getTransporter() {
-  const gmailUser = process.env.GMAIL_USER;
-  const gmailAppPassword = process.env.GMAIL_APP_PASSWORD;
+  return getTransporterFromCredentials({
+    gmailUser: process.env.GMAIL_USER ?? "",
+    gmailAppPassword: process.env.GMAIL_APP_PASSWORD ?? "",
+    senderEmail: process.env.PARTECIPANTE_CONTACT_FROM_EMAIL || process.env.GMAIL_USER,
+  });
+}
+
+function getTransporterFromCredentials(credentials: GmailTransportCredentials) {
+  const gmailUser = credentials.gmailUser?.trim();
+  const gmailAppPassword = credentials.gmailAppPassword?.trim();
   if (!gmailUser || !gmailAppPassword) {
     throw new Error("Missing GMAIL_USER or GMAIL_APP_PASSWORD");
   }
@@ -63,21 +74,38 @@ function getTransporter() {
   return transporter;
 }
 
-export async function sendGmailTextEmail(input: SendGmailTextEmailInput) {
-  await sendGmailEmail({
-    to: input.to,
-    subject: input.subject,
-    text: input.text,
-    replyTo: input.replyTo,
-    from: input.from,
-  });
+export async function sendGmailTextEmail(
+  input: SendGmailTextEmailInput,
+  credentials?: GmailTransportCredentials
+) {
+  await sendGmailEmailWithCredentials(
+    {
+      to: input.to,
+      subject: input.subject,
+      text: input.text,
+      replyTo: input.replyTo,
+      from: input.from,
+    },
+    credentials
+  );
 }
 
-export async function sendGmailEmail(input: SendGmailEmailInput) {
-  const transporter = getTransporter();
+export async function sendGmailEmail(
+  input: SendGmailEmailInput,
+  credentials?: GmailTransportCredentials
+) {
+  await sendGmailEmailWithCredentials(input, credentials);
+}
+
+export async function sendGmailEmailWithCredentials(
+  input: SendGmailEmailInput,
+  credentials?: GmailTransportCredentials
+) {
+  const transporter = credentials ? getTransporterFromCredentials(credentials) : getTransporter();
+  const senderEmail = credentials?.senderEmail?.trim() || getGmailSenderAddress();
 
   await transporter.sendMail({
-    from: input.from || getGmailSenderAddress(),
+    from: input.from || senderEmail,
     to: input.to,
     subject: input.subject,
     text: input.text ?? undefined,

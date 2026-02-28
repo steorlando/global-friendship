@@ -9,10 +9,31 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { t } = useI18n();
   const sections = [
-    { href: "/dashboard/admin", label: t("dashboard.admin.tab.statistics") },
-    { href: "/dashboard/admin/participants", label: t("dashboard.admin.tab.participants") },
-    { href: "/dashboard/admin/users-profiles", label: t("dashboard.admin.tab.usersProfiles") },
-    { href: "/dashboard/admin/email-campaigns", label: t("dashboard.admin.tab.email") },
+    {
+      href: "/dashboard/admin",
+      label: t("dashboard.admin.tab.statistics"),
+      isActive: pathname === "/dashboard/admin",
+    },
+    {
+      href: "/dashboard/admin/participants",
+      label: t("dashboard.admin.tab.participants"),
+      isActive: pathname === "/dashboard/admin/participants",
+    },
+    {
+      href: "/dashboard/admin/users-profiles",
+      label: t("dashboard.admin.tab.usersProfiles"),
+      isActive: pathname === "/dashboard/admin/users-profiles",
+    },
+    {
+      href: "/dashboard/admin/email-campaigns",
+      label: t("dashboard.admin.tab.email"),
+      isActive: pathname === "/dashboard/admin/email-campaigns",
+    },
+    {
+      href: "/dashboard/admin/settings/email",
+      label: "Settings",
+      isActive: pathname.startsWith("/dashboard/admin/settings"),
+    },
   ];
 
   return (
@@ -27,7 +48,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               key={section.href}
               href={section.href}
               className={`rounded-full border px-4 py-2 font-medium transition-all duration-200 ${
-                pathname === section.href
+                section.isActive
                   ? "border-indigo-600 bg-indigo-600 text-white shadow-sm"
                   : "border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-100"
               }`}

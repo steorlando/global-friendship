@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { sendGmailEmail } from "@/lib/email/gmail";
+import { loadEmailSenderRuntimeSettings } from "@/lib/email/settings";
 import {
   htmlToText,
   renderParticipantTemplateHtml,
@@ -289,6 +290,14 @@ export async function POST(req: Request) {
   const sentTo: string[] = [];
   const skipped: { id: string; reason: string }[] = [];
   const failed: { id: string; reason: string }[] = [];
+  const senderSettings = await loadEmailSenderRuntimeSettings(auth.service);
+
+  if (!senderSettings.gmailAppPassword) {
+    return NextResponse.json(
+      { error: "Google App Password is not configured for email sending" },
+      { status: 400 }
+    );
+  }
 
   if (recipientType === "group_leaders") {
     const { data, error } = await auth.service
@@ -352,7 +361,14 @@ export async function POST(req: Request) {
       const text = htmlToText(html);
 
       try {
-        await sendGmailEmail({ to, subject, html, text, attachments });
+        await sendGmailEmail(
+          { to, subject, html, text, attachments, from: senderSettings.senderEmail },
+          {
+            gmailUser: senderSettings.gmailUser,
+            gmailAppPassword: senderSettings.gmailAppPassword,
+            senderEmail: senderSettings.senderEmail,
+          }
+        );
         sentTo.push(row.id);
       } catch (sendError) {
         const reason = sendError instanceof Error ? sendError.message : "Send failed";
@@ -392,7 +408,14 @@ export async function POST(req: Request) {
       const text = htmlToText(html);
 
       try {
-        await sendGmailEmail({ to, subject, html, text, attachments });
+        await sendGmailEmail(
+          { to, subject, html, text, attachments, from: senderSettings.senderEmail },
+          {
+            gmailUser: senderSettings.gmailUser,
+            gmailAppPassword: senderSettings.gmailAppPassword,
+            senderEmail: senderSettings.senderEmail,
+          }
+        );
         sentTo.push(row.id);
       } catch (sendError) {
         const reason = sendError instanceof Error ? sendError.message : "Send failed";
