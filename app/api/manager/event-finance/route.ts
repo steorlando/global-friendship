@@ -2,25 +2,27 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
-type BudgetRow = {
-  id: string;
-  name: string;
-  event_label: string | null;
-  is_active: boolean;
-  default_currency: "EUR" | "HUF";
+type Currency = "EUR" | "HUF";
+type TransactionType = "INCOME" | "EXPENSE";
+type PaymentMethod = "bank transfer" | "card" | "cash" | "other";
+type SponsorshipStatus = "pledged" | "partially_paid" | "paid" | "cancelled";
+
+type FinanceSettingsRow = {
+  id: boolean;
+  event_name: string;
+  default_currency: Currency;
   huf_to_eur_rate: number;
+  accounts: string[];
   notes: string | null;
-  created_at: string;
   updated_at: string;
 };
 
 type BudgetItemRow = {
   id: string;
-  budget_id: string;
   category_name: string;
   macro_category: string;
   unit_cost_original: number;
-  currency: "EUR" | "HUF";
+  currency: Currency;
   quantity: number;
   notes: string | null;
   created_at: string;
@@ -29,14 +31,13 @@ type BudgetItemRow = {
 
 type TransactionRow = {
   id: string;
-  budget_id: string;
-  transaction_type: "INCOME" | "EXPENSE";
+  transaction_type: TransactionType;
   transaction_date: string;
   description: string;
   party: string | null;
   amount_original: number;
-  currency: "EUR" | "HUF";
-  payment_method: "bank transfer" | "card" | "cash" | "other";
+  currency: Currency;
+  payment_method: PaymentMethod;
   account: string | null;
   notes: string | null;
   created_at: string;
@@ -53,16 +54,15 @@ type TransactionAllocationRow = {
 
 type SponsorshipRow = {
   id: string;
-  budget_id: string;
   sponsor_name: string;
   description: string | null;
   pledged_amount_original: number;
   paid_amount_original: number;
-  currency: "EUR" | "HUF";
-  status: "pledged" | "partially_paid" | "paid" | "cancelled";
+  currency: Currency;
+  status: SponsorshipStatus;
   expected_date: string | null;
   received_date: string | null;
-  payment_method: "bank transfer" | "card" | "cash" | "other";
+  payment_method: PaymentMethod;
   account: string | null;
   notes: string | null;
   created_at: string;
@@ -84,10 +84,9 @@ type AllocationInput = {
 
 type MutationPayload =
   | {
-      entity: "budget";
-      action: "create" | "update" | "delete";
+      entity: "settings";
+      action: "update";
       data?: Record<string, unknown>;
-      id?: string;
     }
   | {
       entity: "budget_item";
@@ -122,26 +121,22 @@ function normalizeDate(value: unknown): string | null {
   return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : null;
 }
 
-function normalizeCurrency(value: unknown): "EUR" | "HUF" {
+function normalizeCurrency(value: unknown): Currency {
   return value === "HUF" ? "HUF" : "EUR";
 }
 
-function normalizePaymentMethod(
-  value: unknown
-): "bank transfer" | "card" | "cash" | "other" {
+function normalizePaymentMethod(value: unknown): PaymentMethod {
   if (value === "bank transfer") return "bank transfer";
   if (value === "card") return "card";
   if (value === "cash") return "cash";
   return "other";
 }
 
-function normalizeTransactionType(value: unknown): "INCOME" | "EXPENSE" {
+function normalizeTransactionType(value: unknown): TransactionType {
   return value === "INCOME" ? "INCOME" : "EXPENSE";
 }
 
-function normalizeSponsorshipStatus(
-  value: unknown
-): "pledged" | "partially_paid" | "paid" | "cancelled" {
+function normalizeSponsorshipStatus(value: unknown): SponsorshipStatus {
   if (value === "partially_paid") return "partially_paid";
   if (value === "paid") return "paid";
   if (value === "cancelled") return "cancelled";
@@ -152,6 +147,18 @@ function normalizeNumber(value: unknown, fallback = 0): number {
   const numeric = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(numeric)) return fallback;
   return Number(numeric.toFixed(2));
+}
+
+function normalizeAccounts(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const unique = new Set<string>();
+  for (const item of value) {
+    if (typeof item !== "string") continue;
+    const normalized = item.trim();
+    if (!normalized) continue;
+    unique.add(normalized);
+  }
+  return [...unique];
 }
 
 function parseAllocations(value: unknown): AllocationInput[] {
@@ -217,9 +224,9 @@ async function requireManagerContext() {
 }
 
 async function loadFinanceDataset(service = createSupabaseServiceClient()) {
-  const [budgetsRes, itemsRes, txRes, txAllocRes, sponsorshipRes, sponsorshipAllocRes] =
+  const [settingsRes, itemsRes, txRes, txAllocRes, sponsorshipRes, sponsorshipAllocRes] =
     await Promise.all([
-      service.from("event_finance_budgets").select("*").order("created_at", { ascending: true }),
+      service.from("event_finance_settings").select("*").eq("id", true).maybeSingle(),
       service
         .from("event_finance_budget_items")
         .select("*")
@@ -243,7 +250,7 @@ async function loadFinanceDataset(service = createSupabaseServiceClient()) {
     ]);
 
   const possibleErrors = [
-    budgetsRes.error,
+    settingsRes.error,
     itemsRes.error,
     txRes.error,
     txAllocRes.error,
@@ -255,8 +262,29 @@ async function loadFinanceDataset(service = createSupabaseServiceClient()) {
     throw new Error(possibleErrors[0]?.message ?? "Unable to load finance data");
   }
 
+  const rawSettings = (settingsRes.data ?? {
+      id: true,
+      event_name: "Global Friendship",
+      default_currency: "EUR",
+      huf_to_eur_rate: 0.0025,
+      accounts: [],
+      notes: null,
+      updated_at: new Date().toISOString(),
+    }) as Partial<FinanceSettingsRow>;
+
   return {
-    budgets: (budgetsRes.data ?? []) as BudgetRow[],
+    settings: {
+      id: true,
+      event_name: rawSettings.event_name ?? "Global Friendship",
+      default_currency: rawSettings.default_currency === "HUF" ? "HUF" : "EUR",
+      huf_to_eur_rate:
+        typeof rawSettings.huf_to_eur_rate === "number" && rawSettings.huf_to_eur_rate > 0
+          ? rawSettings.huf_to_eur_rate
+          : 0.0025,
+      accounts: normalizeAccounts(rawSettings.accounts),
+      notes: rawSettings.notes ?? null,
+      updated_at: rawSettings.updated_at ?? new Date().toISOString(),
+    } as FinanceSettingsRow,
     budgetItems: (itemsRes.data ?? []) as BudgetItemRow[],
     transactions: (txRes.data ?? []) as TransactionRow[],
     transactionAllocations: (txAllocRes.data ?? []) as TransactionAllocationRow[],
@@ -265,72 +293,38 @@ async function loadFinanceDataset(service = createSupabaseServiceClient()) {
   };
 }
 
-async function mutateBudget(
+async function mutateSettings(
   auth: { user: { id: string }; service: ReturnType<typeof createSupabaseServiceClient> },
-  payload: Extract<MutationPayload, { entity: "budget" }>
+  payload: Extract<MutationPayload, { entity: "settings" }>
 ) {
-  const id = normalizeText(payload.id);
   const data = (payload.data ?? {}) as Record<string, unknown>;
-
-  if (payload.action === "delete") {
-    if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
-    const { error } = await auth.service.from("event_finance_budgets").delete().eq("id", id);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ ok: true });
-  }
+  const eurToHufRate = normalizeNumber(data.eur_to_huf_rate, Number.NaN);
+  const hufToEurRateInput = normalizeNumber(data.huf_to_eur_rate, Number.NaN);
+  const hufToEurRate =
+    Number.isFinite(eurToHufRate) && eurToHufRate > 0
+      ? Number((1 / eurToHufRate).toFixed(6))
+      : Number.isFinite(hufToEurRateInput) && hufToEurRateInput > 0
+        ? hufToEurRateInput
+        : 0.0025;
 
   const row = {
-    name: normalizeText(data.name),
-    event_label: normalizeText(data.event_label),
-    is_active: Boolean(data.is_active),
+    id: true,
+    event_name: normalizeText(data.event_name) ?? "Global Friendship",
     default_currency: normalizeCurrency(data.default_currency),
-    huf_to_eur_rate: normalizeNumber(data.huf_to_eur_rate, 0.0025),
+    huf_to_eur_rate: hufToEurRate,
+    accounts: normalizeAccounts(data.accounts),
     notes: normalizeText(data.notes),
   };
 
-  if (!row.name) {
-    return NextResponse.json({ error: "name is required" }, { status: 400 });
-  }
-
-  if (payload.action === "create") {
-    const { data: created, error } = await auth.service
-      .from("event_finance_budgets")
-      .insert(row)
-      .select("*")
-      .single();
-
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-    if (row.is_active) {
-      await auth.service
-        .from("event_finance_budgets")
-        .update({ is_active: false })
-        .neq("id", (created as BudgetRow).id);
-    }
-
-    return NextResponse.json({ ok: true, budget: created as BudgetRow });
-  }
-
-  if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
-
-  const { data: updated, error } = await auth.service
-    .from("event_finance_budgets")
-    .update(row)
-    .eq("id", id)
+  const { data: upserted, error } = await auth.service
+    .from("event_finance_settings")
+    .upsert(row, { onConflict: "id" })
     .select("*")
-    .maybeSingle();
+    .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  if (!updated) return NextResponse.json({ error: "Budget not found" }, { status: 404 });
 
-  if (row.is_active) {
-    await auth.service
-      .from("event_finance_budgets")
-      .update({ is_active: false })
-      .neq("id", id);
-  }
-
-  return NextResponse.json({ ok: true, budget: updated as BudgetRow });
+  return NextResponse.json({ ok: true, settings: upserted as FinanceSettingsRow });
 }
 
 async function mutateBudgetItem(
@@ -351,7 +345,6 @@ async function mutateBudgetItem(
   }
 
   const row = {
-    budget_id: normalizeText(data.budget_id),
     category_name: normalizeText(data.category_name),
     macro_category: normalizeText(data.macro_category),
     unit_cost_original: normalizeNumber(data.unit_cost_original, 0),
@@ -360,9 +353,9 @@ async function mutateBudgetItem(
     notes: normalizeText(data.notes),
   };
 
-  if (!row.budget_id || !row.category_name || !row.macro_category) {
+  if (!row.category_name || !row.macro_category) {
     return NextResponse.json(
-      { error: "budget_id, category_name and macro_category are required" },
+      { error: "category_name and macro_category are required" },
       { status: 400 }
     );
   }
@@ -411,9 +404,7 @@ async function upsertTransactionAllocations(
   }));
 
   const { error } = await service.from("event_finance_transaction_allocations").insert(rows);
-  if (error) {
-    throw new Error(error.message);
-  }
+  if (error) throw new Error(error.message);
 }
 
 async function upsertSponsorshipAllocations(
@@ -435,9 +426,7 @@ async function upsertSponsorshipAllocations(
   }));
 
   const { error } = await service.from("event_finance_sponsorship_allocations").insert(rows);
-  if (error) {
-    throw new Error(error.message);
-  }
+  if (error) throw new Error(error.message);
 }
 
 async function mutateTransaction(
@@ -459,7 +448,6 @@ async function mutateTransaction(
   }
 
   const row = {
-    budget_id: normalizeText(data.budget_id),
     transaction_type: normalizeTransactionType(data.transaction_type),
     transaction_date: normalizeDate(data.transaction_date),
     description: normalizeText(data.description),
@@ -472,9 +460,9 @@ async function mutateTransaction(
     updated_by: auth.user.id,
   };
 
-  if (!row.budget_id || !row.transaction_date || !row.description) {
+  if (!row.transaction_date || !row.description) {
     return NextResponse.json(
-      { error: "budget_id, transaction_date and description are required" },
+      { error: "transaction_date and description are required" },
       { status: 400 }
     );
   }
@@ -546,7 +534,6 @@ async function mutateSponsorship(
   }
 
   const row = {
-    budget_id: normalizeText(data.budget_id),
     sponsor_name: normalizeText(data.sponsor_name),
     description: normalizeText(data.description),
     pledged_amount_original: normalizeNumber(data.pledged_amount_original, 0),
@@ -561,11 +548,8 @@ async function mutateSponsorship(
     updated_by: auth.user.id,
   };
 
-  if (!row.budget_id || !row.sponsor_name) {
-    return NextResponse.json(
-      { error: "budget_id and sponsor_name are required" },
-      { status: 400 }
-    );
+  if (!row.sponsor_name) {
+    return NextResponse.json({ error: "sponsor_name is required" }, { status: 400 });
   }
 
   const allocationError = assertAllocationSumEqualsTotal(
@@ -647,8 +631,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
-  if (payload.entity === "budget") {
-    return mutateBudget(auth, payload);
+  if (payload.entity === "settings") {
+    return mutateSettings(auth, payload);
   }
 
   if (payload.entity === "budget_item") {

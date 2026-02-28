@@ -6,23 +6,20 @@ type Currency = "EUR" | "HUF";
 type TransactionType = "INCOME" | "EXPENSE";
 type PaymentMethod = "bank transfer" | "card" | "cash" | "other";
 type SponsorshipStatus = "pledged" | "partially_paid" | "paid" | "cancelled";
-type FinanceTab = "overview" | "budgets" | "budget-items" | "transactions" | "sponsorships";
+type FinanceTab = "overview" | "budget-plan" | "transactions" | "sponsorships" | "settings";
 
-type Budget = {
-  id: string;
-  name: string;
-  event_label: string | null;
-  is_active: boolean;
+type FinanceSettings = {
+  id: boolean;
+  event_name: string;
   default_currency: Currency;
   huf_to_eur_rate: number;
+  accounts: string[];
   notes: string | null;
-  created_at: string;
   updated_at: string;
 };
 
 type BudgetItem = {
   id: string;
-  budget_id: string;
   category_name: string;
   macro_category: string;
   unit_cost_original: number;
@@ -35,7 +32,6 @@ type BudgetItem = {
 
 type FinanceTransaction = {
   id: string;
-  budget_id: string;
   transaction_type: TransactionType;
   transaction_date: string;
   description: string;
@@ -59,7 +55,6 @@ type TransactionAllocation = {
 
 type Sponsorship = {
   id: string;
-  budget_id: string;
   sponsor_name: string;
   description: string | null;
   pledged_amount_original: number;
@@ -84,7 +79,7 @@ type SponsorshipAllocation = {
 };
 
 type FinanceDataset = {
-  budgets: Budget[];
+  settings: FinanceSettings;
   budgetItems: BudgetItem[];
   transactions: FinanceTransaction[];
   transactionAllocations: TransactionAllocation[];
@@ -97,19 +92,16 @@ type AllocationDraft = {
   amount_original: number;
 };
 
-type BudgetForm = {
-  id: string | null;
-  name: string;
-  event_label: string;
-  is_active: boolean;
+type SettingsForm = {
+  event_name: string;
   default_currency: Currency;
-  huf_to_eur_rate: string;
+  eur_to_huf_rate: string;
+  accounts_raw: string;
   notes: string;
 };
 
 type BudgetItemForm = {
   id: string | null;
-  budget_id: string;
   category_name: string;
   macro_category: string;
   unit_cost_original: string;
@@ -120,7 +112,6 @@ type BudgetItemForm = {
 
 type TransactionForm = {
   id: string | null;
-  budget_id: string;
   transaction_type: TransactionType;
   transaction_date: string;
   description: string;
@@ -134,7 +125,6 @@ type TransactionForm = {
 
 type SponsorshipForm = {
   id: string | null;
-  budget_id: string;
   sponsor_name: string;
   description: string;
   pledged_amount_original: string;
@@ -148,12 +138,26 @@ type SponsorshipForm = {
   notes: string;
 };
 
+type BudgetPlanRow = {
+  item: BudgetItem;
+  planned: number;
+  spent: number;
+  income: number;
+  sponsored: number;
+};
+
+const EMPTY_BUDGET_ITEMS: BudgetItem[] = [];
+const EMPTY_TRANSACTIONS: FinanceTransaction[] = [];
+const EMPTY_TRANSACTION_ALLOCATIONS: TransactionAllocation[] = [];
+const EMPTY_SPONSORSHIPS: Sponsorship[] = [];
+const EMPTY_SPONSORSHIP_ALLOCATIONS: SponsorshipAllocation[] = [];
+
 const TABS: Array<{ id: FinanceTab; label: string }> = [
   { id: "overview", label: "Overview" },
-  { id: "budgets", label: "Budgets" },
-  { id: "budget-items", label: "Budget Items" },
+  { id: "budget-plan", label: "Budget Plan" },
   { id: "transactions", label: "Transactions" },
   { id: "sponsorships", label: "Sponsorships" },
+  { id: "settings", label: "Settings" },
 ];
 
 const PAYMENT_METHOD_OPTIONS: PaymentMethod[] = ["bank transfer", "card", "cash", "other"];
@@ -174,9 +178,14 @@ function formatCurrency(value: number, currency: Currency = "EUR") {
 }
 
 function toNumber(value: string, fallback = 0): number {
-  const parsed = Number(value);
+  const normalized = value.replace(",", ".").trim();
+  const parsed = Number(normalized);
   if (!Number.isFinite(parsed)) return fallback;
   return Number(parsed.toFixed(2));
+}
+
+function isValidDecimalInput(value: string) {
+  return /^$|^\d+([.,]\d{0,2})?$/.test(value.trim());
 }
 
 function toEur(value: number, currency: Currency, hufToEurRate: number) {
@@ -184,22 +193,78 @@ function toEur(value: number, currency: Currency, hufToEurRate: number) {
   return value * hufToEurRate;
 }
 
-function emptyBudgetForm(): BudgetForm {
-  return {
-    id: null,
-    name: "",
-    event_label: "",
-    is_active: false,
-    default_currency: "EUR",
-    huf_to_eur_rate: "0.0025",
-    notes: "",
-  };
+function toEurToHufRate(hufToEurRate: number): number {
+  if (!Number.isFinite(hufToEurRate) || hufToEurRate <= 0) return 400;
+  return Number((1 / hufToEurRate).toFixed(2));
 }
 
-function emptyBudgetItemForm(budgetId: string): BudgetItemForm {
+function parseAccountsInput(raw: string): string[] {
+  const unique = new Set<string>();
+  for (const part of raw.split(/\r?\n|,/)) {
+    const normalized = part.trim();
+    if (!normalized) continue;
+    unique.add(normalized);
+  }
+  return [...unique];
+}
+
+type ExportCell = string | number | null;
+
+type ExportSheet = {
+  name: string;
+  headers: string[];
+  rows: ExportCell[][];
+};
+
+function escapeXml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&apos;");
+}
+
+function buildExcelXmlWorkbook(sheets: ExportSheet[]) {
+  const worksheetXml = sheets
+    .map((sheet) => {
+      const headerRow = `<Row>${sheet.headers
+        .map((header) => `<Cell><Data ss:Type="String">${escapeXml(header)}</Data></Cell>`)
+        .join("")}</Row>`;
+
+      const rowsXml = sheet.rows
+        .map((row) => {
+          const cells = row
+            .map((cell) => {
+              if (cell === null) return `<Cell><Data ss:Type="String"></Data></Cell>`;
+              if (typeof cell === "number" && Number.isFinite(cell)) {
+                return `<Cell><Data ss:Type="Number">${cell}</Data></Cell>`;
+              }
+              return `<Cell><Data ss:Type="String">${escapeXml(String(cell))}</Data></Cell>`;
+            })
+            .join("");
+          return `<Row>${cells}</Row>`;
+        })
+        .join("");
+
+      return `<Worksheet ss:Name="${escapeXml(sheet.name)}"><Table>${headerRow}${rowsXml}</Table></Worksheet>`;
+    })
+    .join("");
+
+  return `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">
+${worksheetXml}
+</Workbook>`;
+}
+
+function emptyBudgetItemForm(): BudgetItemForm {
   return {
     id: null,
-    budget_id: budgetId,
     category_name: "",
     macro_category: "General Costs",
     unit_cost_original: "0",
@@ -209,10 +274,9 @@ function emptyBudgetItemForm(budgetId: string): BudgetItemForm {
   };
 }
 
-function emptyTransactionForm(budgetId: string): TransactionForm {
+function emptyTransactionForm(): TransactionForm {
   return {
     id: null,
-    budget_id: budgetId,
     transaction_type: "EXPENSE",
     transaction_date: new Date().toISOString().slice(0, 10),
     description: "",
@@ -225,10 +289,9 @@ function emptyTransactionForm(budgetId: string): TransactionForm {
   };
 }
 
-function emptySponsorshipForm(budgetId: string): SponsorshipForm {
+function emptySponsorshipForm(): SponsorshipForm {
   return {
     id: null,
-    budget_id: budgetId,
     sponsor_name: "",
     description: "",
     pledged_amount_original: "0",
@@ -244,22 +307,13 @@ function emptySponsorshipForm(budgetId: string): SponsorshipForm {
 }
 
 export function EventFinanceManager() {
-  const [dataset, setDataset] = useState<FinanceDataset>({
-    budgets: [],
-    budgetItems: [],
-    transactions: [],
-    transactionAllocations: [],
-    sponsorships: [],
-    sponsorshipAllocations: [],
-  });
+  const [dataset, setDataset] = useState<FinanceDataset | null>(null);
   const [activeTab, setActiveTab] = useState<FinanceTab>("overview");
-  const [activeBudgetId, setActiveBudgetId] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const [budgetSearch, setBudgetSearch] = useState("");
   const [itemSearch, setItemSearch] = useState("");
   const [itemMacroFilter, setItemMacroFilter] = useState("");
   const [txSearch, setTxSearch] = useState("");
@@ -269,253 +323,74 @@ export function EventFinanceManager() {
     "all"
   );
 
-  const [budgetForm, setBudgetForm] = useState<BudgetForm>(emptyBudgetForm());
-  const [itemForm, setItemForm] = useState<BudgetItemForm>(emptyBudgetItemForm(""));
-  const [transactionForm, setTransactionForm] = useState<TransactionForm>(emptyTransactionForm(""));
-  const [sponsorshipForm, setSponsorshipForm] = useState<SponsorshipForm>(emptySponsorshipForm(""));
+  const [settingsForm, setSettingsForm] = useState<SettingsForm>({
+    event_name: "Global Friendship",
+    default_currency: "EUR",
+    eur_to_huf_rate: "400",
+    accounts_raw: "",
+    notes: "",
+  });
+  const [itemForm, setItemForm] = useState<BudgetItemForm>(emptyBudgetItemForm());
+  const [transactionForm, setTransactionForm] = useState<TransactionForm>(emptyTransactionForm());
+  const [sponsorshipForm, setSponsorshipForm] = useState<SponsorshipForm>(emptySponsorshipForm());
 
   const [transactionAllocationsDraft, setTransactionAllocationsDraft] = useState<AllocationDraft[]>([]);
   const [sponsorshipAllocationsDraft, setSponsorshipAllocationsDraft] = useState<AllocationDraft[]>([]);
+  const [showBudgetItemModal, setShowBudgetItemModal] = useState(false);
+  const [showTransactionModal, setShowTransactionModal] = useState(false);
+  const [showSponsorshipModal, setShowSponsorshipModal] = useState(false);
+  const [transactionFormError, setTransactionFormError] = useState<string | null>(null);
+  const [sponsorshipFormError, setSponsorshipFormError] = useState<string | null>(null);
 
-  const budgets = dataset.budgets;
-  const budgetItems = dataset.budgetItems;
-  const transactions = dataset.transactions;
-  const transactionAllocations = dataset.transactionAllocations;
-  const sponsorships = dataset.sponsorships;
-  const sponsorshipAllocations = dataset.sponsorshipAllocations;
+  const budgetItems = dataset?.budgetItems ?? EMPTY_BUDGET_ITEMS;
+  const transactions = dataset?.transactions ?? EMPTY_TRANSACTIONS;
+  const transactionAllocations =
+    dataset?.transactionAllocations ?? EMPTY_TRANSACTION_ALLOCATIONS;
+  const sponsorships = dataset?.sponsorships ?? EMPTY_SPONSORSHIPS;
+  const sponsorshipAllocations =
+    dataset?.sponsorshipAllocations ?? EMPTY_SPONSORSHIP_ALLOCATIONS;
+  const settings = dataset?.settings ?? {
+    id: true,
+    event_name: "Global Friendship",
+    default_currency: "EUR" as Currency,
+    huf_to_eur_rate: 0.0025,
+    accounts: [] as string[],
+    notes: null,
+    updated_at: new Date().toISOString(),
+  };
 
-  const currentBudget = useMemo(
-    () => budgets.find((budget) => budget.id === activeBudgetId) ?? null,
-    [activeBudgetId, budgets]
+  const configuredAccountOptions = useMemo(
+    () =>
+      settings.accounts
+        .map((account) => account.trim())
+        .filter((account, index, all) => account.length > 0 && all.indexOf(account) === index),
+    [settings.accounts]
   );
 
-  const budgetOptions = useMemo(
-    () => budgets.map((budget) => ({ id: budget.id, name: budget.name })),
-    [budgets]
+  const usedTransactionAccounts = useMemo(
+    () =>
+      transactions
+        .map((tx) => (tx.account ?? "").trim())
+        .filter((account, index, all) => account.length > 0 && all.indexOf(account) === index),
+    [transactions]
   );
 
-  const activeBudgetItems = useMemo(
-    () => budgetItems.filter((item) => item.budget_id === activeBudgetId),
-    [activeBudgetId, budgetItems]
-  );
-
-  const activeBudgetTransactions = useMemo(
-    () => transactions.filter((tx) => tx.budget_id === activeBudgetId),
-    [activeBudgetId, transactions]
-  );
-
-  const activeBudgetSponsorships = useMemo(
-    () => sponsorships.filter((sp) => sp.budget_id === activeBudgetId),
-    [activeBudgetId, sponsorships]
+  const accountOptions = useMemo(
+    () => [...new Set([...configuredAccountOptions, ...usedTransactionAccounts])].sort(),
+    [configuredAccountOptions, usedTransactionAccounts]
   );
 
   const macroCategoryOptions = useMemo(
-    () => [...new Set(activeBudgetItems.map((item) => item.macro_category))].sort(),
-    [activeBudgetItems]
+    () => [...new Set(budgetItems.map((item) => item.macro_category))].sort(),
+    [budgetItems]
   );
-
-  const overview = useMemo(() => {
-    if (!currentBudget) {
-      return {
-        plannedEur: 0,
-        actualIncomeEur: 0,
-        actualExpenseEur: 0,
-        sponsoredEur: 0,
-        pledgedEur: 0,
-        balanceEur: 0,
-      };
-    }
-
-    const rate = currentBudget.huf_to_eur_rate;
-
-    const plannedEur = activeBudgetItems.reduce((sum, item) => {
-      const lineTotal = item.unit_cost_original * item.quantity;
-      return sum + toEur(lineTotal, item.currency, rate);
-    }, 0);
-
-    const transactionById = new Map(activeBudgetTransactions.map((tx) => [tx.id, tx]));
-
-    const actualIncomeEur = transactionAllocations.reduce((sum, alloc) => {
-      const tx = transactionById.get(alloc.transaction_id);
-      if (!tx || tx.transaction_type !== "INCOME") return sum;
-      return sum + toEur(alloc.amount_original, tx.currency, rate);
-    }, 0);
-
-    const actualExpenseEur = transactionAllocations.reduce((sum, alloc) => {
-      const tx = transactionById.get(alloc.transaction_id);
-      if (!tx || tx.transaction_type !== "EXPENSE") return sum;
-      return sum + toEur(alloc.amount_original, tx.currency, rate);
-    }, 0);
-
-    const sponsorshipById = new Map(activeBudgetSponsorships.map((sp) => [sp.id, sp]));
-
-    const sponsoredEur = sponsorshipAllocations.reduce((sum, alloc) => {
-      const sp = sponsorshipById.get(alloc.sponsorship_id);
-      if (!sp || sp.status === "cancelled") return sum;
-      return sum + toEur(alloc.amount_original, sp.currency, rate);
-    }, 0);
-
-    const pledgedEur = activeBudgetSponsorships.reduce((sum, sp) => {
-      if (sp.status === "cancelled") return sum;
-      return sum + toEur(sp.pledged_amount_original, sp.currency, rate);
-    }, 0);
-
-    const balanceEur = actualIncomeEur + sponsoredEur - actualExpenseEur;
-
-    return {
-      plannedEur,
-      actualIncomeEur,
-      actualExpenseEur,
-      sponsoredEur,
-      pledgedEur,
-      balanceEur,
-    };
-  }, [
-    activeBudgetItems,
-    activeBudgetSponsorships,
-    activeBudgetTransactions,
-    currentBudget,
-    sponsorshipAllocations,
-    transactionAllocations,
-  ]);
-
-  const groupedBudgetOverview = useMemo(() => {
-    if (!currentBudget) return [] as Array<{
-      macroCategory: string;
-      plannedEur: number;
-      incomeEur: number;
-      expensesEur: number;
-      sponsorshipsEur: number;
-      balanceEur: number;
-    }>;
-
-    const byMacro = new Map<
-      string,
-      {
-        macroCategory: string;
-        plannedEur: number;
-        incomeEur: number;
-        expensesEur: number;
-        sponsorshipsEur: number;
-      }
-    >();
-
-    const rate = currentBudget.huf_to_eur_rate;
-    const itemById = new Map(activeBudgetItems.map((item) => [item.id, item]));
-    const txById = new Map(activeBudgetTransactions.map((tx) => [tx.id, tx]));
-    const spById = new Map(activeBudgetSponsorships.map((sp) => [sp.id, sp]));
-
-    const ensureMacro = (macroCategory: string) => {
-      const existing = byMacro.get(macroCategory);
-      if (existing) return existing;
-      const row = {
-        macroCategory,
-        plannedEur: 0,
-        incomeEur: 0,
-        expensesEur: 0,
-        sponsorshipsEur: 0,
-      };
-      byMacro.set(macroCategory, row);
-      return row;
-    };
-
-    for (const item of activeBudgetItems) {
-      const bucket = ensureMacro(item.macro_category);
-      bucket.plannedEur += toEur(item.unit_cost_original * item.quantity, item.currency, rate);
-    }
-
-    for (const alloc of transactionAllocations) {
-      const tx = txById.get(alloc.transaction_id);
-      const item = itemById.get(alloc.budget_item_id);
-      if (!tx || !item) continue;
-      const bucket = ensureMacro(item.macro_category);
-      if (tx.transaction_type === "INCOME") {
-        bucket.incomeEur += toEur(alloc.amount_original, tx.currency, rate);
-      } else {
-        bucket.expensesEur += toEur(alloc.amount_original, tx.currency, rate);
-      }
-    }
-
-    for (const alloc of sponsorshipAllocations) {
-      const sp = spById.get(alloc.sponsorship_id);
-      const item = itemById.get(alloc.budget_item_id);
-      if (!sp || !item || sp.status === "cancelled") continue;
-      const bucket = ensureMacro(item.macro_category);
-      bucket.sponsorshipsEur += toEur(alloc.amount_original, sp.currency, rate);
-    }
-
-    return [...byMacro.values()]
-      .map((row) => ({
-        ...row,
-        balanceEur: row.incomeEur + row.sponsorshipsEur - row.expensesEur,
-      }))
-      .sort((a, b) => a.macroCategory.localeCompare(b.macroCategory));
-  }, [
-    activeBudgetItems,
-    activeBudgetSponsorships,
-    activeBudgetTransactions,
-    currentBudget,
-    sponsorshipAllocations,
-    transactionAllocations,
-  ]);
-
-  const visibleBudgets = useMemo(() => {
-    const term = budgetSearch.trim().toLowerCase();
-    if (!term) return budgets;
-    return budgets.filter(
-      (budget) =>
-        budget.name.toLowerCase().includes(term) ||
-        (budget.event_label ?? "").toLowerCase().includes(term)
-    );
-  }, [budgetSearch, budgets]);
-
-  const visibleBudgetItems = useMemo(() => {
-    const term = itemSearch.trim().toLowerCase();
-    return activeBudgetItems.filter((item) => {
-      if (itemMacroFilter && item.macro_category !== itemMacroFilter) return false;
-      if (!term) return true;
-      return (
-        item.category_name.toLowerCase().includes(term) ||
-        item.macro_category.toLowerCase().includes(term) ||
-        (item.notes ?? "").toLowerCase().includes(term)
-      );
-    });
-  }, [activeBudgetItems, itemMacroFilter, itemSearch]);
-
-  const visibleTransactions = useMemo(() => {
-    const term = txSearch.trim().toLowerCase();
-    return activeBudgetTransactions.filter((tx) => {
-      if (txTypeFilter !== "all" && tx.transaction_type !== txTypeFilter) return false;
-      if (!term) return true;
-      return (
-        tx.description.toLowerCase().includes(term) ||
-        (tx.party ?? "").toLowerCase().includes(term) ||
-        (tx.account ?? "").toLowerCase().includes(term)
-      );
-    });
-  }, [activeBudgetTransactions, txSearch, txTypeFilter]);
-
-  const visibleSponsorships = useMemo(() => {
-    const term = sponsorSearch.trim().toLowerCase();
-    return activeBudgetSponsorships.filter((sp) => {
-      if (sponsorStatusFilter !== "all" && sp.status !== sponsorStatusFilter) return false;
-      if (!term) return true;
-      return (
-        sp.sponsor_name.toLowerCase().includes(term) ||
-        (sp.description ?? "").toLowerCase().includes(term)
-      );
-    });
-  }, [activeBudgetSponsorships, sponsorSearch, sponsorStatusFilter]);
 
   const transactionAllocationsByTx = useMemo(() => {
     const grouped = new Map<string, TransactionAllocation[]>();
     for (const alloc of transactionAllocations) {
       const row = grouped.get(alloc.transaction_id);
-      if (row) {
-        row.push(alloc);
-      } else {
-        grouped.set(alloc.transaction_id, [alloc]);
-      }
+      if (row) row.push(alloc);
+      else grouped.set(alloc.transaction_id, [alloc]);
     }
     return grouped;
   }, [transactionAllocations]);
@@ -524,50 +399,147 @@ export function EventFinanceManager() {
     const grouped = new Map<string, SponsorshipAllocation[]>();
     for (const alloc of sponsorshipAllocations) {
       const row = grouped.get(alloc.sponsorship_id);
-      if (row) {
-        row.push(alloc);
-      } else {
-        grouped.set(alloc.sponsorship_id, [alloc]);
-      }
+      if (row) row.push(alloc);
+      else grouped.set(alloc.sponsorship_id, [alloc]);
     }
     return grouped;
   }, [sponsorshipAllocations]);
 
+  const budgetPlanRows = useMemo<BudgetPlanRow[]>(() => {
+    const txById = new Map(transactions.map((tx) => [tx.id, tx]));
+    const sponsorshipById = new Map(sponsorships.map((sp) => [sp.id, sp]));
+
+    return budgetItems.map((item) => {
+      const planned = item.unit_cost_original * item.quantity;
+
+      const spent = transactionAllocations.reduce((sum, alloc) => {
+        if (alloc.budget_item_id !== item.id) return sum;
+        const tx = txById.get(alloc.transaction_id);
+        if (!tx || tx.transaction_type !== "EXPENSE") return sum;
+        return sum + alloc.amount_original;
+      }, 0);
+
+      const income = transactionAllocations.reduce((sum, alloc) => {
+        if (alloc.budget_item_id !== item.id) return sum;
+        const tx = txById.get(alloc.transaction_id);
+        if (!tx || tx.transaction_type !== "INCOME") return sum;
+        return sum + alloc.amount_original;
+      }, 0);
+
+      const sponsored = sponsorshipAllocations.reduce((sum, alloc) => {
+        if (alloc.budget_item_id !== item.id) return sum;
+        const sp = sponsorshipById.get(alloc.sponsorship_id);
+        if (!sp || sp.status === "cancelled") return sum;
+        return sum + alloc.amount_original;
+      }, 0);
+
+      return { item, planned, spent, income, sponsored };
+    });
+  }, [budgetItems, sponsorshipAllocations, sponsorships, transactionAllocations, transactions]);
+
+  const overview = useMemo(() => {
+    const plannedEur = budgetPlanRows.reduce(
+      (sum, row) => sum + toEur(row.planned, row.item.currency, settings.huf_to_eur_rate),
+      0
+    );
+
+    const spentEur = budgetPlanRows.reduce(
+      (sum, row) => sum + toEur(row.spent, row.item.currency, settings.huf_to_eur_rate),
+      0
+    );
+
+    const incomeEur = budgetPlanRows.reduce(
+      (sum, row) => sum + toEur(row.income, row.item.currency, settings.huf_to_eur_rate),
+      0
+    );
+
+    const sponsoredEur = budgetPlanRows.reduce(
+      (sum, row) => sum + toEur(row.sponsored, row.item.currency, settings.huf_to_eur_rate),
+      0
+    );
+
+    return {
+      plannedEur,
+      spentEur,
+      incomeEur,
+      sponsoredEur,
+      balanceEur: incomeEur + sponsoredEur - spentEur,
+    };
+  }, [budgetPlanRows, settings.huf_to_eur_rate]);
+
+  const accountOverviewRows = useMemo(() => {
+    const summaries = new Map<string, { incomeEur: number; expenseEur: number }>();
+
+    for (const account of accountOptions) {
+      summaries.set(account, { incomeEur: 0, expenseEur: 0 });
+    }
+
+    for (const tx of transactions) {
+      const accountName = (tx.account ?? "").trim() || "No account";
+      const existing = summaries.get(accountName) ?? { incomeEur: 0, expenseEur: 0 };
+      const amountEur = toEur(tx.amount_original, tx.currency, settings.huf_to_eur_rate);
+
+      if (tx.transaction_type === "INCOME") existing.incomeEur += amountEur;
+      else existing.expenseEur += amountEur;
+
+      summaries.set(accountName, existing);
+    }
+
+    return [...summaries.entries()]
+      .map(([account, values]) => ({
+        account,
+        incomeEur: values.incomeEur,
+        expenseEur: values.expenseEur,
+        balanceEur: values.incomeEur - values.expenseEur,
+      }))
+      .sort((a, b) => {
+        if (a.account === "No account") return 1;
+        if (b.account === "No account") return -1;
+        return a.account.localeCompare(b.account);
+      });
+  }, [accountOptions, settings.huf_to_eur_rate, transactions]);
+
+  const visibleBudgetPlanRows = useMemo(() => {
+    const term = itemSearch.trim().toLowerCase();
+    return budgetPlanRows.filter((row) => {
+      if (itemMacroFilter && row.item.macro_category !== itemMacroFilter) return false;
+      if (!term) return true;
+      return (
+        row.item.category_name.toLowerCase().includes(term) ||
+        row.item.macro_category.toLowerCase().includes(term) ||
+        (row.item.notes ?? "").toLowerCase().includes(term)
+      );
+    });
+  }, [budgetPlanRows, itemMacroFilter, itemSearch]);
+
+  const visibleTransactions = useMemo(() => {
+    const term = txSearch.trim().toLowerCase();
+    return transactions.filter((tx) => {
+      if (txTypeFilter !== "all" && tx.transaction_type !== txTypeFilter) return false;
+      if (!term) return true;
+      return (
+        tx.description.toLowerCase().includes(term) ||
+        (tx.party ?? "").toLowerCase().includes(term) ||
+        (tx.account ?? "").toLowerCase().includes(term)
+      );
+    });
+  }, [transactions, txSearch, txTypeFilter]);
+
+  const visibleSponsorships = useMemo(() => {
+    const term = sponsorSearch.trim().toLowerCase();
+    return sponsorships.filter((sp) => {
+      if (sponsorStatusFilter !== "all" && sp.status !== sponsorStatusFilter) return false;
+      if (!term) return true;
+      return (
+        sp.sponsor_name.toLowerCase().includes(term) ||
+        (sp.description ?? "").toLowerCase().includes(term)
+      );
+    });
+  }, [sponsorSearch, sponsorStatusFilter, sponsorships]);
+
   useEffect(() => {
     void reloadData();
   }, []);
-
-  useEffect(() => {
-    if (budgets.length === 0) {
-      setActiveBudgetId("");
-      return;
-    }
-
-    const stillExists = budgets.some((budget) => budget.id === activeBudgetId);
-    if (stillExists) return;
-
-    const preferred = budgets.find((budget) => budget.is_active) ?? budgets[0];
-    setActiveBudgetId(preferred.id);
-  }, [activeBudgetId, budgets]);
-
-  useEffect(() => {
-    if (!activeBudgetId) return;
-
-    setItemForm((prev) => {
-      if (prev.budget_id) return prev;
-      return { ...prev, budget_id: activeBudgetId };
-    });
-
-    setTransactionForm((prev) => {
-      if (prev.budget_id) return prev;
-      return { ...prev, budget_id: activeBudgetId };
-    });
-
-    setSponsorshipForm((prev) => {
-      if (prev.budget_id) return prev;
-      return { ...prev, budget_id: activeBudgetId };
-    });
-  }, [activeBudgetId]);
 
   async function reloadData() {
     setLoading(true);
@@ -580,17 +552,13 @@ export function EventFinanceManager() {
         setError(json.error ?? "Unable to load event finance data.");
         return;
       }
-      setDataset({
-        budgets: Array.isArray(json.budgets) ? json.budgets : [],
-        budgetItems: Array.isArray(json.budgetItems) ? json.budgetItems : [],
-        transactions: Array.isArray(json.transactions) ? json.transactions : [],
-        transactionAllocations: Array.isArray(json.transactionAllocations)
-          ? json.transactionAllocations
-          : [],
-        sponsorships: Array.isArray(json.sponsorships) ? json.sponsorships : [],
-        sponsorshipAllocations: Array.isArray(json.sponsorshipAllocations)
-          ? json.sponsorshipAllocations
-          : [],
+      setDataset(json);
+      setSettingsForm({
+        event_name: json.settings.event_name,
+        default_currency: json.settings.default_currency,
+        eur_to_huf_rate: toEurToHufRate(json.settings.huf_to_eur_rate).toString(),
+        accounts_raw: json.settings.accounts.join("\n"),
+        notes: json.settings.notes ?? "",
       });
     } catch {
       setError("Unable to load event finance data.");
@@ -628,179 +596,186 @@ export function EventFinanceManager() {
     }
   }
 
-  function resetBudgetForm() {
-    setBudgetForm(emptyBudgetForm());
-  }
-
   function resetItemForm() {
-    setItemForm(emptyBudgetItemForm(activeBudgetId));
+    setItemForm(emptyBudgetItemForm());
+    setShowBudgetItemModal(false);
   }
 
   function resetTransactionForm() {
-    setTransactionForm(emptyTransactionForm(activeBudgetId));
+    setTransactionForm(emptyTransactionForm());
     setTransactionAllocationsDraft([]);
+    setTransactionFormError(null);
+    setShowTransactionModal(false);
   }
 
   function resetSponsorshipForm() {
-    setSponsorshipForm(emptySponsorshipForm(activeBudgetId));
+    setSponsorshipForm(emptySponsorshipForm());
     setSponsorshipAllocationsDraft([]);
+    setSponsorshipFormError(null);
+    setShowSponsorshipModal(false);
   }
 
-  async function handleSaveBudget(event: FormEvent<HTMLFormElement>) {
+  async function handleSaveSettings(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!budgetForm.name.trim()) return;
 
-    const payload = {
-      entity: "budget",
-      action: budgetForm.id ? "update" : "create",
-      id: budgetForm.id ?? undefined,
-      data: {
-        name: budgetForm.name,
-        event_label: budgetForm.event_label,
-        is_active: budgetForm.is_active,
-        default_currency: budgetForm.default_currency,
-        huf_to_eur_rate: toNumber(budgetForm.huf_to_eur_rate, 0.0025),
-        notes: budgetForm.notes,
+    await runMutation(
+      {
+        entity: "settings",
+        action: "update",
+        data: {
+          event_name: settingsForm.event_name,
+          default_currency: settingsForm.default_currency,
+          eur_to_huf_rate: toNumber(settingsForm.eur_to_huf_rate, 400),
+          accounts: parseAccountsInput(settingsForm.accounts_raw),
+          notes: settingsForm.notes,
+        },
       },
-    };
-
-    const ok = await runMutation(payload, budgetForm.id ? "Budget updated." : "Budget created.");
-    if (ok) resetBudgetForm();
-  }
-
-  async function handleDeleteBudget(id: string) {
-    const ok = window.confirm("Delete this budget and all linked finance records?");
-    if (!ok) return;
-    await runMutation({ entity: "budget", action: "delete", id }, "Budget deleted.");
+      "Settings updated."
+    );
   }
 
   async function handleSaveBudgetItem(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!itemForm.budget_id || !itemForm.category_name.trim()) return;
-
-    const payload = {
-      entity: "budget_item",
-      action: itemForm.id ? "update" : "create",
-      id: itemForm.id ?? undefined,
-      data: {
-        budget_id: itemForm.budget_id,
-        category_name: itemForm.category_name,
-        macro_category: itemForm.macro_category,
-        unit_cost_original: toNumber(itemForm.unit_cost_original),
-        currency: itemForm.currency,
-        quantity: toNumber(itemForm.quantity, 1),
-        notes: itemForm.notes,
-      },
-    };
+    if (!itemForm.category_name.trim()) return;
 
     const ok = await runMutation(
-      payload,
+      {
+        entity: "budget_item",
+        action: itemForm.id ? "update" : "create",
+        id: itemForm.id ?? undefined,
+        data: {
+          category_name: itemForm.category_name,
+          macro_category: itemForm.macro_category,
+          unit_cost_original: toNumber(itemForm.unit_cost_original),
+          currency: itemForm.currency,
+          quantity: toNumber(itemForm.quantity, 1),
+          notes: itemForm.notes,
+        },
+      },
       itemForm.id ? "Budget item updated." : "Budget item created."
     );
+
     if (ok) resetItemForm();
   }
 
   async function handleDeleteBudgetItem(id: string) {
-    const ok = window.confirm("Delete this budget item and related allocations?");
-    if (!ok) return;
-    await runMutation(
-      { entity: "budget_item", action: "delete", id },
-      "Budget item deleted."
-    );
+    if (!window.confirm("Delete this budget item and related allocations?")) return;
+    await runMutation({ entity: "budget_item", action: "delete", id }, "Budget item deleted.");
   }
 
   async function handleSaveTransaction(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!transactionForm.budget_id || !transactionForm.description.trim()) return;
+    setTransactionFormError(null);
+    if (!transactionForm.description.trim()) return;
 
-    const amount = toNumber(transactionForm.amount_original, 0);
+    const transactionAmount = toNumber(transactionForm.amount_original, Number.NaN);
+    if (!Number.isFinite(transactionAmount) || transactionAmount <= 0) {
+      setTransactionFormError("Amount must be a valid number greater than zero.");
+      return;
+    }
 
-    const payload = {
-      entity: "transaction",
-      action: transactionForm.id ? "update" : "create",
-      id: transactionForm.id ?? undefined,
-      data: {
-        budget_id: transactionForm.budget_id,
-        transaction_type: transactionForm.transaction_type,
-        transaction_date: transactionForm.transaction_date,
-        description: transactionForm.description,
-        party: transactionForm.party,
-        amount_original: amount,
-        currency: transactionForm.currency,
-        payment_method: transactionForm.payment_method,
-        account: transactionForm.account,
-        notes: transactionForm.notes,
-      },
-      allocations: transactionAllocationsDraft,
-    };
+    const allocationsTotal = transactionAllocationsDraft.reduce(
+      (sum, row) => sum + row.amount_original,
+      0
+    );
+    if (Math.abs(allocationsTotal - transactionAmount) > 0.01) {
+      setTransactionFormError(
+        `Split total (${allocationsTotal.toFixed(2)}) must match transaction amount (${transactionAmount.toFixed(2)}).`
+      );
+      return;
+    }
 
     const ok = await runMutation(
-      payload,
+      {
+        entity: "transaction",
+        action: transactionForm.id ? "update" : "create",
+        id: transactionForm.id ?? undefined,
+        data: {
+          transaction_type: transactionForm.transaction_type,
+          transaction_date: transactionForm.transaction_date,
+          description: transactionForm.description,
+          party: transactionForm.party,
+          amount_original: toNumber(transactionForm.amount_original),
+          currency: transactionForm.currency,
+          payment_method: transactionForm.payment_method,
+          account: transactionForm.account,
+          notes: transactionForm.notes,
+        },
+        allocations: transactionAllocationsDraft,
+      },
       transactionForm.id ? "Transaction updated." : "Transaction created."
     );
+
     if (ok) resetTransactionForm();
   }
 
   async function handleDeleteTransaction(id: string) {
-    const ok = window.confirm("Delete this transaction and its allocations?");
-    if (!ok) return;
+    if (!window.confirm("Delete this transaction and its allocations?")) return;
     await runMutation({ entity: "transaction", action: "delete", id }, "Transaction deleted.");
   }
 
   async function handleSaveSponsorship(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!sponsorshipForm.budget_id || !sponsorshipForm.sponsor_name.trim()) return;
+    setSponsorshipFormError(null);
+    if (!sponsorshipForm.sponsor_name.trim()) return;
 
-    const payload = {
-      entity: "sponsorship",
-      action: sponsorshipForm.id ? "update" : "create",
-      id: sponsorshipForm.id ?? undefined,
-      data: {
-        budget_id: sponsorshipForm.budget_id,
-        sponsor_name: sponsorshipForm.sponsor_name,
-        description: sponsorshipForm.description,
-        pledged_amount_original: toNumber(sponsorshipForm.pledged_amount_original),
-        paid_amount_original: toNumber(sponsorshipForm.paid_amount_original),
-        currency: sponsorshipForm.currency,
-        status: sponsorshipForm.status,
-        expected_date: sponsorshipForm.expected_date,
-        received_date: sponsorshipForm.received_date,
-        payment_method: sponsorshipForm.payment_method,
-        account: sponsorshipForm.account,
-        notes: sponsorshipForm.notes,
-      },
-      allocations: sponsorshipAllocationsDraft,
-    };
+    const pledgedAmount = toNumber(sponsorshipForm.pledged_amount_original, Number.NaN);
+    if (!Number.isFinite(pledgedAmount) || pledgedAmount < 0) {
+      setSponsorshipFormError("Pledged amount must be a valid number (0 or higher).");
+      return;
+    }
+
+    const paidAmount = toNumber(sponsorshipForm.paid_amount_original, Number.NaN);
+    if (!Number.isFinite(paidAmount) || paidAmount < 0) {
+      setSponsorshipFormError("Paid amount must be a valid number (0 or higher).");
+      return;
+    }
+
+    const allocationsTotal = sponsorshipAllocationsDraft.reduce(
+      (sum, row) => sum + row.amount_original,
+      0
+    );
+    if (Math.abs(allocationsTotal - pledgedAmount) > 0.01) {
+      setSponsorshipFormError(
+        `Split total (${allocationsTotal.toFixed(2)}) must match pledged amount (${pledgedAmount.toFixed(2)}).`
+      );
+      return;
+    }
 
     const ok = await runMutation(
-      payload,
+      {
+        entity: "sponsorship",
+        action: sponsorshipForm.id ? "update" : "create",
+        id: sponsorshipForm.id ?? undefined,
+        data: {
+          sponsor_name: sponsorshipForm.sponsor_name,
+          description: sponsorshipForm.description,
+          pledged_amount_original: toNumber(sponsorshipForm.pledged_amount_original),
+          paid_amount_original: toNumber(sponsorshipForm.paid_amount_original),
+          currency: sponsorshipForm.currency,
+          status: sponsorshipForm.status,
+          expected_date: sponsorshipForm.expected_date,
+          received_date: sponsorshipForm.received_date,
+          payment_method: sponsorshipForm.payment_method,
+          account: sponsorshipForm.account,
+          notes: sponsorshipForm.notes,
+        },
+        allocations: sponsorshipAllocationsDraft,
+      },
       sponsorshipForm.id ? "Sponsorship updated." : "Sponsorship created."
     );
+
     if (ok) resetSponsorshipForm();
   }
 
   async function handleDeleteSponsorship(id: string) {
-    const ok = window.confirm("Delete this sponsorship and its allocations?");
-    if (!ok) return;
+    if (!window.confirm("Delete this sponsorship and its allocations?")) return;
     await runMutation({ entity: "sponsorship", action: "delete", id }, "Sponsorship deleted.");
-  }
-
-  function setBudgetForEditing(budget: Budget) {
-    setBudgetForm({
-      id: budget.id,
-      name: budget.name,
-      event_label: budget.event_label ?? "",
-      is_active: budget.is_active,
-      default_currency: budget.default_currency,
-      huf_to_eur_rate: budget.huf_to_eur_rate.toString(),
-      notes: budget.notes ?? "",
-    });
   }
 
   function setItemForEditing(item: BudgetItem) {
     setItemForm({
       id: item.id,
-      budget_id: item.budget_id,
       category_name: item.category_name,
       macro_category: item.macro_category,
       unit_cost_original: item.unit_cost_original.toString(),
@@ -808,12 +783,13 @@ export function EventFinanceManager() {
       quantity: item.quantity.toString(),
       notes: item.notes ?? "",
     });
+    setShowBudgetItemModal(true);
   }
 
   function setTransactionForEditing(tx: FinanceTransaction) {
+    setTransactionFormError(null);
     setTransactionForm({
       id: tx.id,
-      budget_id: tx.budget_id,
       transaction_type: tx.transaction_type,
       transaction_date: tx.transaction_date,
       description: tx.description,
@@ -830,12 +806,13 @@ export function EventFinanceManager() {
       amount_original: row.amount_original,
     }));
     setTransactionAllocationsDraft(allocations);
+    setShowTransactionModal(true);
   }
 
   function setSponsorshipForEditing(sp: Sponsorship) {
+    setSponsorshipFormError(null);
     setSponsorshipForm({
       id: sp.id,
-      budget_id: sp.budget_id,
       sponsor_name: sp.sponsor_name,
       description: sp.description ?? "",
       pledged_amount_original: sp.pledged_amount_original.toString(),
@@ -854,29 +831,113 @@ export function EventFinanceManager() {
       amount_original: row.amount_original,
     }));
     setSponsorshipAllocationsDraft(allocations);
+    setShowSponsorshipModal(true);
   }
 
-  function renderBudgetSelector() {
-    return (
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <label className="block text-sm font-medium text-slate-700">Active budget</label>
-        <select
-          value={activeBudgetId}
-          onChange={(e) => setActiveBudgetId(e.target.value)}
-          className="mt-2 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-        >
-          {budgetOptions.length === 0 ? (
-            <option value="">No budgets yet</option>
-          ) : (
-            budgetOptions.map((budget) => (
-              <option key={budget.id} value={budget.id}>
-                {budget.name}
-              </option>
-            ))
-          )}
-        </select>
-      </div>
-    );
+  function downloadOverviewExcel() {
+    const budgetPlanSheet: ExportSheet = {
+      name: "Budget Plan",
+      headers: ["Category", "Macro", "Currency", "Planned", "Spent", "Cash In", "Sponsored"],
+      rows: budgetPlanRows.map((row) => [
+        row.item.category_name,
+        row.item.macro_category,
+        row.item.currency,
+        Number(row.planned.toFixed(2)),
+        Number(row.spent.toFixed(2)),
+        Number(row.income.toFixed(2)),
+        Number(row.sponsored.toFixed(2)),
+      ]),
+    };
+
+    const transactionsSheet: ExportSheet = {
+      name: "Transactions",
+      headers: [
+        "Date",
+        "Type",
+        "Description",
+        "Party / Vendor",
+        "Amount",
+        "Currency",
+        "Payment Method",
+        "Account",
+        "Notes",
+        "Allocations",
+      ],
+      rows: transactions.map((tx) => {
+        const allocationSummary = (transactionAllocationsByTx.get(tx.id) ?? [])
+          .map((alloc) => {
+            const item = budgetItems.find((row) => row.id === alloc.budget_item_id);
+            return `${item?.category_name ?? "Unknown"}: ${alloc.amount_original.toFixed(2)}`;
+          })
+          .join("; ");
+
+        return [
+          tx.transaction_date,
+          tx.transaction_type,
+          tx.description,
+          tx.party ?? "",
+          Number(tx.amount_original.toFixed(2)),
+          tx.currency,
+          tx.payment_method,
+          tx.account ?? "",
+          tx.notes ?? "",
+          allocationSummary,
+        ];
+      }),
+    };
+
+    const sponsorshipsSheet: ExportSheet = {
+      name: "Sponsorships",
+      headers: [
+        "Sponsor",
+        "Status",
+        "Pledged",
+        "Paid",
+        "Currency",
+        "Expected Date",
+        "Received Date",
+        "Payment Method",
+        "Account",
+        "Notes",
+        "Allocations",
+      ],
+      rows: sponsorships.map((sp) => {
+        const allocationSummary = (sponsorshipAllocationsBySponsorship.get(sp.id) ?? [])
+          .map((alloc) => {
+            const item = budgetItems.find((row) => row.id === alloc.budget_item_id);
+            return `${item?.category_name ?? "Unknown"}: ${alloc.amount_original.toFixed(2)}`;
+          })
+          .join("; ");
+
+        return [
+          sp.sponsor_name,
+          sp.status,
+          Number(sp.pledged_amount_original.toFixed(2)),
+          Number(sp.paid_amount_original.toFixed(2)),
+          sp.currency,
+          sp.expected_date ?? "",
+          sp.received_date ?? "",
+          sp.payment_method,
+          sp.account ?? "",
+          sp.notes ?? "",
+          allocationSummary,
+        ];
+      }),
+    };
+
+    const xml = buildExcelXmlWorkbook([budgetPlanSheet, transactionsSheet, sponsorshipsSheet]);
+    const blob = new Blob([xml], {
+      type: "application/vnd.ms-excel;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const stamp = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.download = `event-finance-${stamp}.xls`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
   }
 
   if (loading) {
@@ -892,24 +953,8 @@ export function EventFinanceManager() {
       <header className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="text-xl font-semibold text-slate-900">Event Finance</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Budget planning, income, expenses, sponsorships and allocations in one module.
+          Single event budget plan with expenses, cash-in and sponsorship coverage.
         </p>
-        <div className="mt-4 flex flex-wrap gap-2 text-sm">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={`rounded-full border px-4 py-2 font-medium transition-all duration-200 ${
-                activeTab === tab.id
-                  ? "border-indigo-600 bg-indigo-600 text-white"
-                  : "border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-100"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
       </header>
 
       {error && (
@@ -923,11 +968,55 @@ export function EventFinanceManager() {
         </div>
       )}
 
+      <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
+        <aside className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+          <nav className="space-y-1">
+            {TABS.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`w-full rounded-lg border px-3 py-2 text-left text-sm font-medium transition-all ${
+                  activeTab === tab.id
+                    ? "border-indigo-600 bg-indigo-600 text-white"
+                    : "border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-100"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+        </aside>
+
+        <div>
       {activeTab === "overview" && (
         <section className="space-y-4">
-          {renderBudgetSelector()}
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-base font-semibold text-slate-900">Current Settings</h3>
+              <button
+                type="button"
+                onClick={downloadOverviewExcel}
+                className="rounded bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+              >
+                Download Excel
+              </button>
+            </div>
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <div className="rounded border border-slate-200 px-3 py-2">
+                <p className="text-xs uppercase tracking-wide text-slate-500">Exchange Rate</p>
+                <p className="text-sm font-medium text-slate-800">
+                  1 EUR = {toEurToHufRate(settings.huf_to_eur_rate)} HUF
+                </p>
+              </div>
+              <div className="rounded border border-slate-200 px-3 py-2">
+                <p className="text-xs uppercase tracking-wide text-slate-500">Accounts</p>
+                <p className="text-sm font-medium text-slate-800">{configuredAccountOptions.length}</p>
+              </div>
+            </div>
+          </div>
 
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Planned</p>
               <p className="mt-2 text-lg font-semibold text-slate-900">
@@ -935,27 +1024,21 @@ export function EventFinanceManager() {
               </p>
             </div>
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Income</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Cash In</p>
               <p className="mt-2 text-lg font-semibold text-emerald-700">
-                {formatCurrency(overview.actualIncomeEur, "EUR")}
+                {formatCurrency(overview.incomeEur, "EUR")}
               </p>
             </div>
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Expenses</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Spent</p>
               <p className="mt-2 text-lg font-semibold text-rose-700">
-                {formatCurrency(overview.actualExpenseEur, "EUR")}
+                {formatCurrency(overview.spentEur, "EUR")}
               </p>
             </div>
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Sponsored</p>
               <p className="mt-2 text-lg font-semibold text-indigo-700">
                 {formatCurrency(overview.sponsoredEur, "EUR")}
-              </p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Pledged</p>
-              <p className="mt-2 text-lg font-semibold text-slate-900">
-                {formatCurrency(overview.pledgedEur, "EUR")}
               </p>
             </div>
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -971,174 +1054,41 @@ export function EventFinanceManager() {
           </div>
 
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <h3 className="text-base font-semibold text-slate-900">Macro Category Summary</h3>
+            <h3 className="text-base font-semibold text-slate-900">By Account</h3>
+            <p className="mt-1 text-xs text-slate-500">Values converted and shown in EUR.</p>
             <div className="mt-3 overflow-x-auto rounded border border-slate-200">
               <table className="w-full border-collapse text-left text-sm">
                 <thead className="bg-slate-50 text-slate-700">
                   <tr>
-                    <th className="px-4 py-3">Macro category</th>
-                    <th className="px-4 py-3">Planned</th>
+                    <th className="px-4 py-3">Account</th>
                     <th className="px-4 py-3">Income</th>
-                    <th className="px-4 py-3">Expenses</th>
-                    <th className="px-4 py-3">Sponsorships</th>
+                    <th className="px-4 py-3">Expense</th>
                     <th className="px-4 py-3">Balance</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {groupedBudgetOverview.length === 0 ? (
+                  {accountOverviewRows.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-4 text-slate-500">
-                        No data for the selected budget.
+                      <td colSpan={4} className="px-4 py-4 text-slate-500">
+                        No account data available.
                       </td>
                     </tr>
                   ) : (
-                    groupedBudgetOverview.map((row) => (
-                      <tr key={row.macroCategory} className="border-t border-slate-100">
-                        <td className="px-4 py-3">{row.macroCategory}</td>
-                        <td className="px-4 py-3">{formatCurrency(row.plannedEur, "EUR")}</td>
-                        <td className="px-4 py-3">{formatCurrency(row.incomeEur, "EUR")}</td>
-                        <td className="px-4 py-3">{formatCurrency(row.expensesEur, "EUR")}</td>
-                        <td className="px-4 py-3">{formatCurrency(row.sponsorshipsEur, "EUR")}</td>
-                        <td className="px-4 py-3">{formatCurrency(row.balanceEur, "EUR")}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {activeTab === "budgets" && (
-        <section className="space-y-4">
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h3 className="text-base font-semibold text-slate-900">Budgets</h3>
-              <input
-                value={budgetSearch}
-                onChange={(e) => setBudgetSearch(e.target.value)}
-                placeholder="Search by budget name"
-                className="w-full max-w-sm rounded border border-slate-300 px-3 py-2 text-sm"
-              />
-            </div>
-
-            <form onSubmit={handleSaveBudget} className="mt-4 grid gap-3 md:grid-cols-3">
-              <input
-                required
-                value={budgetForm.name}
-                onChange={(e) => setBudgetForm((prev) => ({ ...prev, name: e.target.value }))}
-                placeholder="Budget name"
-                className="rounded border border-slate-300 px-3 py-2 text-sm"
-              />
-              <input
-                value={budgetForm.event_label}
-                onChange={(e) =>
-                  setBudgetForm((prev) => ({ ...prev, event_label: e.target.value }))
-                }
-                placeholder="Event label"
-                className="rounded border border-slate-300 px-3 py-2 text-sm"
-              />
-              <input
-                type="number"
-                step="0.000001"
-                min="0.000001"
-                value={budgetForm.huf_to_eur_rate}
-                onChange={(e) =>
-                  setBudgetForm((prev) => ({ ...prev, huf_to_eur_rate: e.target.value }))
-                }
-                placeholder="HUF to EUR rate"
-                className="rounded border border-slate-300 px-3 py-2 text-sm"
-              />
-              <select
-                value={budgetForm.default_currency}
-                onChange={(e) =>
-                  setBudgetForm((prev) => ({ ...prev, default_currency: e.target.value as Currency }))
-                }
-                className="rounded border border-slate-300 px-3 py-2 text-sm"
-              >
-                <option value="EUR">EUR</option>
-                <option value="HUF">HUF</option>
-              </select>
-              <label className="inline-flex items-center gap-2 rounded border border-slate-300 px-3 py-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={budgetForm.is_active}
-                  onChange={(e) =>
-                    setBudgetForm((prev) => ({ ...prev, is_active: e.target.checked }))
-                  }
-                />
-                Active budget
-              </label>
-              <input
-                value={budgetForm.notes}
-                onChange={(e) => setBudgetForm((prev) => ({ ...prev, notes: e.target.value }))}
-                placeholder="Notes"
-                className="rounded border border-slate-300 px-3 py-2 text-sm"
-              />
-
-              <div className="md:col-span-3 flex gap-2">
-                <button
-                  type="submit"
-                  disabled={busy}
-                  className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
-                >
-                  {budgetForm.id ? "Update budget" : "Create budget"}
-                </button>
-                {budgetForm.id && (
-                  <button
-                    type="button"
-                    onClick={resetBudgetForm}
-                    className="rounded border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
-                  >
-                    Cancel edit
-                  </button>
-                )}
-              </div>
-            </form>
-
-            <div className="mt-4 overflow-x-auto rounded border border-slate-200">
-              <table className="w-full border-collapse text-left text-sm">
-                <thead className="bg-slate-50 text-slate-700">
-                  <tr>
-                    <th className="px-4 py-3">Name</th>
-                    <th className="px-4 py-3">Event label</th>
-                    <th className="px-4 py-3">Currency</th>
-                    <th className="px-4 py-3">HUF-&gt;EUR</th>
-                    <th className="px-4 py-3">Active</th>
-                    <th className="px-4 py-3">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleBudgets.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-4 text-slate-500">
-                        No budgets found.
-                      </td>
-                    </tr>
-                  ) : (
-                    visibleBudgets.map((budget) => (
-                      <tr key={budget.id} className="border-t border-slate-100">
-                        <td className="px-4 py-3">{budget.name}</td>
-                        <td className="px-4 py-3">{budget.event_label ?? "-"}</td>
-                        <td className="px-4 py-3">{budget.default_currency}</td>
-                        <td className="px-4 py-3">{budget.huf_to_eur_rate}</td>
-                        <td className="px-4 py-3">{budget.is_active ? "Yes" : "No"}</td>
-                        <td className="px-4 py-3 space-x-2">
-                          <button
-                            type="button"
-                            onClick={() => setBudgetForEditing(budget)}
-                            className="rounded border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void handleDeleteBudget(budget.id)}
-                            className="rounded border border-rose-300 px-3 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50"
-                          >
-                            Delete
-                          </button>
+                    accountOverviewRows.map((row) => (
+                      <tr key={row.account} className="border-t border-slate-100">
+                        <td className="px-4 py-3">{row.account}</td>
+                        <td className="px-4 py-3 text-emerald-700">
+                          {formatCurrency(row.incomeEur, "EUR")}
+                        </td>
+                        <td className="px-4 py-3 text-rose-700">
+                          {formatCurrency(row.expenseEur, "EUR")}
+                        </td>
+                        <td
+                          className={`px-4 py-3 font-medium ${
+                            row.balanceEur >= 0 ? "text-emerald-700" : "text-rose-700"
+                          }`}
+                        >
+                          {formatCurrency(row.balanceEur, "EUR")}
                         </td>
                       </tr>
                     ))
@@ -1150,12 +1100,11 @@ export function EventFinanceManager() {
         </section>
       )}
 
-      {activeTab === "budget-items" && (
+      {activeTab === "budget-plan" && (
         <section className="space-y-4">
-          {renderBudgetSelector()}
-
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
               <input
                 value={itemSearch}
                 onChange={(e) => setItemSearch(e.target.value)}
@@ -1174,96 +1123,114 @@ export function EventFinanceManager() {
                   </option>
                 ))}
               </select>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setItemForm(emptyBudgetItemForm());
+                  setShowBudgetItemModal(true);
+                }}
+                className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+              >
+                Create Budget Line
+              </button>
             </div>
 
-            <form onSubmit={handleSaveBudgetItem} className="mt-4 grid gap-3 md:grid-cols-3">
-              <select
-                required
-                value={itemForm.budget_id}
-                onChange={(e) => setItemForm((prev) => ({ ...prev, budget_id: e.target.value }))}
-                className="rounded border border-slate-300 px-3 py-2 text-sm"
-              >
-                <option value="">Select budget</option>
-                {budgetOptions.map((budget) => (
-                  <option key={budget.id} value={budget.id}>
-                    {budget.name}
-                  </option>
-                ))}
-              </select>
-              <input
-                required
-                value={itemForm.category_name}
-                onChange={(e) =>
-                  setItemForm((prev) => ({ ...prev, category_name: e.target.value }))
-                }
-                placeholder="Category name"
-                className="rounded border border-slate-300 px-3 py-2 text-sm"
-              />
-              <input
-                required
-                value={itemForm.macro_category}
-                onChange={(e) =>
-                  setItemForm((prev) => ({ ...prev, macro_category: e.target.value }))
-                }
-                placeholder="Macro category"
-                className="rounded border border-slate-300 px-3 py-2 text-sm"
-              />
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={itemForm.unit_cost_original}
-                onChange={(e) =>
-                  setItemForm((prev) => ({ ...prev, unit_cost_original: e.target.value }))
-                }
-                placeholder="Unit cost"
-                className="rounded border border-slate-300 px-3 py-2 text-sm"
-              />
-              <select
-                value={itemForm.currency}
-                onChange={(e) =>
-                  setItemForm((prev) => ({ ...prev, currency: e.target.value as Currency }))
-                }
-                className="rounded border border-slate-300 px-3 py-2 text-sm"
-              >
-                <option value="EUR">EUR</option>
-                <option value="HUF">HUF</option>
-              </select>
-              <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                value={itemForm.quantity}
-                onChange={(e) => setItemForm((prev) => ({ ...prev, quantity: e.target.value }))}
-                placeholder="Quantity"
-                className="rounded border border-slate-300 px-3 py-2 text-sm"
-              />
-              <input
-                value={itemForm.notes}
-                onChange={(e) => setItemForm((prev) => ({ ...prev, notes: e.target.value }))}
-                placeholder="Notes"
-                className="md:col-span-3 rounded border border-slate-300 px-3 py-2 text-sm"
-              />
+            {showBudgetItemModal && (
+              <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-4 py-8">
+                <div className="w-full max-w-3xl rounded-lg border border-slate-200 bg-white p-5 shadow-xl">
+                  <div className="mb-4 flex items-start justify-between gap-4">
+                    <h3 className="text-lg font-semibold text-slate-900">
+                      {itemForm.id ? "Edit Budget Line" : "Create Budget Line"}
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={resetItemForm}
+                      className="rounded border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                    >
+                      Close
+                    </button>
+                  </div>
+                  <form onSubmit={handleSaveBudgetItem} className="grid gap-3 md:grid-cols-3">
+                    <input
+                      required
+                      value={itemForm.category_name}
+                      onChange={(e) =>
+                        setItemForm((prev) => ({ ...prev, category_name: e.target.value }))
+                      }
+                      placeholder="Category name"
+                      className="rounded border border-slate-300 px-3 py-2 text-sm"
+                    />
+                    <input
+                      required
+                      value={itemForm.macro_category}
+                      onChange={(e) =>
+                        setItemForm((prev) => ({ ...prev, macro_category: e.target.value }))
+                      }
+                      placeholder="Macro category"
+                      className="rounded border border-slate-300 px-3 py-2 text-sm"
+                    />
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={itemForm.unit_cost_original}
+                      onChange={(e) =>
+                        setItemForm((prev) => ({ ...prev, unit_cost_original: e.target.value }))
+                      }
+                      placeholder="Unit cost"
+                      className="rounded border border-slate-300 px-3 py-2 text-sm"
+                    />
+                    <select
+                      value={itemForm.currency}
+                      onChange={(e) =>
+                        setItemForm((prev) => ({ ...prev, currency: e.target.value as Currency }))
+                      }
+                      className="rounded border border-slate-300 px-3 py-2 text-sm"
+                    >
+                      <option value="EUR">EUR</option>
+                      <option value="HUF">HUF</option>
+                    </select>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      value={itemForm.quantity}
+                      onChange={(e) =>
+                        setItemForm((prev) => ({ ...prev, quantity: e.target.value }))
+                      }
+                      placeholder="Quantity"
+                      className="rounded border border-slate-300 px-3 py-2 text-sm"
+                    />
+                    <input
+                      value={itemForm.notes}
+                      onChange={(e) =>
+                        setItemForm((prev) => ({ ...prev, notes: e.target.value }))
+                      }
+                      placeholder="Notes"
+                      className="rounded border border-slate-300 px-3 py-2 text-sm"
+                    />
 
-              <div className="md:col-span-3 flex gap-2">
-                <button
-                  type="submit"
-                  disabled={busy}
-                  className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
-                >
-                  {itemForm.id ? "Update item" : "Create item"}
-                </button>
-                {itemForm.id && (
-                  <button
-                    type="button"
-                    onClick={resetItemForm}
-                    className="rounded border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
-                  >
-                    Cancel edit
-                  </button>
-                )}
+                    <div className="md:col-span-3 flex gap-2">
+                      <button
+                        type="submit"
+                        disabled={busy}
+                        className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+                      >
+                        {itemForm.id ? "Update item" : "Create item"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={resetItemForm}
+                        className="rounded border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                </div>
               </div>
-            </form>
+            )}
 
             <div className="mt-4 overflow-x-auto rounded border border-slate-200">
               <table className="w-full border-collapse text-left text-sm">
@@ -1271,42 +1238,40 @@ export function EventFinanceManager() {
                   <tr>
                     <th className="px-4 py-3">Category</th>
                     <th className="px-4 py-3">Macro</th>
-                    <th className="px-4 py-3">Unit cost</th>
-                    <th className="px-4 py-3">Quantity</th>
-                    <th className="px-4 py-3">Planned total</th>
+                    <th className="px-4 py-3">Planned</th>
+                    <th className="px-4 py-3">Spent</th>
+                    <th className="px-4 py-3">Cash In</th>
+                    <th className="px-4 py-3">Sponsored</th>
                     <th className="px-4 py-3">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {visibleBudgetItems.length === 0 ? (
+                  {visibleBudgetPlanRows.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-4 text-slate-500">
+                      <td colSpan={7} className="px-4 py-4 text-slate-500">
                         No budget items found.
                       </td>
                     </tr>
                   ) : (
-                    visibleBudgetItems.map((item) => (
-                      <tr key={item.id} className="border-t border-slate-100">
-                        <td className="px-4 py-3">{item.category_name}</td>
-                        <td className="px-4 py-3">{item.macro_category}</td>
-                        <td className="px-4 py-3">
-                          {formatCurrency(item.unit_cost_original, item.currency)}
-                        </td>
-                        <td className="px-4 py-3">{item.quantity}</td>
-                        <td className="px-4 py-3">
-                          {formatCurrency(item.unit_cost_original * item.quantity, item.currency)}
-                        </td>
+                    visibleBudgetPlanRows.map((row) => (
+                      <tr key={row.item.id} className="border-t border-slate-100">
+                        <td className="px-4 py-3">{row.item.category_name}</td>
+                        <td className="px-4 py-3">{row.item.macro_category}</td>
+                        <td className="px-4 py-3">{formatCurrency(row.planned, row.item.currency)}</td>
+                        <td className="px-4 py-3">{formatCurrency(row.spent, row.item.currency)}</td>
+                        <td className="px-4 py-3">{formatCurrency(row.income, row.item.currency)}</td>
+                        <td className="px-4 py-3">{formatCurrency(row.sponsored, row.item.currency)}</td>
                         <td className="px-4 py-3 space-x-2">
                           <button
                             type="button"
-                            onClick={() => setItemForEditing(item)}
+                            onClick={() => setItemForEditing(row.item)}
                             className="rounded border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
                           >
                             Edit
                           </button>
                           <button
                             type="button"
-                            onClick={() => void handleDeleteBudgetItem(item.id)}
+                            onClick={() => void handleDeleteBudgetItem(row.item.id)}
                             className="rounded border border-rose-300 px-3 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50"
                           >
                             Delete
@@ -1324,10 +1289,9 @@ export function EventFinanceManager() {
 
       {activeTab === "transactions" && (
         <section className="space-y-4">
-          {renderBudgetSelector()}
-
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
               <input
                 value={txSearch}
                 onChange={(e) => setTxSearch(e.target.value)}
@@ -1336,223 +1300,252 @@ export function EventFinanceManager() {
               />
               <select
                 value={txTypeFilter}
-                onChange={(e) =>
-                  setTxTypeFilter(e.target.value as "all" | TransactionType)
-                }
+                onChange={(e) => setTxTypeFilter(e.target.value as "all" | TransactionType)}
                 className="rounded border border-slate-300 px-3 py-2 text-sm"
               >
                 <option value="all">All types</option>
                 <option value="INCOME">Income</option>
                 <option value="EXPENSE">Expense</option>
               </select>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setTransactionForm(emptyTransactionForm());
+                  setTransactionAllocationsDraft([]);
+                  setTransactionFormError(null);
+                  setShowTransactionModal(true);
+                }}
+                className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+              >
+                Create Transaction
+              </button>
             </div>
 
-            <form onSubmit={handleSaveTransaction} className="mt-4 grid gap-3 md:grid-cols-3">
-              <select
-                required
-                value={transactionForm.budget_id}
-                onChange={(e) =>
-                  setTransactionForm((prev) => ({ ...prev, budget_id: e.target.value }))
-                }
-                className="rounded border border-slate-300 px-3 py-2 text-sm"
-              >
-                <option value="">Select budget</option>
-                {budgetOptions.map((budget) => (
-                  <option key={budget.id} value={budget.id}>
-                    {budget.name}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={transactionForm.transaction_type}
-                onChange={(e) =>
-                  setTransactionForm((prev) => ({
-                    ...prev,
-                    transaction_type: e.target.value as TransactionType,
-                  }))
-                }
-                className="rounded border border-slate-300 px-3 py-2 text-sm"
-              >
-                <option value="EXPENSE">Expense</option>
-                <option value="INCOME">Income</option>
-              </select>
-              <input
-                type="date"
-                required
-                value={transactionForm.transaction_date}
-                onChange={(e) =>
-                  setTransactionForm((prev) => ({ ...prev, transaction_date: e.target.value }))
-                }
-                className="rounded border border-slate-300 px-3 py-2 text-sm"
-              />
-              <input
-                required
-                value={transactionForm.description}
-                onChange={(e) =>
-                  setTransactionForm((prev) => ({ ...prev, description: e.target.value }))
-                }
-                placeholder="Description"
-                className="rounded border border-slate-300 px-3 py-2 text-sm"
-              />
-              <input
-                value={transactionForm.party}
-                onChange={(e) =>
-                  setTransactionForm((prev) => ({ ...prev, party: e.target.value }))
-                }
-                placeholder="Party"
-                className="rounded border border-slate-300 px-3 py-2 text-sm"
-              />
-              <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                required
-                value={transactionForm.amount_original}
-                onChange={(e) =>
-                  setTransactionForm((prev) => ({ ...prev, amount_original: e.target.value }))
-                }
-                placeholder="Amount"
-                className="rounded border border-slate-300 px-3 py-2 text-sm"
-              />
-              <select
-                value={transactionForm.currency}
-                onChange={(e) =>
-                  setTransactionForm((prev) => ({ ...prev, currency: e.target.value as Currency }))
-                }
-                className="rounded border border-slate-300 px-3 py-2 text-sm"
-              >
-                <option value="EUR">EUR</option>
-                <option value="HUF">HUF</option>
-              </select>
-              <select
-                value={transactionForm.payment_method}
-                onChange={(e) =>
-                  setTransactionForm((prev) => ({
-                    ...prev,
-                    payment_method: e.target.value as PaymentMethod,
-                  }))
-                }
-                className="rounded border border-slate-300 px-3 py-2 text-sm"
-              >
-                {PAYMENT_METHOD_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-              <input
-                value={transactionForm.account}
-                onChange={(e) =>
-                  setTransactionForm((prev) => ({ ...prev, account: e.target.value }))
-                }
-                placeholder="Account"
-                className="rounded border border-slate-300 px-3 py-2 text-sm"
-              />
-              <input
-                value={transactionForm.notes}
-                onChange={(e) =>
-                  setTransactionForm((prev) => ({ ...prev, notes: e.target.value }))
-                }
-                placeholder="Notes"
-                className="md:col-span-3 rounded border border-slate-300 px-3 py-2 text-sm"
-              />
+            {showTransactionModal && (
+              <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-4 py-8">
+                <div className="w-full max-w-4xl rounded-lg border border-slate-200 bg-white p-5 shadow-xl">
+                  <div className="mb-4 flex items-start justify-between gap-4">
+                    <h3 className="text-lg font-semibold text-slate-900">
+                      {transactionForm.id ? "Edit Transaction" : "Create Transaction"}
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={resetTransactionForm}
+                      className="rounded border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                    >
+                      Close
+                    </button>
+                  </div>
+                  <form onSubmit={handleSaveTransaction} className="grid gap-3 md:grid-cols-4">
+                    <select
+                      value={transactionForm.transaction_type}
+                      onChange={(e) =>
+                        setTransactionForm((prev) => ({
+                          ...prev,
+                          transaction_type: e.target.value as TransactionType,
+                        }))
+                      }
+                      className="rounded border border-slate-300 px-3 py-2 text-sm"
+                    >
+                      <option value="EXPENSE">Expense</option>
+                      <option value="INCOME">Income</option>
+                    </select>
+                    <input
+                      type="date"
+                      required
+                      value={transactionForm.transaction_date}
+                      onChange={(e) =>
+                        setTransactionForm((prev) => ({ ...prev, transaction_date: e.target.value }))
+                      }
+                      className="rounded border border-slate-300 px-3 py-2 text-sm"
+                    />
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      required
+                      value={transactionForm.amount_original}
+                      onChange={(e) => {
+                        if (!isValidDecimalInput(e.target.value)) return;
+                        setTransactionForm((prev) => ({ ...prev, amount_original: e.target.value }));
+                      }}
+                      placeholder="Amount"
+                      className="rounded border border-slate-300 px-3 py-2 text-sm"
+                    />
+                    <select
+                      value={transactionForm.currency}
+                      onChange={(e) =>
+                        setTransactionForm((prev) => ({ ...prev, currency: e.target.value as Currency }))
+                      }
+                      className="rounded border border-slate-300 px-3 py-2 text-sm"
+                    >
+                      <option value="EUR">EUR</option>
+                      <option value="HUF">HUF</option>
+                    </select>
+                    <input
+                      required
+                      value={transactionForm.description}
+                      onChange={(e) =>
+                        setTransactionForm((prev) => ({ ...prev, description: e.target.value }))
+                      }
+                      placeholder="Description"
+                      className="md:col-span-2 rounded border border-slate-300 px-3 py-2 text-sm"
+                    />
+                    <input
+                      value={transactionForm.party}
+                      onChange={(e) =>
+                        setTransactionForm((prev) => ({ ...prev, party: e.target.value }))
+                      }
+                      placeholder="Party / Vendor"
+                      className="md:col-span-2 rounded border border-slate-300 px-3 py-2 text-sm"
+                    />
+                    <select
+                      value={transactionForm.payment_method}
+                      onChange={(e) =>
+                        setTransactionForm((prev) => ({
+                          ...prev,
+                          payment_method: e.target.value as PaymentMethod,
+                        }))
+                      }
+                      className="md:col-span-2 rounded border border-slate-300 px-3 py-2 text-sm"
+                    >
+                      {PAYMENT_METHOD_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={transactionForm.account}
+                      onChange={(e) =>
+                        setTransactionForm((prev) => ({ ...prev, account: e.target.value }))
+                      }
+                      className="md:col-span-2 rounded border border-slate-300 px-3 py-2 text-sm"
+                    >
+                      <option value="">Select account</option>
+                      {accountOptions.map((account) => (
+                        <option key={account} value={account}>
+                          {account}
+                        </option>
+                      ))}
+                      {transactionForm.account &&
+                        !accountOptions.includes(transactionForm.account) && (
+                          <option value={transactionForm.account}>{transactionForm.account}</option>
+                        )}
+                    </select>
+                    <input
+                      value={transactionForm.notes}
+                      onChange={(e) =>
+                        setTransactionForm((prev) => ({ ...prev, notes: e.target.value }))
+                      }
+                      placeholder="Notes"
+                      className="md:col-span-3 rounded border border-slate-300 px-3 py-2 text-sm"
+                    />
 
-              <div className="md:col-span-3 rounded border border-slate-200 p-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-slate-700">Allocations</p>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setTransactionAllocationsDraft((prev) => [
-                        ...prev,
-                        {
-                          budget_item_id: activeBudgetItems[0]?.id ?? "",
-                          amount_original: 0,
-                        },
-                      ])
-                    }
-                    className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100"
-                  >
-                    Add split
-                  </button>
-                </div>
-
-                <div className="mt-2 space-y-2">
-                  {transactionAllocationsDraft.length === 0 ? (
-                    <p className="text-xs text-slate-500">No splits yet. Add at least one allocation.</p>
-                  ) : (
-                    transactionAllocationsDraft.map((row, index) => (
-                      <div key={`tx-split-${index}`} className="grid gap-2 md:grid-cols-[1fr,180px,80px]">
-                        <select
-                          value={row.budget_item_id}
-                          onChange={(e) =>
-                            setTransactionAllocationsDraft((prev) =>
-                              prev.map((item, i) =>
-                                i === index ? { ...item, budget_item_id: e.target.value } : item
-                              )
-                            )
-                          }
-                          className="rounded border border-slate-300 px-3 py-2 text-sm"
-                        >
-                          <option value="">Select budget item</option>
-                          {activeBudgetItems.map((item) => (
-                            <option key={item.id} value={item.id}>
-                              {item.category_name}
-                            </option>
-                          ))}
-                        </select>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0.01"
-                          value={row.amount_original}
-                          onChange={(e) =>
-                            setTransactionAllocationsDraft((prev) =>
-                              prev.map((item, i) =>
-                                i === index
-                                  ? { ...item, amount_original: toNumber(e.target.value) }
-                                  : item
-                              )
-                            )
-                          }
-                          className="rounded border border-slate-300 px-3 py-2 text-sm"
-                        />
+                    <div className="md:col-span-3 rounded border border-slate-200 p-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-slate-700">Allocations</p>
                         <button
                           type="button"
                           onClick={() =>
-                            setTransactionAllocationsDraft((prev) =>
-                              prev.filter((_, i) => i !== index)
-                            )
+                            setTransactionAllocationsDraft((prev) => [
+                              ...prev,
+                              { budget_item_id: budgetItems[0]?.id ?? "", amount_original: 0 },
+                            ])
                           }
-                          className="rounded border border-rose-300 px-3 py-2 text-xs text-rose-700 hover:bg-rose-50"
+                          className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100"
                         >
-                          Remove
+                          Add split
                         </button>
                       </div>
-                    ))
-                  )}
+
+                      <div className="mt-2 space-y-2">
+                        {transactionAllocationsDraft.length === 0 ? (
+                          <p className="text-xs text-slate-500">No splits yet.</p>
+                        ) : (
+                          transactionAllocationsDraft.map((row, index) => (
+                            <div
+                              key={`tx-split-${index}`}
+                              className="grid gap-2 md:grid-cols-[minmax(0,1fr)_120px_auto]"
+                            >
+                              <select
+                                value={row.budget_item_id}
+                                onChange={(e) =>
+                                  setTransactionAllocationsDraft((prev) =>
+                                    prev.map((item, i) =>
+                                      i === index ? { ...item, budget_item_id: e.target.value } : item
+                                    )
+                                  )
+                                }
+                                className="rounded border border-slate-300 px-3 py-2 text-sm"
+                              >
+                                <option value="">Select budget item</option>
+                                {budgetItems.map((item) => (
+                                  <option key={item.id} value={item.id}>
+                                    {item.category_name}
+                                  </option>
+                                ))}
+                              </select>
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={row.amount_original.toString()}
+                                onChange={(e) => {
+                                  if (!isValidDecimalInput(e.target.value)) return;
+                                  setTransactionAllocationsDraft((prev) =>
+                                    prev.map((item, i) =>
+                                      i === index
+                                        ? { ...item, amount_original: toNumber(e.target.value) }
+                                        : item
+                                    )
+                                  );
+                                }}
+                                placeholder="0.00"
+                                className="rounded border border-slate-300 px-3 py-2 text-sm"
+                              />
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setTransactionAllocationsDraft((prev) =>
+                                    prev.filter((_, i) => i !== index)
+                                  )
+                                }
+                                className="rounded border border-rose-300 px-3 py-2 text-xs text-rose-700 hover:bg-rose-50"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                      {transactionFormError && (
+                        <p className="mt-2 text-xs text-rose-700">{transactionFormError}</p>
+                      )}
+                      {!transactionFormError && error && (
+                        <p className="mt-2 text-xs text-rose-700">{error}</p>
+                      )}
+                    </div>
+
+                    <div className="md:col-span-3 flex gap-2">
+                      <button
+                        type="submit"
+                        disabled={busy}
+                        className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+                      >
+                        {transactionForm.id ? "Update transaction" : "Create transaction"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={resetTransactionForm}
+                        className="rounded border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
                 </div>
               </div>
-
-              <div className="md:col-span-3 flex gap-2">
-                <button
-                  type="submit"
-                  disabled={busy}
-                  className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
-                >
-                  {transactionForm.id ? "Update transaction" : "Create transaction"}
-                </button>
-                {transactionForm.id && (
-                  <button
-                    type="button"
-                    onClick={resetTransactionForm}
-                    className="rounded border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
-                  >
-                    Cancel edit
-                  </button>
-                )}
-              </div>
-            </form>
+            )}
 
             <div className="mt-4 overflow-x-auto rounded border border-slate-200">
               <table className="w-full border-collapse text-left text-sm">
@@ -1578,10 +1571,7 @@ export function EventFinanceManager() {
                       <tr key={tx.id} className="border-t border-slate-100">
                         <td className="px-4 py-3">{tx.transaction_date}</td>
                         <td className="px-4 py-3">{tx.transaction_type}</td>
-                        <td className="px-4 py-3">
-                          <p>{tx.description}</p>
-                          <p className="text-xs text-slate-500">{tx.party ?? "-"}</p>
-                        </td>
+                        <td className="px-4 py-3">{tx.description}</td>
                         <td className="px-4 py-3">{formatCurrency(tx.amount_original, tx.currency)}</td>
                         <td className="px-4 py-3">
                           {(transactionAllocationsByTx.get(tx.id) ?? []).map((alloc) => {
@@ -1621,10 +1611,9 @@ export function EventFinanceManager() {
 
       {activeTab === "sponsorships" && (
         <section className="space-y-4">
-          {renderBudgetSelector()}
-
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
               <input
                 value={sponsorSearch}
                 onChange={(e) => setSponsorSearch(e.target.value)}
@@ -1645,24 +1634,37 @@ export function EventFinanceManager() {
                   </option>
                 ))}
               </select>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSponsorshipForm(emptySponsorshipForm());
+                  setSponsorshipAllocationsDraft([]);
+                  setSponsorshipFormError(null);
+                  setShowSponsorshipModal(true);
+                }}
+                className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+              >
+                Create Sponsorship
+              </button>
             </div>
 
-            <form onSubmit={handleSaveSponsorship} className="mt-4 grid gap-3 md:grid-cols-3">
-              <select
-                required
-                value={sponsorshipForm.budget_id}
-                onChange={(e) =>
-                  setSponsorshipForm((prev) => ({ ...prev, budget_id: e.target.value }))
-                }
-                className="rounded border border-slate-300 px-3 py-2 text-sm"
-              >
-                <option value="">Select budget</option>
-                {budgetOptions.map((budget) => (
-                  <option key={budget.id} value={budget.id}>
-                    {budget.name}
-                  </option>
-                ))}
-              </select>
+            {showSponsorshipModal && (
+              <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-4 py-8">
+                <div className="w-full max-w-4xl rounded-lg border border-slate-200 bg-white p-5 shadow-xl">
+                  <div className="mb-4 flex items-start justify-between gap-4">
+                    <h3 className="text-lg font-semibold text-slate-900">
+                      {sponsorshipForm.id ? "Edit Sponsorship" : "Create Sponsorship"}
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={resetSponsorshipForm}
+                      className="rounded border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                    >
+                      Close
+                    </button>
+                  </div>
+                  <form onSubmit={handleSaveSponsorship} className="grid gap-3 md:grid-cols-3">
               <input
                 required
                 value={sponsorshipForm.sponsor_name}
@@ -1681,30 +1683,30 @@ export function EventFinanceManager() {
                 className="rounded border border-slate-300 px-3 py-2 text-sm"
               />
               <input
-                type="number"
-                step="0.01"
-                min="0"
+                type="text"
+                inputMode="decimal"
                 value={sponsorshipForm.pledged_amount_original}
-                onChange={(e) =>
+                onChange={(e) => {
+                  if (!isValidDecimalInput(e.target.value)) return;
                   setSponsorshipForm((prev) => ({
                     ...prev,
                     pledged_amount_original: e.target.value,
-                  }))
-                }
+                  }));
+                }}
                 placeholder="Pledged amount"
                 className="rounded border border-slate-300 px-3 py-2 text-sm"
               />
               <input
-                type="number"
-                step="0.01"
-                min="0"
+                type="text"
+                inputMode="decimal"
                 value={sponsorshipForm.paid_amount_original}
-                onChange={(e) =>
+                onChange={(e) => {
+                  if (!isValidDecimalInput(e.target.value)) return;
                   setSponsorshipForm((prev) => ({
                     ...prev,
                     paid_amount_original: e.target.value,
-                  }))
-                }
+                  }));
+                }}
                 placeholder="Paid amount"
                 className="rounded border border-slate-300 px-3 py-2 text-sm"
               />
@@ -1766,14 +1768,23 @@ export function EventFinanceManager() {
                   </option>
                 ))}
               </select>
-              <input
+              <select
                 value={sponsorshipForm.account}
                 onChange={(e) =>
                   setSponsorshipForm((prev) => ({ ...prev, account: e.target.value }))
                 }
-                placeholder="Account"
                 className="rounded border border-slate-300 px-3 py-2 text-sm"
-              />
+              >
+                <option value="">Select account</option>
+                {accountOptions.map((account) => (
+                  <option key={account} value={account}>
+                    {account}
+                  </option>
+                ))}
+                {sponsorshipForm.account && !accountOptions.includes(sponsorshipForm.account) && (
+                  <option value={sponsorshipForm.account}>{sponsorshipForm.account}</option>
+                )}
+              </select>
               <input
                 value={sponsorshipForm.notes}
                 onChange={(e) =>
@@ -1791,10 +1802,7 @@ export function EventFinanceManager() {
                     onClick={() =>
                       setSponsorshipAllocationsDraft((prev) => [
                         ...prev,
-                        {
-                          budget_item_id: activeBudgetItems[0]?.id ?? "",
-                          amount_original: 0,
-                        },
+                        { budget_item_id: budgetItems[0]?.id ?? "", amount_original: 0 },
                       ])
                     }
                     className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100"
@@ -1805,12 +1813,12 @@ export function EventFinanceManager() {
 
                 <div className="mt-2 space-y-2">
                   {sponsorshipAllocationsDraft.length === 0 ? (
-                    <p className="text-xs text-slate-500">No splits yet. Add at least one allocation.</p>
+                    <p className="text-xs text-slate-500">No splits yet.</p>
                   ) : (
                     sponsorshipAllocationsDraft.map((row, index) => (
                       <div
                         key={`sp-split-${index}`}
-                        className="grid gap-2 md:grid-cols-[1fr,180px,80px]"
+                        className="grid gap-2 md:grid-cols-[minmax(0,1fr)_120px_auto]"
                       >
                         <select
                           value={row.budget_item_id}
@@ -1824,26 +1832,27 @@ export function EventFinanceManager() {
                           className="rounded border border-slate-300 px-3 py-2 text-sm"
                         >
                           <option value="">Select budget item</option>
-                          {activeBudgetItems.map((item) => (
+                          {budgetItems.map((item) => (
                             <option key={item.id} value={item.id}>
                               {item.category_name}
                             </option>
                           ))}
                         </select>
                         <input
-                          type="number"
-                          step="0.01"
-                          min="0.01"
-                          value={row.amount_original}
-                          onChange={(e) =>
+                          type="text"
+                          inputMode="decimal"
+                          value={row.amount_original.toString()}
+                          onChange={(e) => {
+                            if (!isValidDecimalInput(e.target.value)) return;
                             setSponsorshipAllocationsDraft((prev) =>
                               prev.map((item, i) =>
                                 i === index
                                   ? { ...item, amount_original: toNumber(e.target.value) }
                                   : item
                               )
-                            )
-                          }
+                            );
+                          }}
+                          placeholder="0.00"
                           className="rounded border border-slate-300 px-3 py-2 text-sm"
                         />
                         <button
@@ -1861,6 +1870,12 @@ export function EventFinanceManager() {
                     ))
                   )}
                 </div>
+                {sponsorshipFormError && (
+                  <p className="mt-2 text-xs text-rose-700">{sponsorshipFormError}</p>
+                )}
+                {!sponsorshipFormError && error && (
+                  <p className="mt-2 text-xs text-rose-700">{error}</p>
+                )}
               </div>
 
               <div className="md:col-span-3 flex gap-2">
@@ -1871,17 +1886,18 @@ export function EventFinanceManager() {
                 >
                   {sponsorshipForm.id ? "Update sponsorship" : "Create sponsorship"}
                 </button>
-                {sponsorshipForm.id && (
-                  <button
-                    type="button"
-                    onClick={resetSponsorshipForm}
-                    className="rounded border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
-                  >
-                    Cancel edit
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={resetSponsorshipForm}
+                  className="rounded border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                >
+                  Cancel
+                </button>
               </div>
-            </form>
+                  </form>
+                </div>
+              </div>
+            )}
 
             <div className="mt-4 overflow-x-auto rounded border border-slate-200">
               <table className="w-full border-collapse text-left text-sm">
@@ -1905,10 +1921,7 @@ export function EventFinanceManager() {
                   ) : (
                     visibleSponsorships.map((sponsorship) => (
                       <tr key={sponsorship.id} className="border-t border-slate-100">
-                        <td className="px-4 py-3">
-                          <p>{sponsorship.sponsor_name}</p>
-                          <p className="text-xs text-slate-500">{sponsorship.description ?? "-"}</p>
-                        </td>
+                        <td className="px-4 py-3">{sponsorship.sponsor_name}</td>
                         <td className="px-4 py-3">{sponsorship.status}</td>
                         <td className="px-4 py-3">
                           {formatCurrency(
@@ -1922,9 +1935,7 @@ export function EventFinanceManager() {
                         <td className="px-4 py-3">
                           {(sponsorshipAllocationsBySponsorship.get(sponsorship.id) ?? []).map(
                             (alloc) => {
-                              const item = budgetItems.find(
-                                (row) => row.id === alloc.budget_item_id
-                              );
+                              const item = budgetItems.find((row) => row.id === alloc.budget_item_id);
                               return (
                                 <p key={alloc.id} className="text-xs text-slate-700">
                                   {item?.category_name ?? "Unknown"}: {formatCurrency(alloc.amount_original, sponsorship.currency)}
@@ -1958,6 +1969,61 @@ export function EventFinanceManager() {
           </div>
         </section>
       )}
+
+      {activeTab === "settings" && (
+        <section className="space-y-4">
+          <form
+            onSubmit={handleSaveSettings}
+            className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+          >
+            <h3 className="text-base font-semibold text-slate-900">Event Settings</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              Exchange rate is stored as 1 EUR = X HUF. Internal conversions remain consistent.
+            </p>
+            <div className="mt-3 grid gap-2 md:max-w-md md:grid-cols-[120px_1fr_80px] md:items-center">
+              <span className="text-sm font-medium text-slate-700">1 EUR =</span>
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={settingsForm.eur_to_huf_rate}
+                onChange={(e) =>
+                  setSettingsForm((prev) => ({ ...prev, eur_to_huf_rate: e.target.value }))
+                }
+                placeholder="0.00"
+                className="rounded border border-slate-300 px-3 py-2 text-sm"
+              />
+              <span className="text-sm font-medium text-slate-700">HUF</span>
+            </div>
+            <div className="mt-3">
+              <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                Available Accounts
+              </label>
+              <textarea
+                value={settingsForm.accounts_raw}
+                onChange={(e) =>
+                  setSettingsForm((prev) => ({ ...prev, accounts_raw: e.target.value }))
+                }
+                placeholder={"One account per line\nCash\nBank EUR\nBank HUF"}
+                rows={5}
+                className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                These values will be available in Transactions and Sponsorships account fields.
+              </p>
+            </div>
+            <button
+              type="submit"
+              disabled={busy}
+              className="mt-3 rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+            >
+              Save settings
+            </button>
+          </form>
+        </section>
+      )}
+        </div>
+      </div>
     </div>
   );
 }
