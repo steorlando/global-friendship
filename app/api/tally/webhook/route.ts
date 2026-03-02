@@ -71,6 +71,15 @@ type GroupLeaderRecipient = {
 
 type ProfileGroupLink = {
   profilo_id: string | null;
+  gruppo_id?: string | null;
+};
+
+type GroupRow = {
+  id: string | null;
+  nome?: string | null;
+  name?: string | null;
+  label?: string | null;
+  gruppo_label?: string | null;
 };
 
 type SupabaseServiceClient = ReturnType<typeof createSupabaseServiceClient>;
@@ -565,14 +574,60 @@ function buildNotificationKey(args: {
     .digest("hex");
 }
 
+function uniqueNonEmpty(values: Array<string | null | undefined>): string[] {
+  return [...new Set(values.map((value) => normalize(value)).filter(Boolean))];
+}
+
+async function collectGroupKeysForLeaderLookup(
+  supabase: SupabaseServiceClient,
+  gruppoId: string | null,
+  gruppoLabel: string | null
+): Promise<string[]> {
+  const baseKeys = uniqueNonEmpty([gruppoId, gruppoLabel]);
+  if (baseKeys.length === 0) return [];
+
+  const keys = new Set(baseKeys);
+  const normalizedGroupId = normalize(gruppoId);
+  if (!normalizedGroupId) return [...keys];
+
+  const { data: groupById, error } = await supabase
+    .from("gruppi")
+    .select("id,nome,name,label,gruppo_label")
+    .eq("id", normalizedGroupId)
+    .maybeSingle();
+
+  if (error) {
+    const code = error.code ?? "";
+    if (!["PGRST116", "42703", "PGRST204"].includes(code)) {
+      console.error("Unable to load group aliases for leader lookup", error);
+    }
+    return [...keys];
+  }
+
+  const row = (groupById ?? null) as GroupRow | null;
+  for (const item of uniqueNonEmpty([
+    row?.id ?? null,
+    row?.nome ?? null,
+    row?.name ?? null,
+    row?.label ?? null,
+    row?.gruppo_label ?? null,
+  ])) {
+    keys.add(item);
+  }
+
+  return [...keys];
+}
+
 async function loadGroupLeadersForGroup(
   supabase: SupabaseServiceClient,
-  gruppoId: string
+  groupKeys: string[]
 ): Promise<GroupLeaderRecipient[]> {
+  if (groupKeys.length === 0) return [];
+
   const { data: links, error: linksError } = await supabase
     .from("profili_gruppi")
-    .select("profilo_id")
-    .eq("gruppo_id", gruppoId);
+    .select("profilo_id,gruppo_id")
+    .in("gruppo_id", groupKeys);
 
   if (linksError) {
     throw new Error(`Unable to load group links: ${linksError.message}`);
@@ -650,15 +705,21 @@ async function loadSuccessfulLeaderNotificationEmails(
 async function notifyGroupLeadersAboutRegistration(args: {
   supabase: SupabaseServiceClient;
   gruppoId: string | null;
+  gruppoLabel: string | null;
   participantFullName: string;
   notificationKey: string;
   payload: unknown;
   respondentId: string;
   duplicateSubmission: boolean;
 }): Promise<{ sent: number; skipped: number }> {
-  if (!args.gruppoId) return { sent: 0, skipped: 0 };
+  if (!args.gruppoId && !args.gruppoLabel) return { sent: 0, skipped: 0 };
 
-  const leaders = await loadGroupLeadersForGroup(args.supabase, args.gruppoId);
+  const groupKeys = await collectGroupKeysForLeaderLookup(
+    args.supabase,
+    args.gruppoId,
+    args.gruppoLabel
+  );
+  const leaders = await loadGroupLeadersForGroup(args.supabase, groupKeys);
   if (leaders.length === 0) return { sent: 0, skipped: 0 };
 
   const { dedupeAvailable, sentEmails, sentLeaderIds } =
@@ -699,12 +760,12 @@ async function notifyGroupLeadersAboutRegistration(args: {
     const text = [
       `Dear ${leaderFullName},`,
       "",
-      `A new participant, ${args.participantFullName}, has registered in your group.`,
+      `A new participant called ${args.participantFullName}, has registered in your group.`,
       "",
       "You can review the current situations of participants in your group here:",
       GROUP_LEADER_PORTAL_URL,
       "",
-      "Global Friendship",
+      "The Global Friendship Team",
     ].join("\n");
 
     try {
@@ -727,6 +788,7 @@ async function notifyGroupLeadersAboutRegistration(args: {
         payload: args.payload,
         normalized: {
           gruppoId: args.gruppoId,
+          gruppoKeys: groupKeys,
           groupLeaderId: leader.id,
           participantFullName: args.participantFullName,
         },
@@ -745,6 +807,7 @@ async function notifyGroupLeadersAboutRegistration(args: {
         payload: args.payload,
         normalized: {
           gruppoId: args.gruppoId,
+          gruppoKeys: groupKeys,
           groupLeaderId: leader.id,
           participantFullName: args.participantFullName,
         },
@@ -1147,6 +1210,7 @@ async function handlePost(req: Request) {
     await notifyGroupLeadersAboutRegistration({
       supabase,
       gruppoId,
+      gruppoLabel: normalized.gruppoLabel || null,
       participantFullName,
       notificationKey,
       payload,
