@@ -1,12 +1,40 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function normalizeText(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeEmail(value: unknown): string | null {
+  const normalized = normalizeText(value);
+  if (!normalized) return null;
+  if (EMAIL_REGEX.test(normalized)) return normalized;
+
+  // Accept display-name format: "Team Name <mailbox@example.com>"
+  const bracketMatch = normalized.match(/<([^>]+)>/);
+  const bracketEmail = bracketMatch?.[1]?.trim() ?? "";
+  if (EMAIL_REGEX.test(bracketEmail)) return bracketEmail;
+
+  return null;
+}
+
+function normalizeAppPassword(value: unknown): string {
+  const normalized = normalizeText(value);
+  if (!normalized) return "";
+  // Google App Password is shown as 4x4 blocks with spaces; SMTP expects contiguous value.
+  return normalized.replace(/\s+/g, "");
+}
+
 export const DEFAULT_GMAIL_SENDER_EMAIL =
-  process.env.PARTECIPANTE_CONTACT_FROM_EMAIL ||
-  process.env.GMAIL_USER ||
+  normalizeEmail(process.env.PARTECIPANTE_CONTACT_FROM_EMAIL) ||
+  normalizeEmail(process.env.GMAIL_USER) ||
   "europeanyouthmeeting@gmail.com";
 
-export const DEFAULT_GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD || "";
+export const DEFAULT_GMAIL_APP_PASSWORD = normalizeAppPassword(process.env.GMAIL_APP_PASSWORD);
 
 type AdminEmailSettingsRow = {
   id: boolean;
@@ -22,12 +50,6 @@ export type EmailSenderRuntimeSettings = {
   gmailAppPassword: string;
   hasCustomSettings: boolean;
 };
-
-function normalizeText(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
 
 export async function loadAdminEmailSettings(
   service: SupabaseClient = createSupabaseServiceClient()
@@ -49,8 +71,8 @@ export async function loadEmailSenderRuntimeSettings(
   service: SupabaseClient = createSupabaseServiceClient()
 ): Promise<EmailSenderRuntimeSettings> {
   const row = await loadAdminEmailSettings(service);
-  const configuredSender = normalizeText(row?.sender_email);
-  const configuredPassword = normalizeText(row?.gmail_app_password);
+  const configuredSender = normalizeEmail(row?.sender_email);
+  const configuredPassword = normalizeAppPassword(row?.gmail_app_password);
 
   // Custom SMTP settings are considered active only when both sender + app password are set.
   // This avoids broken states when only sender is changed from UI.
