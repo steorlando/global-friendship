@@ -158,6 +158,9 @@ export function AdminEmailSettings() {
                 ? "Password is set. Leave it empty to keep the current one."
                 : "No password set yet."}
             </p>
+            <p className="text-xs text-slate-500">
+              If you change the sender email, enter the Google App Password of that mailbox.
+            </p>
 
             {updatedAt ? (
               <p className="text-xs text-slate-500">

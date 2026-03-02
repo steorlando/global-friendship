@@ -52,14 +52,24 @@ export async function loadEmailSenderRuntimeSettings(
   const configuredSender = normalizeText(row?.sender_email);
   const configuredPassword = normalizeText(row?.gmail_app_password);
 
-  const senderEmail = configuredSender ?? DEFAULT_GMAIL_SENDER_EMAIL;
-  const gmailUser = configuredSender ?? process.env.GMAIL_USER ?? senderEmail;
-  const gmailAppPassword = configuredPassword ?? DEFAULT_GMAIL_APP_PASSWORD;
+  // Custom SMTP settings are considered active only when both sender + app password are set.
+  // This avoids broken states when only sender is changed from UI.
+  const hasCompleteCustomConfig = Boolean(configuredSender && configuredPassword);
+
+  const senderEmail = hasCompleteCustomConfig
+    ? (configuredSender as string)
+    : DEFAULT_GMAIL_SENDER_EMAIL;
+  const gmailUser = hasCompleteCustomConfig
+    ? (configuredSender as string)
+    : process.env.GMAIL_USER ?? senderEmail;
+  const gmailAppPassword = hasCompleteCustomConfig
+    ? (configuredPassword as string)
+    : DEFAULT_GMAIL_APP_PASSWORD;
 
   return {
     senderEmail,
     gmailUser,
     gmailAppPassword,
-    hasCustomSettings: Boolean(configuredSender || configuredPassword),
+    hasCustomSettings: hasCompleteCustomConfig,
   };
 }

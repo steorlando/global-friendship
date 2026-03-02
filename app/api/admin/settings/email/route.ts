@@ -55,6 +55,19 @@ export async function PATCH(req: Request) {
   try {
     const service = createSupabaseServiceClient();
     const existing = await loadAdminEmailSettings(service);
+    const existingSender = normalizeText(existing?.sender_email).toLowerCase();
+    const nextSender = senderEmail.toLowerCase();
+    const senderChanged = Boolean(existingSender && existingSender !== nextSender);
+    if (senderChanged && !passwordInput) {
+      return NextResponse.json(
+        {
+          error:
+            "When changing senderEmail, provide googleAppPassword for the new mailbox.",
+        },
+        { status: 400 }
+      );
+    }
+
     const passwordToStore =
       hasPasswordInput && passwordInput
         ? passwordInput
