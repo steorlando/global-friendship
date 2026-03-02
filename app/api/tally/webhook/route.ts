@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { computeParticipantCalculatedFields } from "@/lib/tally/calculated-fields";
 import { sendGmailTextEmail } from "@/lib/email/gmail";
+import { loadEmailSenderRuntimeSettings } from "@/lib/email/settings";
 import { alloggioLongToShort } from "@/lib/partecipante/constants";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
@@ -677,6 +678,7 @@ async function notifyGroupLeadersAboutRegistration(args: {
   let skipped = 0;
   const failures: string[] = [];
   const useLeaderIdDedupe = sentLeaderIds.size > 0;
+  const senderSettings = await loadEmailSenderRuntimeSettings(args.supabase);
 
   for (const leader of leaders) {
     const to = normalize(leader.email).toLowerCase();
@@ -706,7 +708,14 @@ async function notifyGroupLeadersAboutRegistration(args: {
     ].join("\n");
 
     try {
-      await sendGmailTextEmail({ to, subject, text });
+      await sendGmailTextEmail(
+        { to, subject, text, from: senderSettings.senderEmail },
+        {
+          gmailUser: senderSettings.gmailUser,
+          gmailAppPassword: senderSettings.gmailAppPassword,
+          senderEmail: senderSettings.senderEmail,
+        }
+      );
       sent += 1;
       sentLeaderIds.add(leader.id);
       await logWebhookEvent(args.supabase, {
