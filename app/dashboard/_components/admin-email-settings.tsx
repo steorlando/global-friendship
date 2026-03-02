@@ -15,6 +15,7 @@ type SaveResponse = {
 };
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_SETTINGS_FROZEN = true;
 
 function isValidEmail(value: string): boolean {
   return EMAIL_REGEX.test(value.trim());
@@ -57,6 +58,7 @@ export function AdminEmailSettings() {
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (EMAIL_SETTINGS_FROZEN) return;
     setError(null);
     setSuccess(null);
 
@@ -92,6 +94,7 @@ export function AdminEmailSettings() {
   }
 
   async function handleTestEmail() {
+    if (EMAIL_SETTINGS_FROZEN) return;
     setError(null);
     setSuccess(null);
 
@@ -124,6 +127,11 @@ export function AdminEmailSettings() {
         <p className="mt-1 text-sm text-slate-600">
           Used by Email Campaigns for sender identity and SMTP authentication.
         </p>
+        {EMAIL_SETTINGS_FROZEN ? (
+          <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+            Email sender settings are temporarily locked.
+          </p>
+        ) : null}
 
         {loading ? (
           <p className="mt-4 text-sm text-slate-500">Loading settings...</p>
@@ -138,6 +146,7 @@ export function AdminEmailSettings() {
                 className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
                 autoComplete="email"
                 required
+                disabled={EMAIL_SETTINGS_FROZEN}
               />
             </label>
 
@@ -150,6 +159,7 @@ export function AdminEmailSettings() {
                 className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
                 autoComplete="new-password"
                 placeholder={passwordIsSet ? "Password is set (leave blank to keep)" : ""}
+                disabled={EMAIL_SETTINGS_FROZEN}
               />
             </label>
 
@@ -170,10 +180,10 @@ export function AdminEmailSettings() {
 
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || EMAIL_SETTINGS_FROZEN}
               className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
             >
-              {saving ? "Saving..." : "Save"}
+              {EMAIL_SETTINGS_FROZEN ? "Locked" : saving ? "Saving..." : "Save"}
             </button>
           </form>
         )}
@@ -191,14 +201,15 @@ export function AdminEmailSettings() {
             onChange={(event) => setTestRecipient(event.target.value)}
             placeholder="recipient@example.com"
             className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            disabled={EMAIL_SETTINGS_FROZEN}
           />
           <button
             type="button"
-            disabled={testing}
+            disabled={testing || EMAIL_SETTINGS_FROZEN}
             onClick={handleTestEmail}
             className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 disabled:opacity-60"
           >
-            {testing ? "Sending..." : "Test email"}
+            {EMAIL_SETTINGS_FROZEN ? "Locked" : testing ? "Sending..." : "Test email"}
           </button>
         </div>
       </div>
