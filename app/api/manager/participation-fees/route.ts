@@ -51,13 +51,20 @@ async function requireManagerContext() {
       errorResponse: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
     };
   }
+  const email = (user.email ?? "").trim().toLowerCase();
+  if (!email) {
+    return {
+      errorResponse: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+    };
+  }
 
   const service = createSupabaseServiceClient();
   const { data: profile, error: profileError } = await service
     .from("profili")
     .select("ruolo")
-    .eq("id", user.id)
-    .maybeSingle();
+    .ilike("email", email)
+    .eq("ruolo", "manager")
+    .limit(1);
 
   if (profileError) {
     return {
@@ -65,7 +72,7 @@ async function requireManagerContext() {
     };
   }
 
-  if (profile?.ruolo !== "manager") {
+  if (!profile || profile.length === 0) {
     return {
       errorResponse: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
     };

@@ -65,7 +65,7 @@ export async function POST(req: Request) {
     }
     const supabase = createSupabaseServiceClient();
 
-    const groupedByEmail = new Map<
+    const groupedByEmailAndRole = new Map<
       string,
       {
         email: string;
@@ -89,12 +89,13 @@ export async function POST(req: Request) {
       const italia = parseBool(pickField(row, ["italia", "Italia"]));
       const roma = parseBool(pickField(row, ["roma", "Roma"]));
       const ruolo = pickField(row, ["ruolo", "Ruolo"]) || defaultRole;
+      const groupKey = `${email}::${ruolo.toLowerCase()}`;
       const groupName =
         pickField(row, ["group_name", "group", "gruppo", "Gruppo"]) || "";
 
-      const existing = groupedByEmail.get(email);
+      const existing = groupedByEmailAndRole.get(groupKey);
       if (!existing) {
-        groupedByEmail.set(email, {
+        groupedByEmailAndRole.set(groupKey, {
           email,
           nome,
           cognome,
@@ -123,7 +124,7 @@ export async function POST(req: Request) {
 
     const currentAdminEmail = (auth.user.email ?? "").trim().toLowerCase();
 
-    for (const [, row] of groupedByEmail) {
+    for (const [, row] of groupedByEmailAndRole) {
       try {
         if (currentAdminEmail && row.email === currentAdminEmail) {
           skipped += 1;
@@ -150,7 +151,7 @@ export async function POST(req: Request) {
       }
     }
 
-    skipped += rows.length - groupedByEmail.size;
+    skipped += rows.length - groupedByEmailAndRole.size;
 
     return NextResponse.json({
       imported,

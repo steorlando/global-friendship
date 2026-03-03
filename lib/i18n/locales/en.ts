@@ -45,6 +45,9 @@ const en: TranslationDictionary = {
   "auth.login.submit": "Send magic link",
   "auth.login.sent": "Check your email for the magic link.",
   "auth.login.error": "Error while sending the magic link.",
+  "auth.login.participantNotFound": "No participant found with this email.",
+  "auth.login.profileNotFound": "No profile found for the selected role.",
+  "auth.login.roleMismatch": "This email is not enabled for the selected role.",
   "auth.callback.title": "Signing in",
   "auth.callback.message": "Completing sign in...",
 

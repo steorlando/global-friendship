@@ -26,12 +26,18 @@ async function requireManagerOrAdmin() {
       errorResponse: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
     };
   }
+  const email = (user.email ?? "").trim().toLowerCase();
+  if (!email) {
+    return {
+      errorResponse: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+    };
+  }
 
   const { data: profile, error: profileError } = await supabase
     .from("profili")
     .select("ruolo")
-    .eq("id", user.id)
-    .maybeSingle();
+    .ilike("email", email)
+    .in("ruolo", ["manager", "admin"]);
 
   if (profileError) {
     return {
@@ -39,7 +45,7 @@ async function requireManagerOrAdmin() {
     };
   }
 
-  if (profile?.ruolo !== "manager" && profile?.ruolo !== "admin") {
+  if (!profile || profile.length === 0) {
     return {
       errorResponse: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
     };

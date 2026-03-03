@@ -130,12 +130,20 @@ async function requireCapogruppoContext() {
       errorResponse: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
     };
   }
+  const email = (user.email ?? "").trim().toLowerCase();
+  if (!email) {
+    return {
+      errorResponse: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+    };
+  }
 
   const service = createSupabaseServiceClient();
   const { data: profile, error: profileError } = await service
     .from("profili")
-    .select("ruolo")
-    .eq("id", user.id)
+    .select("id")
+    .ilike("email", email)
+    .eq("ruolo", "capogruppo")
+    .order("created_at", { ascending: false })
     .maybeSingle();
 
   if (profileError) {
@@ -144,7 +152,7 @@ async function requireCapogruppoContext() {
     };
   }
 
-  if (profile?.ruolo !== "capogruppo") {
+  if (!profile?.id) {
     return {
       errorResponse: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
     };
@@ -153,7 +161,7 @@ async function requireCapogruppoContext() {
   const { data: links, error: linksError } = await service
     .from("profili_gruppi")
     .select("gruppo_id")
-    .eq("profilo_id", user.id);
+    .eq("profilo_id", profile.id);
 
   if (linksError) {
     return {

@@ -225,43 +225,17 @@ export async function upsertProfiloByEmail(
     .from("profili")
     .select("id,email,ruolo")
     .ilike("email", email)
-    .maybeSingle();
+    .eq("ruolo", ruolo)
+    .limit(1);
 
   if (existingError) throw new Error(existingError.message);
 
-  if (existing?.id) {
-    const finalRole =
-      existing.ruolo === "admin" && ruolo !== "admin" ? "admin" : ruolo;
+  const existingRow = (existing ?? [])[0];
 
+  if (existingRow?.id) {
     const { data: updated, error: updateError } = await supabase
       .from("profili")
       .update({
-        email,
-        nome,
-        cognome,
-        ruolo: finalRole,
-        telefono,
-        italia,
-        roma,
-      })
-      .eq("id", existing.id)
-      .select("id,email,nome,cognome,ruolo,telefono,italia,roma,created_at")
-      .single();
-
-    if (updateError) throw new Error(updateError.message);
-    if (input.groups !== undefined) {
-      await setProfiloGruppi(supabase, existing.id, groups);
-    }
-    return updated;
-  }
-
-  const authUserId = await ensureAuthUserIdByEmail(supabase, email);
-
-  const { data: inserted, error: insertError } = await supabase
-    .from("profili")
-    .upsert(
-      {
-        id: authUserId,
         email,
         nome,
         cognome,
@@ -269,9 +243,40 @@ export async function upsertProfiloByEmail(
         telefono,
         italia,
         roma,
-      },
-      { onConflict: "id" }
-    )
+      })
+      .eq("id", existingRow.id)
+      .select("id,email,nome,cognome,ruolo,telefono,italia,roma,created_at")
+      .single();
+
+    if (updateError) throw new Error(updateError.message);
+    if (input.groups !== undefined) {
+      await setProfiloGruppi(supabase, existingRow.id, groups);
+    }
+    return updated;
+  }
+
+  const authUserId = await ensureAuthUserIdByEmail(supabase, email);
+  const { data: idAlreadyInUse, error: idLookupError } = await supabase
+    .from("profili")
+    .select("id")
+    .eq("id", authUserId)
+    .maybeSingle();
+
+  if (idLookupError) throw new Error(idLookupError.message);
+  const profileId = idAlreadyInUse?.id ? crypto.randomUUID() : authUserId;
+
+  const { data: inserted, error: insertError } = await supabase
+    .from("profili")
+    .insert({
+      id: profileId,
+      email,
+      nome,
+      cognome,
+      ruolo,
+      telefono,
+      italia,
+      roma,
+    })
     .select("id,email,nome,cognome,ruolo,telefono,italia,roma,created_at")
     .single();
 

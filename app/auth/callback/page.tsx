@@ -61,13 +61,26 @@ function AuthCallbackContent() {
         return;
       }
 
-      const { data: profile } = await supabase
+      const normalizedEmail = (user.email ?? "").trim().toLowerCase();
+      const { data: profileRows } = await supabase
         .from("profili")
         .select("ruolo")
-        .eq("id", user.id)
-        .maybeSingle();
+        .ilike("email", normalizedEmail);
 
-      const roleFromProfile = profile?.ruolo ?? null;
+      const availableRoles = new Set(
+        (profileRows ?? [])
+          .map((row) => String(row.ruolo ?? "").trim())
+          .filter(Boolean)
+      );
+      const roleFromProfile = availableRoles.has("admin")
+        ? "admin"
+        : availableRoles.has("manager")
+          ? "manager"
+          : availableRoles.has("capogruppo")
+            ? "capogruppo"
+            : availableRoles.has("alloggi")
+              ? "alloggi"
+              : null;
       const requestedRole = isAppRole(requestedRoleFromQuery)
         ? requestedRoleFromQuery
         : isAppRole(requestedRoleFromStorage)
@@ -76,6 +89,9 @@ function AuthCallbackContent() {
 
       if (requestedRoleFromStorage) {
         window.localStorage.removeItem("gf_requested_role");
+      }
+      if (requestedRole) {
+        document.cookie = `gf_requested_role=${encodeURIComponent(requestedRole)}; path=/; max-age=604800; samesite=lax`;
       }
 
       const target = requestedRole

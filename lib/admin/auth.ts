@@ -11,13 +11,19 @@ export async function requireAdminUser() {
     return { errorResponse: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   }
 
+  const email = (user.email ?? "").trim().toLowerCase();
+  if (!email) {
+    return { errorResponse: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
+  }
+
   const { data: profile, error } = await supabase
     .from("profili")
     .select("ruolo")
-    .eq("id", user.id)
+    .ilike("email", email)
+    .eq("ruolo", "admin")
     .maybeSingle();
 
-  if (error || profile?.ruolo !== "admin") {
+  if (error || !profile) {
     return { errorResponse: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
 

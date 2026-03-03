@@ -24,6 +24,19 @@ export default function LoginPage() {
     process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/+$/, "") ||
     (typeof window !== "undefined" ? window.location.origin : "");
 
+  const preflightErrorMessageByCode = (code: string): string => {
+    switch (code) {
+      case "PARTICIPANT_NOT_FOUND":
+        return t("auth.login.participantNotFound");
+      case "PROFILE_NOT_FOUND":
+        return t("auth.login.profileNotFound");
+      case "ROLE_MISMATCH":
+        return t("auth.login.roleMismatch");
+      default:
+        return t("auth.login.error");
+    }
+  };
+
   useEffect(() => {
     async function redirectIfAuthenticated() {
       const supabase = createSupabaseBrowserClient();
@@ -45,13 +58,26 @@ export default function LoginPage() {
 
       const requestedRoleRaw = window.localStorage.getItem("gf_requested_role");
       const requestedRole = isAppRole(requestedRoleRaw) ? requestedRoleRaw : null;
-      const { data: profile } = await supabase
+      const normalizedEmail = (user.email ?? "").trim().toLowerCase();
+      const { data: profileRows } = await supabase
         .from("profili")
         .select("ruolo")
-        .eq("id", user.id)
-        .maybeSingle();
+        .ilike("email", normalizedEmail);
 
-      const roleFromProfile = profile?.ruolo ?? null;
+      const availableRoles = new Set(
+        (profileRows ?? [])
+          .map((row) => String(row.ruolo ?? "").trim())
+          .filter(Boolean)
+      );
+      const roleFromProfile = availableRoles.has("admin")
+        ? "admin"
+        : availableRoles.has("manager")
+          ? "manager"
+          : availableRoles.has("capogruppo")
+            ? "capogruppo"
+            : availableRoles.has("alloggi")
+              ? "alloggi"
+              : null;
       const destination = requestedRole
         ? ROLE_ROUTES[requestedRole]
         : isAppRole(roleFromProfile)
@@ -73,10 +99,38 @@ export default function LoginPage() {
     setMessage(null);
 
     try {
+      const normalizedEmail = email.trim().toLowerCase();
+      if (!normalizedEmail) {
+        setStatus("error");
+        setMessage(t("auth.login.error"));
+        return;
+      }
+
+      const preflightResponse = await fetch("/api/auth/login/preflight", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          email: normalizedEmail,
+          role,
+        }),
+      });
+
+      if (!preflightResponse.ok) {
+        const json = (await preflightResponse.json().catch(() => null)) as
+          | { code?: string }
+          | null;
+        setStatus("error");
+        setMessage(preflightErrorMessageByCode(json?.code ?? ""));
+        return;
+      }
+
       window.localStorage.setItem("gf_requested_role", role);
+      document.cookie = `gf_requested_role=${encodeURIComponent(role)}; path=/; max-age=604800; samesite=lax`;
       const supabase = createSupabaseBrowserClient();
       const { error } = await supabase.auth.signInWithOtp({
-        email,
+        email: normalizedEmail,
         options: {
           emailRedirectTo: `${appBaseUrl}/auth/callback`,
         },

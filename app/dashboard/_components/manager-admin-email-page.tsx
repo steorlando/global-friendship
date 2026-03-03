@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { ParticipantEmailCampaign } from "./participant-email-campaign";
 import { getServerTranslator } from "@/lib/i18n/server";
 
@@ -18,13 +19,15 @@ export async function ManagerAdminEmailPage() {
     );
   }
 
-  const { data: profile, error } = await supabase
+  const email = (user.email ?? "").trim().toLowerCase();
+  const service = createSupabaseServiceClient();
+  const { data: profile, error } = await service
     .from("profili")
     .select("ruolo")
-    .eq("id", user.id)
-    .maybeSingle();
+    .ilike("email", email)
+    .in("ruolo", ["manager", "admin"]);
 
-  if (error || (profile?.ruolo !== "manager" && profile?.ruolo !== "admin")) {
+  if (error || !profile || profile.length === 0) {
     return (
       <section className="rounded border border-red-200 bg-red-50 p-6">
         <h2 className="text-xl font-bold text-red-800">{t("manager.email.title")}</h2>

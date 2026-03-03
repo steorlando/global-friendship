@@ -782,13 +782,15 @@ export default async function ManagerStatisticsPage() {
     );
   }
 
-  const { data: profile, error: profileError } = await supabase
+  const service = createSupabaseServiceClient();
+  const email = (user.email ?? "").trim().toLowerCase();
+  const { data: profile, error: profileError } = await service
     .from("profili")
     .select("ruolo")
-    .eq("id", user.id)
-    .maybeSingle();
+    .ilike("email", email)
+    .in("ruolo", ["manager", "admin"]);
 
-  if (profileError || (profile?.ruolo !== "manager" && profile?.ruolo !== "admin")) {
+  if (profileError || !profile || profile.length === 0) {
     return (
       <section className="rounded border border-red-200 bg-red-50 p-6">
         <h2 className="text-xl font-bold text-red-800">{t("manager.statistics.title")}</h2>
@@ -797,7 +799,6 @@ export default async function ManagerStatisticsPage() {
     );
   }
 
-  const service = createSupabaseServiceClient();
   const { data, error } = await service.from("partecipanti").select(SELECT_FIELDS);
 
   if (error) {
