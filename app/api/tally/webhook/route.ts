@@ -62,11 +62,12 @@ const GROUP_LEADER_PORTAL_URL =
   "https://portal.globalfriendship.eu";
 const WEBHOOK_EVENT_MISSING_TABLE_CODES = new Set(["42P01", "PGRST204"]);
 
-type GroupLeaderRecipient = {
+type GroupNotificationRecipient = {
   id: string;
   nome: string | null;
   cognome: string | null;
   email: string | null;
+  ruolo: string | null;
 };
 
 type ProfileGroupLink = {
@@ -621,7 +622,7 @@ async function collectGroupKeysForLeaderLookup(
 async function loadGroupLeadersForGroup(
   supabase: SupabaseServiceClient,
   groupKeys: string[]
-): Promise<GroupLeaderRecipient[]> {
+): Promise<GroupNotificationRecipient[]> {
   if (groupKeys.length === 0) return [];
 
   const { data: links, error: linksError } = await supabase
@@ -645,15 +646,15 @@ async function loadGroupLeadersForGroup(
 
   const { data: leaders, error: leadersError } = await supabase
     .from("profili")
-    .select("id,nome,cognome,email")
-    .eq("ruolo", "capogruppo")
+    .select("id,nome,cognome,email,ruolo")
+    .in("ruolo", ["capogruppo", "manager"])
     .in("id", leaderIds);
 
   if (leadersError) {
     throw new Error(`Unable to load group leaders: ${leadersError.message}`);
   }
 
-  const normalizedLeaders = ((leaders ?? []) as GroupLeaderRecipient[]).sort((a, b) =>
+  const normalizedLeaders = ((leaders ?? []) as GroupNotificationRecipient[]).sort((a, b) =>
     buildFullName(a.nome, a.cognome).localeCompare(buildFullName(b.nome, b.cognome))
   );
 
@@ -740,6 +741,7 @@ async function notifyGroupLeadersAboutRegistration(args: {
   const failures: string[] = [];
   const useLeaderIdDedupe = sentLeaderIds.size > 0;
   const senderSettings = await loadEmailSenderRuntimeSettings(args.supabase);
+  const recipients: Array<{ leader: GroupNotificationRecipient; email: string }> = [];
 
   for (const leader of leaders) {
     const to = normalize(leader.email).toLowerCase();
@@ -755,52 +757,75 @@ async function notifyGroupLeadersAboutRegistration(args: {
       continue;
     }
 
-    const leaderFullName = buildFullName(leader.nome, leader.cognome) || "Group Leader";
-    const subject = `New registration in your group: ${args.participantFullName}`;
-    const text = [
-      `Dear ${leaderFullName},`,
-      "",
-      `A new participant called ${args.participantFullName}, has registered in your group.`,
-      "",
-      "You can review the current situations of participants in your group here:",
-      GROUP_LEADER_PORTAL_URL,
-      "",
-      "The Global Friendship Team",
-    ].join("\n");
+    recipients.push({ leader, email: to });
+  }
 
-    try {
-      await sendGmailTextEmail(
-        { to, subject, text, from: senderSettings.senderEmail },
-        {
-          gmailUser: senderSettings.gmailUser,
-          gmailAppPassword: senderSettings.gmailAppPassword,
-          senderEmail: senderSettings.senderEmail,
-        }
-      );
+  if (recipients.length === 0) {
+    return { sent, skipped };
+  }
+
+  const subject = `New registration in your group: ${args.participantFullName}`;
+  const text = [
+    "Dear Group Team,",
+    "",
+    `A new participant called ${args.participantFullName}, has registered in your group.`,
+    "",
+    "You can review the current situations of participants in your group here:",
+    GROUP_LEADER_PORTAL_URL,
+    "",
+    "The Global Friendship Team",
+  ].join("\n");
+
+  const [primary, ...others] = recipients;
+  const cc = others.map((entry) => entry.email);
+
+  try {
+    await sendGmailTextEmail(
+      {
+        to: primary.email,
+        cc: cc.length > 0 ? cc : undefined,
+        subject,
+        text,
+        from: senderSettings.senderEmail,
+      },
+      {
+        gmailUser: senderSettings.gmailUser,
+        gmailAppPassword: senderSettings.gmailAppPassword,
+        senderEmail: senderSettings.senderEmail,
+      }
+    );
+
+    for (const entry of recipients) {
       sent += 1;
-      sentLeaderIds.add(leader.id);
+      sentLeaderIds.add(entry.leader.id);
       await logWebhookEvent(args.supabase, {
         eventType: "group_leader_notification",
         submissionId: args.notificationKey,
         respondentId: args.respondentId,
-        email: to,
+        email: entry.email,
         status: "success",
         payload: args.payload,
         normalized: {
           gruppoId: args.gruppoId,
           gruppoKeys: groupKeys,
-          groupLeaderId: leader.id,
+          groupLeaderId: entry.leader.id,
+          groupRecipientRole: entry.leader.ruolo,
           participantFullName: args.participantFullName,
+          deliveryMode: cc.length > 0 ? "to_cc_batch" : "single_to",
+          primaryRecipient: primary.email,
+          ccRecipients: cc,
         },
       });
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : "Send failed";
-      failures.push(`${to}: ${reason}`);
+    }
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "Send failed";
+    for (const entry of recipients) {
+      failures.push(`${entry.email}: ${reason}`);
       await logWebhookEvent(args.supabase, {
         eventType: "group_leader_notification",
         submissionId: args.notificationKey,
         respondentId: args.respondentId,
-        email: to,
+        email: entry.email,
         status: "error",
         errorCode: "500",
         errorMessage: reason,
@@ -808,8 +833,12 @@ async function notifyGroupLeadersAboutRegistration(args: {
         normalized: {
           gruppoId: args.gruppoId,
           gruppoKeys: groupKeys,
-          groupLeaderId: leader.id,
+          groupLeaderId: entry.leader.id,
+          groupRecipientRole: entry.leader.ruolo,
           participantFullName: args.participantFullName,
+          deliveryMode: cc.length > 0 ? "to_cc_batch" : "single_to",
+          primaryRecipient: primary.email,
+          ccRecipients: cc,
         },
       });
     }

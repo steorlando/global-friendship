@@ -4,6 +4,7 @@ import { DEFAULT_GMAIL_SENDER_EMAIL } from "./settings";
 
 type SendGmailTextEmailInput = {
   to: string;
+  cc?: string | string[] | null;
   subject: string;
   text: string;
   replyTo?: string | null;
@@ -12,6 +13,7 @@ type SendGmailTextEmailInput = {
 
 type SendGmailEmailInput = {
   to: string;
+  cc?: string | string[] | null;
   subject: string;
   text?: string | null;
   html?: string | null;
@@ -81,6 +83,7 @@ export async function sendGmailTextEmail(
   await sendGmailEmailWithCredentials(
     {
       to: input.to,
+      cc: input.cc,
       subject: input.subject,
       text: input.text,
       replyTo: input.replyTo,
@@ -107,6 +110,7 @@ export async function sendGmailEmailWithCredentials(
   await transporter.sendMail({
     from: input.from || senderEmail,
     to: input.to,
+    cc: input.cc ?? undefined,
     subject: input.subject,
     text: input.text ?? undefined,
     html: input.html ?? undefined,
