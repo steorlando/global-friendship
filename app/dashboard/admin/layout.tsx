@@ -27,7 +27,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     {
       href: "/dashboard/admin/email-campaigns",
       label: t("dashboard.admin.tab.email"),
-      isActive: pathname === "/dashboard/admin/email-campaigns",
+      isActive: pathname.startsWith("/dashboard/admin/email-campaigns"),
     },
     {
       href: "/dashboard/admin/settings/email",

@@ -66,6 +66,16 @@ type EmailAttachment = {
   contentType?: string;
 };
 
+type CampaignRecipientType = "participants" | "group_leaders";
+
+type SendLogInsertPayload = {
+  recipientType: CampaignRecipientType;
+  subject: string;
+  html: string;
+  senderUserId: string;
+  recipientIds: string[];
+};
+
 const SELECT_FIELDS =
   "id,nome,cognome,email,telefono,paese_residenza,nazione,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label";
 const GROUP_LEADER_SELECT_FIELDS = "id,email,nome,cognome,ruolo,telefono,italia,roma";
@@ -154,6 +164,56 @@ function parseStoredDifficolta(value: string | null): string[] {
 function buildGroupLabel(row: ParticipantRow): string {
   const value = (row.gruppo_label ?? row.gruppo_id ?? "").trim();
   return value || "-";
+}
+
+async function persistSendLog(
+  service: ReturnType<typeof createSupabaseServiceClient>,
+  payload: SendLogInsertPayload
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (payload.recipientIds.length === 0) {
+    return { ok: true };
+  }
+
+  const recipientIds = [...new Set(payload.recipientIds)];
+  const { data: log, error: logError } = await service
+    .from("email_send_logs")
+    .insert({
+      recipient_type: payload.recipientType,
+      subject: payload.subject,
+      body_content: payload.html,
+      sender_user_id: payload.senderUserId,
+      recipient_count: recipientIds.length,
+      recipient_ids_snapshot: recipientIds,
+      sent_at: new Date().toISOString(),
+    })
+    .select("id")
+    .single();
+
+  if (logError || !log) {
+    return { ok: false, error: logError?.message ?? "Unable to create email send log." };
+  }
+
+  const logId = String((log as { id: string }).id ?? "");
+  if (!logId) {
+    return { ok: false, error: "Unable to create email send log." };
+  }
+
+  const recipientRows = recipientIds.map((recipientId) => ({
+    send_log_id: logId,
+    recipient_type: payload.recipientType,
+    recipient_id: recipientId,
+  }));
+
+  const { error: recipientsError } = await service
+    .from("email_send_log_recipients")
+    .insert(recipientRows);
+
+  if (recipientsError) {
+    await service.from("email_send_logs").delete().eq("id", logId);
+    return { ok: false, error: recipientsError.message };
+  }
+
+  return { ok: true };
 }
 
 async function runWithConcurrency<T>(
@@ -249,7 +309,7 @@ async function requireManagerOrAdmin() {
     };
   }
 
-  return { service };
+  return { service, userId: user.id };
 }
 
 export async function POST(req: Request) {
@@ -263,7 +323,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const recipientType =
+  const recipientType: CampaignRecipientType =
     body.recipientType === "group_leaders" ? "group_leaders" : "participants";
   const recipientIdsInput = Array.isArray(body.recipientIds)
     ? body.recipientIds
@@ -430,6 +490,22 @@ export async function POST(req: Request) {
     });
   }
 
+  let logSaved = true;
+  let logError: string | null = null;
+  if (sentTo.length > 0) {
+    const saveResult = await persistSendLog(auth.service, {
+      recipientType,
+      subject: subjectTemplate,
+      html: htmlTemplate,
+      senderUserId: auth.userId,
+      recipientIds: sentTo,
+    });
+    if (!saveResult.ok) {
+      logSaved = false;
+      logError = saveResult.error;
+    }
+  }
+
   return NextResponse.json({
     recipientType,
     requested: recipientIds.length,
@@ -438,5 +514,7 @@ export async function POST(req: Request) {
     sentIds: sentTo,
     skipped,
     failed,
+    logSaved,
+    logError,
   });
 }

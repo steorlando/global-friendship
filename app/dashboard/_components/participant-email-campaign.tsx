@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
+import NextLink from "next/link";
+import { usePathname } from "next/navigation";
 import Link from "@tiptap/extension-link";
 import Underline from "@tiptap/extension-underline";
 import { EditorContent, useEditor } from "@tiptap/react";
@@ -191,6 +193,7 @@ async function fileToBase64(file: File): Promise<string | null> {
 }
 
 export function ParticipantEmailCampaign() {
+  const pathname = usePathname();
   const [activeRecipientType, setActiveRecipientType] = useState<RecipientType>("participants");
 
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -256,6 +259,9 @@ export function ParticipantEmailCampaign() {
 
   const [savedTemplates, setSavedTemplates] = useState<EmailTemplate[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState(true);
+  const sendLogHref = pathname.startsWith("/dashboard/admin")
+    ? "/dashboard/admin/email-campaigns/send-log"
+    : "/dashboard/manager/email-campaigns/send-log";
 
   useEffect(() => {
     async function loadParticipants() {
@@ -859,6 +865,8 @@ export function ParticipantEmailCampaign() {
         sent?: number;
         failed?: Array<{ id: string; reason: string }>;
         skipped?: Array<{ id: string; reason: string }>;
+        logSaved?: boolean;
+        logError?: string | null;
       };
       if (!res.ok) {
         setSendError(json.error ?? "Unable to send email campaign.");
@@ -868,8 +876,12 @@ export function ParticipantEmailCampaign() {
       const sent = json.sent ?? 0;
       const failed = json.failed?.length ?? 0;
       const skipped = json.skipped?.length ?? 0;
+      const logWarning =
+        json.logSaved === false
+          ? ` Warning: send log could not be saved${json.logError ? ` (${json.logError})` : ""}.`
+          : "";
 
-      setSendResult(`Sent ${sent} email(s). Failed: ${failed}. Skipped: ${skipped}.`);
+      setSendResult(`Sent ${sent} email(s). Failed: ${failed}. Skipped: ${skipped}.${logWarning}`);
       setShowPreview(false);
     } catch {
       setSendError("Unable to send email campaign.");
@@ -881,10 +893,20 @@ export function ParticipantEmailCampaign() {
   return (
     <section className="space-y-6">
       <header className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-xl font-bold text-slate-900">Email Campaigns</h2>
-        <p className="mt-2 text-sm text-slate-500">
-          Compose a personalized email and send it to selected participants or group leaders.
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-bold text-slate-900">Email Campaigns</h2>
+            <p className="mt-2 text-sm text-slate-500">
+              Compose a personalized email and send it to selected participants or group leaders.
+            </p>
+          </div>
+          <NextLink
+            href={sendLogHref}
+            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+          >
+            Email send log
+          </NextLink>
+        </div>
       </header>
 
       {sendError && (

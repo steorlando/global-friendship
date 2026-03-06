@@ -13,7 +13,11 @@ export default function ManagerLayout({ children }: { children: ReactNode }) {
     { href: "/dashboard/manager/participants", label: t("dashboard.manager.tab.participants") },
     { href: "/dashboard/manager/participation-fees", label: t("dashboard.manager.tab.fees") },
     { href: "/dashboard/manager/event-finance", label: t("dashboard.manager.tab.finance") },
-    { href: "/dashboard/manager/email-campaigns", label: t("dashboard.manager.tab.email") },
+    {
+      href: "/dashboard/manager/email-campaigns",
+      label: t("dashboard.manager.tab.email"),
+      activePrefix: "/dashboard/manager/email-campaigns",
+    },
   ];
 
   return (
@@ -30,7 +34,7 @@ export default function ManagerLayout({ children }: { children: ReactNode }) {
               key={tab.href}
               href={tab.href}
               className={`rounded-full border px-4 py-2 font-medium transition-all duration-200 ${
-                pathname === tab.href
+                pathname === tab.href || (tab.activePrefix && pathname.startsWith(tab.activePrefix))
                   ? "border-indigo-600 bg-indigo-600 text-white shadow-sm"
                   : "border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-100"
               }`}
