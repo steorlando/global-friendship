@@ -19,6 +19,11 @@ import {
   renderGroupLeaderTemplateText,
   type GroupLeaderTemplateData,
 } from "@/lib/email/group-leader-template";
+import {
+  excludeRecipientsById,
+  isRecipientIdExcluded,
+  parseRecipientIdsFromText,
+} from "@/lib/email/recipient-id-utils";
 
 type RecipientType = "participants" | "group_leaders";
 
@@ -247,6 +252,7 @@ export function ParticipantEmailCampaign() {
   const [groupLeaderRomaFilter, setGroupLeaderRomaFilter] = useState("all");
   const [groupLeaderSortKey, setGroupLeaderSortKey] = useState<GroupLeaderSortKey>("cognome");
   const [groupLeaderSortDirection, setGroupLeaderSortDirection] = useState<SortDirection>("asc");
+  const [excludedRecipientIdsInput, setExcludedRecipientIdsInput] = useState("");
 
   const [selectedParticipantIds, setSelectedParticipantIds] = useState<Set<string>>(new Set());
   const [selectedGroupLeaderIds, setSelectedGroupLeaderIds] = useState<Set<string>>(new Set());
@@ -333,8 +339,14 @@ export function ParticipantEmailCampaign() {
     loadTemplates();
   }, []);
 
+  const excludedRecipientIds = useMemo(
+    () => new Set(parseRecipientIdsFromText(excludedRecipientIdsInput)),
+    [excludedRecipientIdsInput]
+  );
+  const excludedRecipientCount = excludedRecipientIds.size;
+
   const filteredSortedParticipants = useMemo(() => {
-    const filtered = participants.filter((participant) => {
+    const positiveFiltered = participants.filter((participant) => {
       if (participantSearch) {
         const s = participantSearch.toLowerCase();
         const matches =
@@ -364,6 +376,8 @@ export function ParticipantEmailCampaign() {
       return true;
     });
 
+    const filtered = excludeRecipientsById(positiveFiltered, excludedRecipientIds);
+
     filtered.sort((a, b) => {
       const direction = participantSortDirection === "asc" ? 1 : -1;
       const aValue =
@@ -390,11 +404,12 @@ export function ParticipantEmailCampaign() {
     participantSortDirection,
     participantSortKey,
     participants,
+    excludedRecipientIds,
     showGroupColumn,
   ]);
 
   const filteredSortedGroupLeaders = useMemo(() => {
-    const filtered = groupLeaders.filter((leader) => {
+    const positiveFiltered = groupLeaders.filter((leader) => {
       if (groupLeaderSearch) {
         const s = groupLeaderSearch.toLowerCase();
         const matches =
@@ -412,6 +427,8 @@ export function ParticipantEmailCampaign() {
 
       return true;
     });
+
+    const filtered = excludeRecipientsById(positiveFiltered, excludedRecipientIds);
 
     filtered.sort((a, b) => {
       const direction = groupLeaderSortDirection === "asc" ? 1 : -1;
@@ -448,6 +465,7 @@ export function ParticipantEmailCampaign() {
     groupLeaderSortDirection,
     groupLeaderSortKey,
     groupLeaders,
+    excludedRecipientIds,
   ]);
 
   const participantVisibleIds = useMemo(
@@ -463,20 +481,42 @@ export function ParticipantEmailCampaign() {
   const activeVisibleIds =
     activeRecipientType === "participants" ? participantVisibleIds : groupLeaderVisibleIds;
 
+  const effectiveSelectedParticipantIds = useMemo(() => {
+    const next = new Set<string>();
+    selectedParticipantIds.forEach((id) => {
+      if (!isRecipientIdExcluded(id, excludedRecipientIds)) {
+        next.add(id);
+      }
+    });
+    return next;
+  }, [excludedRecipientIds, selectedParticipantIds]);
+
+  const effectiveSelectedGroupLeaderIds = useMemo(() => {
+    const next = new Set<string>();
+    selectedGroupLeaderIds.forEach((id) => {
+      if (!isRecipientIdExcluded(id, excludedRecipientIds)) {
+        next.add(id);
+      }
+    });
+    return next;
+  }, [excludedRecipientIds, selectedGroupLeaderIds]);
+
   const activeSelectedIds =
-    activeRecipientType === "participants" ? selectedParticipantIds : selectedGroupLeaderIds;
+    activeRecipientType === "participants"
+      ? effectiveSelectedParticipantIds
+      : effectiveSelectedGroupLeaderIds;
 
   const allVisibleSelected =
     activeVisibleIds.length > 0 && activeVisibleIds.every((id) => activeSelectedIds.has(id));
 
   const selectedParticipants = useMemo(
-    () => participants.filter((participant) => selectedParticipantIds.has(participant.id)),
-    [participants, selectedParticipantIds]
+    () => participants.filter((participant) => effectiveSelectedParticipantIds.has(participant.id)),
+    [participants, effectiveSelectedParticipantIds]
   );
 
   const selectedGroupLeaders = useMemo(
-    () => groupLeaders.filter((leader) => selectedGroupLeaderIds.has(leader.id)),
-    [groupLeaders, selectedGroupLeaderIds]
+    () => groupLeaders.filter((leader) => effectiveSelectedGroupLeaderIds.has(leader.id)),
+    [groupLeaders, effectiveSelectedGroupLeaderIds]
   );
 
   const selectedRecipientsWithEmail =
@@ -1283,6 +1323,40 @@ export function ParticipantEmailCampaign() {
             </div>
           </div>
         )}
+
+        <div className="mt-4 rounded border border-slate-200 bg-slate-50 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <label
+              htmlFor="excluded-recipient-ids"
+              className="text-xs font-semibold uppercase tracking-wide text-slate-600"
+            >
+              Exclude recipient IDs
+            </label>
+            <button
+              type="button"
+              onClick={() => setExcludedRecipientIdsInput("")}
+              disabled={!excludedRecipientIdsInput.trim()}
+              className="rounded border border-slate-300 bg-white px-2.5 py-1 text-xs hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Clear
+            </button>
+          </div>
+          <p className="mt-1 text-xs text-slate-500">
+            Paste IDs copied from the send log. Matching recipients are excluded from send
+            targets.
+          </p>
+          <textarea
+            id="excluded-recipient-ids"
+            value={excludedRecipientIdsInput}
+            onChange={(event) => setExcludedRecipientIdsInput(event.target.value)}
+            placeholder="Paste recipient IDs (comma, newline, or space separated)"
+            rows={3}
+            className="mt-2 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+          />
+          <p className="mt-2 text-xs text-slate-500">
+            Parsed excluded IDs: <strong>{excludedRecipientCount}</strong>
+          </p>
+        </div>
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-slate-500">

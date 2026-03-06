@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { EmailSendLogRecipientList } from "./email-send-log-recipient-list";
 
 type EmailSendLogRow = {
   id: string;
@@ -154,25 +155,7 @@ export async function ManagerAdminEmailSendLogDetailPage({
         <pre className="mt-3 whitespace-pre-wrap text-sm text-slate-800">{readableBody}</pre>
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-          Recipient user IDs
-        </h3>
-        <p className="mt-2 text-sm text-slate-700">
-          Total recipients: <span className="font-semibold">{recipientRows.length}</span>
-        </p>
-        {recipientRows.length === 0 ? (
-          <p className="mt-3 text-sm text-slate-500">No recipients logged.</p>
-        ) : (
-          <ul className="mt-3 max-h-80 divide-y divide-slate-200 overflow-auto rounded border border-slate-200">
-            {recipientRows.map((row) => (
-              <li key={row.recipient_id} className="px-3 py-2 font-mono text-sm text-slate-700">
-                {row.recipient_id}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <EmailSendLogRecipientList recipientIds={recipientRows.map((row) => row.recipient_id)} />
     </section>
   );
 }
