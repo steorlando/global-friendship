@@ -125,6 +125,7 @@ const it: TranslationDictionary = {
   "participants.table.header.departureDate": "Data partenza",
   "participants.table.header.accommodation": "Alloggio",
   "participants.table.header.totalFee": "Quota totale",
+  "participants.table.header.registrationDate": "Data registrazione",
   "participants.table.header.actions": "Azioni",
   "participants.table.phone": "Telefono",
   "participants.table.filter.group": "Filtra gruppo",

@@ -14,6 +14,7 @@ import { useI18n } from "@/lib/i18n/provider";
 
 type Participant = {
   id: string;
+  created_at: string | null;
   nome: string | null;
   cognome: string | null;
   nazione: string | null;
@@ -49,6 +50,7 @@ type FormState = {
 
 type SortKey =
   | "group"
+  | "created_at"
   | "nome"
   | "cognome"
   | "data_arrivo"
@@ -61,6 +63,8 @@ type SortDirection = "asc" | "desc";
 type ParticipantsTableProps = {
   apiBasePath: string;
   groupSummaryLabel: string;
+  showRegistrationDate?: boolean;
+  showTotalFee?: boolean;
 };
 
 const EMPTY_FORM: FormState = {
@@ -107,6 +111,13 @@ function dateInRange(value: string | null, min: string, max: string) {
 function displayDate(value: string | null, min: string, max: string) {
   if (!value) return "-";
   return dateInRange(value, min, max) ? value : "-";
+}
+
+function displayRegistrationDate(value: string | null) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString();
 }
 
 function accommodationOptionLabel(option: string, t: (key: string) => string) {
@@ -161,6 +172,8 @@ function accessibilityOptionLabel(option: string, t: (key: string) => string) {
 export function ParticipantsTable({
   apiBasePath,
   groupSummaryLabel,
+  showRegistrationDate = false,
+  showTotalFee = true,
 }: ParticipantsTableProps) {
   const { t } = useI18n();
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -220,13 +233,13 @@ export function ParticipantsTable({
       if (alloggioFilter && (participant.alloggio ?? "") !== alloggioFilter) {
         return false;
       }
-      if (quotaMinFilter) {
+      if (showTotalFee && quotaMinFilter) {
         const min = Number(quotaMinFilter);
         if (!Number.isNaN(min) && (participant.quota_totale ?? -Infinity) < min) {
           return false;
         }
       }
-      if (quotaMaxFilter) {
+      if (showTotalFee && quotaMaxFilter) {
         const max = Number(quotaMaxFilter);
         if (!Number.isNaN(max) && (participant.quota_totale ?? Infinity) > max) {
           return false;
@@ -240,11 +253,15 @@ export function ParticipantsTable({
       const aValue =
         sortKey === "quota_totale"
           ? a.quota_totale ?? -Infinity
-          : (a[sortKey] ?? "").toString().toLowerCase();
+          : sortKey === "created_at"
+            ? a.created_at ?? ""
+            : (a[sortKey] ?? "").toString().toLowerCase();
       const bValue =
         sortKey === "quota_totale"
           ? b.quota_totale ?? -Infinity
-          : (b[sortKey] ?? "").toString().toLowerCase();
+          : sortKey === "created_at"
+            ? b.created_at ?? ""
+            : (b[sortKey] ?? "").toString().toLowerCase();
 
       if (aValue < bValue) return -1 * direction;
       if (aValue > bValue) return 1 * direction;
@@ -265,7 +282,17 @@ export function ParticipantsTable({
     showGroupColumn,
     sortDirection,
     sortKey,
+    showTotalFee,
   ]);
+
+  const tableColumnCount =
+    (showGroupColumn ? 1 : 0) +
+    2 +
+    (showRegistrationDate ? 1 : 0) +
+    2 +
+    1 +
+    (showTotalFee ? 1 : 0) +
+    1;
 
   useEffect(() => {
     async function loadParticipants() {
@@ -474,6 +501,13 @@ export function ParticipantsTable({
                     {t("participants.table.header.lastName")} {sortLabel("cognome")}
                   </button>
                 </th>
+                {showRegistrationDate && (
+                  <th className="px-4 py-3">
+                    <button type="button" onClick={() => toggleSort("created_at")}>
+                      {t("participants.table.header.registrationDate")} {sortLabel("created_at")}
+                    </button>
+                  </th>
+                )}
                 <th className="px-4 py-3">
                   <button type="button" onClick={() => toggleSort("data_arrivo")}>
                     {t("participants.table.header.arrivalDate")} {sortLabel("data_arrivo")}
@@ -489,11 +523,13 @@ export function ParticipantsTable({
                     {t("participants.table.header.accommodation")} {sortLabel("alloggio")}
                   </button>
                 </th>
-                <th className="px-4 py-3">
-                  <button type="button" onClick={() => toggleSort("quota_totale")}>
-                    {t("participants.table.header.totalFee")} {sortLabel("quota_totale")}
-                  </button>
-                </th>
+                {showTotalFee && (
+                  <th className="px-4 py-3">
+                    <button type="button" onClick={() => toggleSort("quota_totale")}>
+                      {t("participants.table.header.totalFee")} {sortLabel("quota_totale")}
+                    </button>
+                  </th>
+                )}
                 <th className="px-4 py-3">{t("participants.table.header.actions")}</th>
               </tr>
               <tr>
@@ -523,6 +559,7 @@ export function ParticipantsTable({
                     className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
                   />
                 </th>
+                {showRegistrationDate && <th className="px-2 pb-3" />}
                 <th className="px-2 pb-3">
                   <input
                     type="date"
@@ -553,24 +590,26 @@ export function ParticipantsTable({
                     ))}
                   </select>
                 </th>
-                <th className="px-2 pb-3">
-                  <div className="grid grid-cols-2 gap-1">
-                    <input
-                      type="number"
-                      placeholder={t("participants.table.filter.min")}
-                      value={quotaMinFilter}
-                      onChange={(e) => setQuotaMinFilter(e.target.value)}
-                      className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
-                    />
-                    <input
-                      type="number"
-                      placeholder={t("participants.table.filter.max")}
-                      value={quotaMaxFilter}
-                      onChange={(e) => setQuotaMaxFilter(e.target.value)}
-                      className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
-                    />
-                  </div>
-                </th>
+                {showTotalFee && (
+                  <th className="px-2 pb-3">
+                    <div className="grid grid-cols-2 gap-1">
+                      <input
+                        type="number"
+                        placeholder={t("participants.table.filter.min")}
+                        value={quotaMinFilter}
+                        onChange={(e) => setQuotaMinFilter(e.target.value)}
+                        className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
+                      />
+                      <input
+                        type="number"
+                        placeholder={t("participants.table.filter.max")}
+                        value={quotaMaxFilter}
+                        onChange={(e) => setQuotaMaxFilter(e.target.value)}
+                        className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
+                      />
+                    </div>
+                  </th>
+                )}
                 <th className="px-2 pb-3">
                   <button
                     type="button"
@@ -587,7 +626,7 @@ export function ParticipantsTable({
                 <tr>
                   <td
                     className="px-4 py-4 text-slate-500"
-                    colSpan={showGroupColumn ? 8 : 7}
+                    colSpan={tableColumnCount}
                   >
                     {t("participants.table.noResults")}
                   </td>
@@ -600,6 +639,11 @@ export function ParticipantsTable({
                     )}
                     <td className="px-4 py-3">{participant.nome || "-"}</td>
                     <td className="px-4 py-3">{participant.cognome || "-"}</td>
+                    {showRegistrationDate && (
+                      <td className="px-4 py-3">
+                        {displayRegistrationDate(participant.created_at)}
+                      </td>
+                    )}
                     <td className="px-4 py-3">
                       {displayDate(
                         participant.data_arrivo,
@@ -615,11 +659,13 @@ export function ParticipantsTable({
                       )}
                     </td>
                     <td className="px-4 py-3">{participant.alloggio || "-"}</td>
-                    <td className="px-4 py-3">
-                      {participant.quota_totale === null
-                        ? "-"
-                        : `EUR ${participant.quota_totale}`}
-                    </td>
+                    {showTotalFee && (
+                      <td className="px-4 py-3">
+                        {participant.quota_totale === null
+                          ? "-"
+                          : `EUR ${participant.quota_totale}`}
+                      </td>
+                    )}
                     <td className="px-4 py-3">
                       <button
                         type="button"

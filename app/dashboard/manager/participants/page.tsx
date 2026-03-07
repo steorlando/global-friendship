@@ -8,6 +8,8 @@ export default async function ManagerParticipantsPage() {
       <ParticipantsTable
         apiBasePath="/api/manager/participants"
         groupSummaryLabel={t("participants.table.header.group")}
+        showRegistrationDate
+        showTotalFee={false}
       />
     </section>
   );

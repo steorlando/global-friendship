@@ -91,6 +91,7 @@ const fr: TranslationDictionary = {
   "participants.table.header.departureDate": "Date de départ",
   "participants.table.header.accommodation": "Hébergement",
   "participants.table.header.totalFee": "Frais total",
+  "participants.table.header.registrationDate": "Date d'inscription",
   "participants.table.header.actions": "Actions",
   "participants.table.phone": "Téléphone",
   "participants.table.filter.group": "Filtrer groupe",

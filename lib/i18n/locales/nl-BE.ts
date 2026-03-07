@@ -88,6 +88,7 @@ const nlBE: TranslationDictionary = {
   "participants.table.header.departureDate": "Vertrekdatum",
   "participants.table.header.accommodation": "Accommodatie",
   "participants.table.header.totalFee": "Totale bijdrage",
+  "participants.table.header.registrationDate": "Registratiedatum",
   "participants.table.header.actions": "Acties",
   "participants.table.phone": "Telefoon",
   "participants.table.filter.group": "Filter groep",

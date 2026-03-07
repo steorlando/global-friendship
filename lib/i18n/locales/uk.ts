@@ -88,6 +88,7 @@ const uk: TranslationDictionary = {
   "participants.table.header.departureDate": "Дата від'їзду",
   "participants.table.header.accommodation": "Проживання",
   "participants.table.header.totalFee": "Загальний внесок",
+  "participants.table.header.registrationDate": "Дата реєстрації",
   "participants.table.header.actions": "Дії",
   "participants.table.phone": "Телефон",
   "participants.table.filter.group": "Фільтр групи",

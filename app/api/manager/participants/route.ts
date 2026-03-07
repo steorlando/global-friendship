@@ -15,6 +15,7 @@ import {
 
 type ParticipantRow = {
   id: string;
+  created_at: string | null;
   nome: string | null;
   cognome: string | null;
   paese_residenza: string | null;
@@ -36,7 +37,7 @@ type ParticipantRow = {
 };
 
 const SELECT_FIELDS =
-  "id,nome,cognome,paese_residenza,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label";
+  "id,created_at,nome,cognome,paese_residenza,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label";
 
 const esigenzeSet = new Set<string>(ESIGENZE_ALIMENTARI_OPTIONS);
 const difficoltaSet = new Set<string>(DIFFICOLTA_ACCESSIBILITA_OPTIONS);

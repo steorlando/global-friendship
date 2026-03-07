@@ -14,6 +14,8 @@ export default async function CapogruppoPage() {
         <ParticipantsTable
           apiBasePath="/api/capogruppo/participants"
           groupSummaryLabel={t("dashboard.groupLeader.groupSummary")}
+          showRegistrationDate
+          showTotalFee
         />
       </div>
     </main>
