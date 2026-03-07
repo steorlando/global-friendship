@@ -5,6 +5,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useI18n } from "@/lib/i18n/provider";
 
 const LOCAL_STORAGE_KEYS_TO_CLEAR = ["gf_requested_role", "gf_participant_id"];
+const COOKIES_TO_CLEAR = ["gf_requested_role", "gf_participant_id"];
 
 export function LogoutButton() {
   const [signingOut, setSigningOut] = useState(false);
@@ -22,6 +23,9 @@ export function LogoutButton() {
     } finally {
       for (const key of LOCAL_STORAGE_KEYS_TO_CLEAR) {
         window.localStorage.removeItem(key);
+      }
+      for (const cookie of COOKIES_TO_CLEAR) {
+        document.cookie = `${cookie}=; path=/; max-age=0; samesite=lax`;
       }
       window.location.replace("/login");
     }

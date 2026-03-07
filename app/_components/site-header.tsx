@@ -29,7 +29,7 @@ export function SiteHeader({ userEmail, requestedRole }: SiteHeaderProps) {
     if (pathname.startsWith("/dashboard/alloggi")) return "alloggi";
     return null;
   })();
-  const resolvedRole = roleFromPath ?? initialRole;
+  const resolvedRole = resolvedEmail ? roleFromPath ?? initialRole : null;
 
   useEffect(() => {
     let active = true;
