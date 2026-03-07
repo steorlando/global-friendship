@@ -18,6 +18,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Global Friendship",
   description: "Global Friendship registration platform",
+  icons: {
+    icon: "/Logo_YFP.png",
+    shortcut: "/Logo_YFP.png",
+    apple: "/Logo_YFP.png",
+  },
 };
 
 export default async function RootLayout({

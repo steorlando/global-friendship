@@ -36,24 +36,39 @@ function AuthCallbackContent() {
         window.localStorage.getItem("gf_requested_role");
       const supabase = createSupabaseBrowserClient();
 
-      if (code) {
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
-        if (error) {
-          console.warn("Code exchange failed, trying session fallback", error);
+      try {
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) {
+            console.warn("Code exchange failed, trying session fallback", error);
+          }
+        } else if ((tokenHash || token) && isOtpType(otpType)) {
+          const { error } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash ?? token ?? "",
+            type: otpType,
+          });
+          if (error) {
+            console.warn("Token verification failed, trying session fallback", error);
+          }
         }
-      } else if ((tokenHash || token) && isOtpType(otpType)) {
-        const { error } = await supabase.auth.verifyOtp({
-          token_hash: tokenHash ?? token ?? "",
-          type: otpType,
-        });
-        if (error) {
-          console.warn("Token verification failed, trying session fallback", error);
-        }
+      } catch (error) {
+        console.warn("Auth callback exchange failed", error);
       }
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      let session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"] =
+        null;
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error?.message?.toLowerCase().includes("refresh token")) {
+          await supabase.auth.signOut({ scope: "local" });
+          router.replace("/login");
+          return;
+        }
+        session = data.session;
+      } catch {
+        router.replace("/login");
+        return;
+      }
 
       const user = session?.user ?? null;
       if (!user) {

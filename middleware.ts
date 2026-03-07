@@ -7,6 +7,17 @@ function pathMatches(path: string, basePath: string): boolean {
   return path === basePath || path.startsWith(`${basePath}/`);
 }
 
+function clearSupabaseCookies(req: NextRequest, res: NextResponse): void {
+  const authCookies = req.cookies
+    .getAll()
+    .map((cookie) => cookie.name)
+    .filter((name) => name.startsWith("sb-"));
+
+  for (const name of authCookies) {
+    res.cookies.set(name, "", { path: "/", maxAge: 0 });
+  }
+}
+
 export async function middleware(req: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -31,13 +42,16 @@ export async function middleware(req: NextRequest) {
 
   const {
     data: { user },
+    error: userError,
   } = await supabase.auth.getUser();
 
-  if (!user) {
+  if (userError || !user) {
     const loginUrl = req.nextUrl.clone();
     loginUrl.pathname = "/login";
     loginUrl.searchParams.set("redirectedFrom", req.nextUrl.pathname);
-    return NextResponse.redirect(loginUrl);
+    const redirect = NextResponse.redirect(loginUrl);
+    clearSupabaseCookies(req, redirect);
+    return redirect;
   }
 
   const path = req.nextUrl.pathname;
