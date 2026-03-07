@@ -900,7 +900,7 @@ export async function StatisticsDashboard({
     );
   }
 
-  const participants = (data ?? []) as ParticipantStatRow[];
+  const participants = (data ?? []) as unknown as ParticipantStatRow[];
   const leaderGroupIds = new Set<string>();
   let duplicateCandidates: DuplicateCandidateRow[] = [];
   let unassignedParticipants: ParticipantStatRow[] = [];
