@@ -3,7 +3,10 @@
 import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { EmailOtpType } from "@supabase/supabase-js";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import {
+  clearSupabaseBrowserSessionStorage,
+  createSupabaseBrowserClient,
+} from "@/lib/supabase/client";
 import { ROLE_ROUTES, isAppRole } from "@/lib/auth/roles";
 import { useI18n } from "@/lib/i18n/provider";
 
@@ -34,6 +37,12 @@ function AuthCallbackContent() {
       const requestedRoleFromQuery = searchParams.get("role");
       const requestedRoleFromStorage =
         window.localStorage.getItem("gf_requested_role");
+
+      // Clear stale local auth state before consuming a new magic link/code.
+      if (code || tokenHash || token) {
+        clearSupabaseBrowserSessionStorage();
+      }
+
       const supabase = createSupabaseBrowserClient();
 
       try {

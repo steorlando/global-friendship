@@ -41,7 +41,12 @@ type DuplicateCandidateRow = {
   email: string | null;
   group: string;
   reason: string;
-  matchedWith: string[];
+  matchedWith: { id: string; label: string }[];
+};
+
+type FalsePositiveRow = {
+  participant_a_id: string | null;
+  participant_b_id: string | null;
 };
 
 type EnrollmentBucket = "Higher students" | "University-Worker" | "Operator";
@@ -346,6 +351,10 @@ function participantGroupValue(row: ParticipantStatRow): string {
   return (row.gruppo_label ?? row.gruppo_id ?? "").trim() || "-";
 }
 
+function makePairKey(a: string, b: string): string {
+  return a < b ? `${a}::${b}` : `${b}::${a}`;
+}
+
 function levenshtein(a: string, b: string): number {
   if (a === b) return 0;
   if (!a) return b.length;
@@ -393,10 +402,15 @@ function namesAreVerySimilar(
 function buildDuplicateCandidates(participants: ParticipantStatRow[]): DuplicateCandidateRow[] {
   const byKey = new Map<string, ParticipantStatRow[]>();
   const normalizedById = new Map<string, { nome: string; cognome: string }>();
+  const labelById = new Map<string, string>();
   for (const participant of participants) {
     const nome = normalizePersonPart(participant.nome);
     const cognome = normalizePersonPart(participant.cognome);
     normalizedById.set(participant.id, { nome, cognome });
+    labelById.set(
+      participant.id,
+      [participant.nome ?? "", participant.cognome ?? ""].join(" ").trim() || participant.id
+    );
     const key = `${nome}|${cognome}`;
     const list = byKey.get(key) ?? [];
     list.push(participant);
@@ -416,8 +430,7 @@ function buildDuplicateCandidates(participants: ParticipantStatRow[]): Duplicate
       const matches = matchesById.get(participant.id) ?? new Set<string>();
       for (const other of group) {
         if (other.id === participant.id) continue;
-        const otherName = [other.nome ?? "", other.cognome ?? ""].join(" ").trim();
-        matches.add(otherName || other.id);
+        matches.add(other.id);
       }
       matchesById.set(participant.id, matches);
     }
@@ -446,10 +459,10 @@ function buildDuplicateCandidates(participants: ParticipantStatRow[]): Duplicate
       reasonsById.set(b.id, reasonsB);
 
       const matchesA = matchesById.get(a.id) ?? new Set<string>();
-      matchesA.add([b.nome ?? "", b.cognome ?? ""].join(" ").trim() || b.id);
+      matchesA.add(b.id);
       matchesById.set(a.id, matchesA);
       const matchesB = matchesById.get(b.id) ?? new Set<string>();
-      matchesB.add([a.nome ?? "", a.cognome ?? ""].join(" ").trim() || a.id);
+      matchesB.add(a.id);
       matchesById.set(b.id, matchesB);
     }
   }
@@ -463,15 +476,32 @@ function buildDuplicateCandidates(participants: ParticipantStatRow[]): Duplicate
       email: participant.email,
       group: participantGroupValue(participant),
       reason: [...(reasonsById.get(participant.id) ?? [])].join(" + "),
-      matchedWith: [...(matchesById.get(participant.id) ?? [])].sort((a, b) =>
-        a.localeCompare(b)
-      ),
+      matchedWith: [...(matchesById.get(participant.id) ?? [])]
+        .map((matchedId) => ({
+          id: matchedId,
+          label: labelById.get(matchedId) ?? matchedId,
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
     }))
     .sort((a, b) => {
       const bySurname = (a.cognome ?? "").localeCompare(b.cognome ?? "");
       if (bySurname !== 0) return bySurname;
       return (a.nome ?? "").localeCompare(b.nome ?? "");
     });
+}
+
+function applyIgnoredDuplicatePairs(
+  candidates: DuplicateCandidateRow[],
+  ignoredPairKeys: Set<string>
+): DuplicateCandidateRow[] {
+  return candidates
+    .map((candidate) => ({
+      ...candidate,
+      matchedWith: candidate.matchedWith.filter(
+        (match) => !ignoredPairKeys.has(makePairKey(candidate.id, match.id))
+      ),
+    }))
+    .filter((candidate) => candidate.matchedWith.length > 0);
 }
 
 function buildUnassignedParticipants(
@@ -534,12 +564,13 @@ function DuplicateAndUnassignedSection({
                   <th className="px-3 py-2 font-semibold text-slate-700">
                     {t("manager.duplicates.compareWith")}
                   </th>
+                  <th className="px-3 py-2 font-semibold text-slate-700">Azione</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {duplicateCandidates.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-3 py-3 text-slate-500">
+                    <td colSpan={6} className="px-3 py-3 text-slate-500">
                       {t("manager.duplicates.none")}
                     </td>
                   </tr>
@@ -553,9 +584,31 @@ function DuplicateAndUnassignedSection({
                       <td className="px-3 py-2 text-slate-700">{participant.group}</td>
                       <td className="px-3 py-2 text-slate-700">{participant.reason}</td>
                       <td className="px-3 py-2 text-slate-700">
-                        {participant.matchedWith.length > 0
-                          ? participant.matchedWith.join(", ")
-                          : "-"}
+                        <div className="flex flex-col gap-2">
+                          {participant.matchedWith.map((match) => (
+                            <span key={`${participant.id}-${match.id}`}>{match.label}</span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-slate-700">
+                        <div className="flex flex-col gap-2">
+                          {participant.matchedWith.map((match) => (
+                            <form
+                              key={`ignore-${participant.id}-${match.id}`}
+                              method="post"
+                              action="/api/manager/duplicate-false-positives"
+                            >
+                              <input type="hidden" name="participant_a_id" value={participant.id} />
+                              <input type="hidden" name="participant_b_id" value={match.id} />
+                              <button
+                                type="submit"
+                                className="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50"
+                              >
+                                Escludi
+                              </button>
+                            </form>
+                          ))}
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -897,10 +950,36 @@ export default async function ManagerStatisticsPage() {
   } catch {
     trendSeries = null;
   }
-  const duplicateCandidates = buildDuplicateCandidates(participants);
   const unassignedParticipants = buildUnassignedParticipants(
     participants,
     leaderGroupIds
+  );
+  const { data: falsePositiveRows, error: falsePositiveError } = await service
+    .from("duplicate_false_positives")
+    .select("participant_a_id,participant_b_id");
+
+  if (falsePositiveError && falsePositiveError.code !== "42P01") {
+    return (
+      <section className="rounded border border-red-200 bg-red-50 p-6">
+        <h2 className="text-xl font-bold text-red-800">{t("manager.statistics.title")}</h2>
+        <p className="mt-2 text-sm text-red-700">{falsePositiveError.message}</p>
+      </section>
+    );
+  }
+
+  const ignoredPairKeys = new Set(
+    ((falsePositiveRows ?? []) as FalsePositiveRow[])
+      .map((row) => {
+        const a = (row.participant_a_id ?? "").trim();
+        const b = (row.participant_b_id ?? "").trim();
+        if (!a || !b) return "";
+        return makePairKey(a, b);
+      })
+      .filter(Boolean)
+  );
+  const duplicateCandidates = applyIgnoredDuplicatePairs(
+    buildDuplicateCandidates(participants),
+    ignoredPairKeys
   );
 
   return (
