@@ -185,7 +185,7 @@ async function loadAllParticipants() {
     throw new Error(error.message);
   }
 
-  return ((data ?? []) as ParticipantRow[]).sort((a, b) => {
+  return ((data ?? []) as unknown as ParticipantRow[]).sort((a, b) => {
     const bySurname = (a.cognome ?? "").localeCompare(b.cognome ?? "");
     if (bySurname !== 0) return bySurname;
     return (a.nome ?? "").localeCompare(b.nome ?? "");
