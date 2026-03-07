@@ -192,6 +192,7 @@ export function ParticipantsTable({
   const [groupFilter, setGroupFilter] = useState("");
   const [nomeFilter, setNomeFilter] = useState("");
   const [cognomeFilter, setCognomeFilter] = useState("");
+  const [registrationDateFilter, setRegistrationDateFilter] = useState("");
   const [arrivoFilter, setArrivoFilter] = useState("");
   const [partenzaFilter, setPartenzaFilter] = useState("");
   const [alloggioFilter, setAlloggioFilter] = useState("");
@@ -224,6 +225,12 @@ export function ParticipantsTable({
       ) {
         return false;
       }
+      if (showRegistrationDate && registrationDateFilter) {
+        const registrationDateOnly = (participant.created_at ?? "").slice(0, 10);
+        if (registrationDateOnly !== registrationDateFilter) {
+          return false;
+        }
+      }
       if (arrivoFilter && (participant.data_arrivo ?? "") !== arrivoFilter) {
         return false;
       }
@@ -254,13 +261,13 @@ export function ParticipantsTable({
         sortKey === "quota_totale"
           ? a.quota_totale ?? -Infinity
           : sortKey === "created_at"
-            ? a.created_at ?? ""
+            ? new Date(a.created_at ?? "").getTime() || -Infinity
             : (a[sortKey] ?? "").toString().toLowerCase();
       const bValue =
         sortKey === "quota_totale"
           ? b.quota_totale ?? -Infinity
           : sortKey === "created_at"
-            ? b.created_at ?? ""
+            ? new Date(b.created_at ?? "").getTime() || -Infinity
             : (b[sortKey] ?? "").toString().toLowerCase();
 
       if (aValue < bValue) return -1 * direction;
@@ -279,7 +286,9 @@ export function ParticipantsTable({
     partenzaFilter,
     quotaMaxFilter,
     quotaMinFilter,
+    registrationDateFilter,
     showGroupColumn,
+    showRegistrationDate,
     sortDirection,
     sortKey,
     showTotalFee,
@@ -377,6 +386,7 @@ export function ParticipantsTable({
     setGroupFilter("");
     setNomeFilter("");
     setCognomeFilter("");
+    setRegistrationDateFilter("");
     setArrivoFilter("");
     setPartenzaFilter("");
     setAlloggioFilter("");
@@ -501,13 +511,6 @@ export function ParticipantsTable({
                     {t("participants.table.header.lastName")} {sortLabel("cognome")}
                   </button>
                 </th>
-                {showRegistrationDate && (
-                  <th className="px-4 py-3">
-                    <button type="button" onClick={() => toggleSort("created_at")}>
-                      {t("participants.table.header.registrationDate")} {sortLabel("created_at")}
-                    </button>
-                  </th>
-                )}
                 <th className="px-4 py-3">
                   <button type="button" onClick={() => toggleSort("data_arrivo")}>
                     {t("participants.table.header.arrivalDate")} {sortLabel("data_arrivo")}
@@ -527,6 +530,13 @@ export function ParticipantsTable({
                   <th className="px-4 py-3">
                     <button type="button" onClick={() => toggleSort("quota_totale")}>
                       {t("participants.table.header.totalFee")} {sortLabel("quota_totale")}
+                    </button>
+                  </th>
+                )}
+                {showRegistrationDate && (
+                  <th className="px-4 py-3">
+                    <button type="button" onClick={() => toggleSort("created_at")}>
+                      {t("participants.table.header.registrationDate")} {sortLabel("created_at")}
                     </button>
                   </th>
                 )}
@@ -559,7 +569,6 @@ export function ParticipantsTable({
                     className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
                   />
                 </th>
-                {showRegistrationDate && <th className="px-2 pb-3" />}
                 <th className="px-2 pb-3">
                   <input
                     type="date"
@@ -610,6 +619,16 @@ export function ParticipantsTable({
                     </div>
                   </th>
                 )}
+                {showRegistrationDate && (
+                  <th className="px-2 pb-3">
+                    <input
+                      type="date"
+                      value={registrationDateFilter}
+                      onChange={(e) => setRegistrationDateFilter(e.target.value)}
+                      className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
+                    />
+                  </th>
+                )}
                 <th className="px-2 pb-3">
                   <button
                     type="button"
@@ -639,11 +658,6 @@ export function ParticipantsTable({
                     )}
                     <td className="px-4 py-3">{participant.nome || "-"}</td>
                     <td className="px-4 py-3">{participant.cognome || "-"}</td>
-                    {showRegistrationDate && (
-                      <td className="px-4 py-3">
-                        {displayRegistrationDate(participant.created_at)}
-                      </td>
-                    )}
                     <td className="px-4 py-3">
                       {displayDate(
                         participant.data_arrivo,
@@ -664,6 +678,11 @@ export function ParticipantsTable({
                         {participant.quota_totale === null
                           ? "-"
                           : `EUR ${participant.quota_totale}`}
+                      </td>
+                    )}
+                    {showRegistrationDate && (
+                      <td className="px-4 py-3">
+                        {displayRegistrationDate(participant.created_at)}
                       </td>
                     )}
                     <td className="px-4 py-3">
