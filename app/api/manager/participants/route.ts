@@ -18,6 +18,7 @@ type ParticipantRow = {
   created_at: string | null;
   nome: string | null;
   cognome: string | null;
+  citta: string | null;
   paese_residenza: string | null;
   nazione: string | null;
   email: string | null;
@@ -36,8 +37,9 @@ type ParticipantRow = {
   gruppo_label: string | null;
 };
 
-const SELECT_FIELDS =
+const SELECT_FIELDS_BASE =
   "id,created_at,nome,cognome,paese_residenza,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label";
+const SELECT_FIELDS_WITH_CITY = `${SELECT_FIELDS_BASE},citta:città`;
 
 const esigenzeSet = new Set<string>(ESIGENZE_ALIMENTARI_OPTIONS);
 const difficoltaSet = new Set<string>(DIFFICOLTA_ACCESSIBILITA_OPTIONS);
@@ -154,11 +156,30 @@ async function requireManagerContext() {
 
 async function loadAllParticipants() {
   const service = createSupabaseServiceClient();
-  const { data, error } = await service
-    .from("partecipanti")
-    .select(SELECT_FIELDS)
-    .order("cognome", { ascending: true })
-    .order("nome", { ascending: true });
+  const executeSelect = async (selectFields: string) =>
+    service
+      .from("partecipanti")
+      .select(selectFields)
+      .order("cognome", { ascending: true })
+      .order("nome", { ascending: true });
+
+  let { data, error } = await executeSelect(SELECT_FIELDS_WITH_CITY);
+  if (error) {
+    const code = error.code ?? "";
+    const message = (error.message ?? "").toLowerCase();
+    const canFallback =
+      ["42703", "PGRST100", "PGRST204"].includes(code) ||
+      message.includes("column") ||
+      message.includes("parse");
+
+    if (!canFallback) {
+      throw new Error(error.message);
+    }
+
+    const fallback = await executeSelect(SELECT_FIELDS_BASE);
+    data = fallback.data;
+    error = fallback.error;
+  }
 
   if (error) {
     throw new Error(error.message);
@@ -222,7 +243,7 @@ export async function PATCH(req: Request) {
 
   const { data: participant, error: participantError } = await auth.service
     .from("partecipanti")
-    .select(SELECT_FIELDS)
+    .select(SELECT_FIELDS_BASE)
     .eq("id", participantId)
     .maybeSingle();
 
@@ -373,7 +394,7 @@ export async function PATCH(req: Request) {
       is_minorenne: calculated.isMinorenne,
     })
     .eq("id", participantId)
-    .select(SELECT_FIELDS)
+    .select(SELECT_FIELDS_BASE)
     .single();
 
   if (updateError) {

@@ -12,6 +12,7 @@ type ParticipantStatRow = {
   id: string;
   nome: string | null;
   cognome: string | null;
+  citta: string | null;
   email: string | null;
   tipo_iscrizione: string | null;
   paese_residenza: string | null;
@@ -62,8 +63,9 @@ const ENROLLMENT_BUCKET_LABEL_KEYS: Record<EnrollmentBucket, string> = {
   Operator: "enrollment.bucket.operator",
 };
 
-const SELECT_FIELDS =
+const SELECT_FIELDS_BASE =
   "id,nome,cognome,email,tipo_iscrizione,paese_residenza,nazione,gruppo_label,gruppo_id,data_arrivo,data_partenza,alloggio_short,alloggio,created_at";
+const SELECT_FIELDS_WITH_CITY = `${SELECT_FIELDS_BASE},citta:città`;
 const CURRENT_EVENT_DATE = "2026-10-28";
 const HISTORY_FILES = ["history_2023.csv", "history_2024.csv", "history_2025.csv"] as const;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -112,6 +114,11 @@ function sortedLabels(values: Set<string>): string[] {
     if (b === "-") return -1;
     return a.localeCompare(b);
   });
+}
+
+function isItalyCountry(value: string | null | undefined): boolean {
+  const normalized = (value ?? "").trim().toLowerCase();
+  return normalized === "italia" || normalized === "italy";
 }
 
 function parseDateOnly(value: string): Date | null {
@@ -819,40 +826,70 @@ function RegistrationTrendSection({
   );
 }
 
-export default async function ManagerStatisticsPage() {
+export async function StatisticsDashboard({
+  publicView = false,
+}: {
+  publicView?: boolean;
+} = {}) {
   const { t } = await getServerTranslator();
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return (
-      <section className="rounded border border-red-200 bg-red-50 p-6">
-        <h2 className="text-xl font-bold text-red-800">{t("manager.statistics.title")}</h2>
-        <p className="mt-2 text-sm text-red-700">{t("common.errorUnauthorized")}</p>
-      </section>
-    );
-  }
-
   const service = createSupabaseServiceClient();
-  const email = (user.email ?? "").trim().toLowerCase();
-  const { data: profile, error: profileError } = await service
-    .from("profili")
-    .select("ruolo")
-    .ilike("email", email)
-    .in("ruolo", ["manager", "admin"]);
+  if (!publicView) {
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  if (profileError || !profile || profile.length === 0) {
-    return (
-      <section className="rounded border border-red-200 bg-red-50 p-6">
-        <h2 className="text-xl font-bold text-red-800">{t("manager.statistics.title")}</h2>
-        <p className="mt-2 text-sm text-red-700">{t("common.errorForbidden")}</p>
-      </section>
-    );
+    if (!user) {
+      return (
+        <section className="rounded border border-red-200 bg-red-50 p-6">
+          <h2 className="text-xl font-bold text-red-800">{t("manager.statistics.title")}</h2>
+          <p className="mt-2 text-sm text-red-700">{t("common.errorUnauthorized")}</p>
+        </section>
+      );
+    }
+
+    const email = (user.email ?? "").trim().toLowerCase();
+    const { data: profile, error: profileError } = await service
+      .from("profili")
+      .select("ruolo")
+      .ilike("email", email)
+      .in("ruolo", ["manager", "admin"]);
+
+    if (profileError || !profile || profile.length === 0) {
+      return (
+        <section className="rounded border border-red-200 bg-red-50 p-6">
+          <h2 className="text-xl font-bold text-red-800">{t("manager.statistics.title")}</h2>
+          <p className="mt-2 text-sm text-red-700">{t("common.errorForbidden")}</p>
+        </section>
+      );
+    }
   }
 
-  const { data, error } = await service.from("partecipanti").select(SELECT_FIELDS);
+  const executeSelect = async (selectFields: string) =>
+    service.from("partecipanti").select(selectFields);
+
+  let { data, error } = await executeSelect(SELECT_FIELDS_WITH_CITY);
+  if (error) {
+    const code = error.code ?? "";
+    const message = (error.message ?? "").toLowerCase();
+    const canFallback =
+      ["42703", "PGRST100", "PGRST204"].includes(code) ||
+      message.includes("column") ||
+      message.includes("parse");
+
+    if (!canFallback) {
+      return (
+        <section className="rounded border border-red-200 bg-red-50 p-6">
+          <h2 className="text-xl font-bold text-red-800">{t("manager.statistics.title")}</h2>
+          <p className="mt-2 text-sm text-red-700">{error.message}</p>
+        </section>
+      );
+    }
+
+    const fallback = await executeSelect(SELECT_FIELDS_BASE);
+    data = fallback.data;
+    error = fallback.error;
+  }
 
   if (error) {
     return (
@@ -864,40 +901,46 @@ export default async function ManagerStatisticsPage() {
   }
 
   const participants = (data ?? []) as ParticipantStatRow[];
-  const { data: leaderProfiles, error: leaderProfilesError } = await service
-    .from("profili")
-    .select("id")
-    .eq("ruolo", "capogruppo");
-
-  if (leaderProfilesError) {
-    return (
-      <section className="rounded border border-red-200 bg-red-50 p-6">
-        <h2 className="text-xl font-bold text-red-800">{t("manager.statistics.title")}</h2>
-        <p className="mt-2 text-sm text-red-700">{leaderProfilesError.message}</p>
-      </section>
-    );
-  }
-
-  const leaderIds = ((leaderProfiles ?? []) as ProfileRoleRow[]).map((profile) => profile.id);
   const leaderGroupIds = new Set<string>();
-  if (leaderIds.length > 0) {
-    const { data: links, error: linksError } = await service
-      .from("profili_gruppi")
-      .select("profilo_id,gruppo_id")
-      .in("profilo_id", leaderIds);
+  let duplicateCandidates: DuplicateCandidateRow[] = [];
+  let unassignedParticipants: ParticipantStatRow[] = [];
+  if (!publicView) {
+    const { data: leaderProfiles, error: leaderProfilesError } = await service
+      .from("profili")
+      .select("id")
+      .eq("ruolo", "capogruppo");
 
-    if (linksError) {
+    if (leaderProfilesError) {
       return (
         <section className="rounded border border-red-200 bg-red-50 p-6">
           <h2 className="text-xl font-bold text-red-800">{t("manager.statistics.title")}</h2>
-          <p className="mt-2 text-sm text-red-700">{linksError.message}</p>
+          <p className="mt-2 text-sm text-red-700">{leaderProfilesError.message}</p>
         </section>
       );
     }
 
-    for (const row of (links ?? []) as ProfileLinkRow[]) {
-      const groupId = (row.gruppo_id ?? "").trim();
-      if (groupId) leaderGroupIds.add(groupId);
+    const leaderIds = ((leaderProfiles ?? []) as ProfileRoleRow[]).map(
+      (profile) => profile.id
+    );
+    if (leaderIds.length > 0) {
+      const { data: links, error: linksError } = await service
+        .from("profili_gruppi")
+        .select("profilo_id,gruppo_id")
+        .in("profilo_id", leaderIds);
+
+      if (linksError) {
+        return (
+          <section className="rounded border border-red-200 bg-red-50 p-6">
+            <h2 className="text-xl font-bold text-red-800">{t("manager.statistics.title")}</h2>
+            <p className="mt-2 text-sm text-red-700">{linksError.message}</p>
+          </section>
+        );
+      }
+
+      for (const row of (links ?? []) as ProfileLinkRow[]) {
+        const groupId = (row.gruppo_id ?? "").trim();
+        if (groupId) leaderGroupIds.add(groupId);
+      }
     }
   }
 
@@ -944,43 +987,63 @@ export default async function ManagerStatisticsPage() {
       total: ENROLLMENT_BUCKETS.reduce((acc, bucket) => acc + counts[bucket], 0),
     };
   });
+  const italianParticipants = participants.filter((participant) =>
+    isItalyCountry(participant.paese_residenza)
+  );
+  const byItalianCity = new Map<string, Record<EnrollmentBucket, number>>();
+  for (const participant of italianParticipants) {
+    const city = (participant.citta ?? "").trim();
+    if (!city) continue;
+    const bucket = mapEnrollmentBucket(participant.tipo_iscrizione);
+    if (!bucket) continue;
+    const current = byItalianCity.get(city) ?? createEmptyBucketCounts();
+    current[bucket] += 1;
+    byItalianCity.set(city, current);
+  }
+  const italianCityRows = sortedLabels(new Set(byItalianCity.keys())).map((city) => {
+    const counts = byItalianCity.get(city) ?? createEmptyBucketCounts();
+    return {
+      label: city,
+      counts,
+      total: ENROLLMENT_BUCKETS.reduce((acc, bucket) => acc + counts[bucket], 0),
+    };
+  });
   let trendSeries: TrendSeries | null = null;
   try {
     trendSeries = await buildTrendSeries(participants);
   } catch {
     trendSeries = null;
   }
-  const unassignedParticipants = buildUnassignedParticipants(
-    participants,
-    leaderGroupIds
-  );
-  const { data: falsePositiveRows, error: falsePositiveError } = await service
-    .from("duplicate_false_positives")
-    .select("participant_a_id,participant_b_id");
+  if (!publicView) {
+    unassignedParticipants = buildUnassignedParticipants(participants, leaderGroupIds);
+    const { data: falsePositiveRows, error: falsePositiveError } = await service
+      .from("duplicate_false_positives")
+      .select("participant_a_id,participant_b_id");
 
-  if (falsePositiveError && falsePositiveError.code !== "42P01") {
-    return (
-      <section className="rounded border border-red-200 bg-red-50 p-6">
-        <h2 className="text-xl font-bold text-red-800">{t("manager.statistics.title")}</h2>
-        <p className="mt-2 text-sm text-red-700">{falsePositiveError.message}</p>
-      </section>
+    if (falsePositiveError && falsePositiveError.code !== "42P01") {
+      return (
+        <section className="rounded border border-red-200 bg-red-50 p-6">
+          <h2 className="text-xl font-bold text-red-800">{t("manager.statistics.title")}</h2>
+          <p className="mt-2 text-sm text-red-700">{falsePositiveError.message}</p>
+        </section>
+      );
+    }
+
+    const ignoredPairKeys = new Set(
+      ((falsePositiveRows ?? []) as FalsePositiveRow[])
+        .map((row) => {
+          const a = (row.participant_a_id ?? "").trim();
+          const b = (row.participant_b_id ?? "").trim();
+          if (!a || !b) return "";
+          return makePairKey(a, b);
+        })
+        .filter(Boolean)
+    );
+    duplicateCandidates = applyIgnoredDuplicatePairs(
+      buildDuplicateCandidates(participants),
+      ignoredPairKeys
     );
   }
-
-  const ignoredPairKeys = new Set(
-    ((falsePositiveRows ?? []) as FalsePositiveRow[])
-      .map((row) => {
-        const a = (row.participant_a_id ?? "").trim();
-        const b = (row.participant_b_id ?? "").trim();
-        if (!a || !b) return "";
-        return makePairKey(a, b);
-      })
-      .filter(Boolean)
-  );
-  const duplicateCandidates = applyIgnoredDuplicatePairs(
-    buildDuplicateCandidates(participants),
-    ignoredPairKeys
-  );
 
   return (
     <section className="space-y-6">
@@ -1007,12 +1070,14 @@ export default async function ManagerStatisticsPage() {
             <a href="#daily-presence" className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
               {t("manager.statistics.dailyPresence")}
             </a>
-            <a
-              href="#duplicates-non-associated"
-              className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50"
-            >
-              {t("manager.duplicates.section")}
-            </a>
+            {!publicView && (
+              <a
+                href="#duplicates-non-associated"
+                className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50"
+              >
+                {t("manager.duplicates.section")}
+              </a>
+            )}
           </nav>
         </aside>
 
@@ -1041,19 +1106,26 @@ export default async function ManagerStatisticsPage() {
             buckets={ENROLLMENT_BUCKETS}
             countryRows={countryRows}
             groupRows={groupRows}
+            italianCityRows={italianCityRows}
           />
 
           <DailyPresenceSection participants={participants} />
 
           <RegistrationTrendSection series={trendSeries} t={t} />
 
-          <DuplicateAndUnassignedSection
-            duplicateCandidates={duplicateCandidates}
-            unassignedParticipants={unassignedParticipants}
-            t={t}
-          />
+          {!publicView && (
+            <DuplicateAndUnassignedSection
+              duplicateCandidates={duplicateCandidates}
+              unassignedParticipants={unassignedParticipants}
+              t={t}
+            />
+          )}
         </div>
       </div>
     </section>
   );
+}
+
+export default async function ManagerStatisticsPage() {
+  return StatisticsDashboard({ publicView: false });
 }

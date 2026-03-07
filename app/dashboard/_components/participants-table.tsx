@@ -17,6 +17,8 @@ type Participant = {
   created_at: string | null;
   nome: string | null;
   cognome: string | null;
+  citta: string | null;
+  paese_residenza: string | null;
   nazione: string | null;
   email: string | null;
   telefono: string | null;
@@ -169,6 +171,24 @@ function accessibilityOptionLabel(option: string, t: (key: string) => string) {
   return option;
 }
 
+function normalizeFilterText(value: string | null | undefined) {
+  if (!value) return "";
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function isRomaParticipant(participant: Participant) {
+  const candidates = [
+    normalizeFilterText(participant.citta),
+    normalizeFilterText(participant.paese_residenza),
+    normalizeFilterText(participant.group),
+  ];
+  return candidates.some((value) => value.includes("roma"));
+}
+
 export function ParticipantsTable({
   apiBasePath,
   groupSummaryLabel,
@@ -198,6 +218,7 @@ export function ParticipantsTable({
   const [alloggioFilter, setAlloggioFilter] = useState("");
   const [quotaMinFilter, setQuotaMinFilter] = useState("");
   const [quotaMaxFilter, setQuotaMaxFilter] = useState("");
+  const [onlyRoma, setOnlyRoma] = useState(false);
 
   const editingParticipant = useMemo(
     () => participants.find((participant) => participant.id === editingId) ?? null,
@@ -252,6 +273,9 @@ export function ParticipantsTable({
           return false;
         }
       }
+      if (onlyRoma && !isRomaParticipant(participant)) {
+        return false;
+      }
       return true;
     });
 
@@ -283,6 +307,7 @@ export function ParticipantsTable({
     groupFilter,
     nomeFilter,
     participants,
+    onlyRoma,
     partenzaFilter,
     quotaMaxFilter,
     quotaMinFilter,
@@ -468,7 +493,7 @@ export function ParticipantsTable({
   }
 
   if (loading) {
-    return (
+  return (
       <div className="rounded border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
         {t("common.loadingParticipants")}
       </div>
@@ -483,12 +508,25 @@ export function ParticipantsTable({
     );
   }
 
-  return (
+    return (
     <>
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <p className="text-sm text-slate-500">
           {groupSummaryLabel}: {groups.length > 0 ? groups.join(", ") : t("participants.table.noGroup")}
         </p>
+        <div className="mt-3 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setOnlyRoma((prev) => !prev)}
+            className={`rounded border px-3 py-1.5 text-xs font-medium transition ${
+              onlyRoma
+                ? "border-indigo-600 bg-indigo-600 text-white"
+                : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
+            }`}
+          >
+            Roma
+          </button>
+        </div>
 
         <div className="mt-4 overflow-x-auto rounded border border-slate-200">
           <table className="w-full border-collapse text-left text-sm">
