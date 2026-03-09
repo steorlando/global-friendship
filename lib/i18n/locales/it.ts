@@ -140,6 +140,8 @@ const it: TranslationDictionary = {
   "participants.table.modal.cancel": "Annulla",
   "participants.table.modal.saving": "Salvataggio...",
   "manager.statistics.sections": "Sezioni",
+  "manager.statistics.openSections": "Apri",
+  "manager.statistics.closeSections": "Chiudi",
   "manager.statistics.counters": "Contatori",
   "manager.statistics.registrations": "Registrazioni",
   "manager.statistics.trend": "Andamento",

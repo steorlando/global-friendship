@@ -163,6 +163,8 @@ const en: TranslationDictionary = {
 
   "manager.email.title": "Email Campaigns",
   "manager.statistics.sections": "Sections",
+  "manager.statistics.openSections": "Open",
+  "manager.statistics.closeSections": "Close",
   "manager.statistics.counters": "Counters",
   "manager.statistics.registrations": "Registrations",
   "manager.statistics.trend": "Trend",

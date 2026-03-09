@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { DailyPresenceSection } from "./daily-presence-section";
 import { RegistrationsTabsSection } from "./registrations-tabs-section";
+import { StatisticsSectionsSidebar } from "./statistics-sections-sidebar";
 import { getServerTranslator } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
@@ -1052,34 +1053,20 @@ export async function StatisticsDashboard({
         <p className="mt-2 text-sm text-slate-500">{t("manager.statistics.subtitle")}</p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
-        <aside className="h-max rounded-xl border border-slate-200 bg-white p-4 shadow-sm lg:sticky lg:top-6">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            {t("manager.statistics.sections")}
-          </p>
-          <nav className="mt-3 flex flex-col gap-2 text-sm">
-            <a href="#top-counters" className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
-              {t("manager.statistics.counters")}
-            </a>
-            <a href="#registrations" className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
-              {t("manager.statistics.registrations")}
-            </a>
-            <a href="#trend" className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
-              {t("manager.statistics.trend")}
-            </a>
-            <a href="#daily-presence" className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
-              {t("manager.statistics.dailyPresence")}
-            </a>
-            {!publicView && (
-              <a
-                href="#duplicates-non-associated"
-                className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50"
-              >
-                {t("manager.duplicates.section")}
-              </a>
-            )}
-          </nav>
-        </aside>
+      <div className="grid gap-6 lg:grid-cols-[auto_minmax(0,1fr)] lg:items-start">
+        <StatisticsSectionsSidebar
+          labels={{
+            title: t("manager.statistics.sections"),
+            counters: t("manager.statistics.counters"),
+            registrations: t("manager.statistics.registrations"),
+            trend: t("manager.statistics.trend"),
+            dailyPresence: t("manager.statistics.dailyPresence"),
+            duplicates: t("manager.duplicates.section"),
+            open: t("manager.statistics.openSections"),
+            close: t("manager.statistics.closeSections"),
+          }}
+          includeDuplicates={!publicView}
+        />
 
         <div className="space-y-6">
           <section id="top-counters" className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -1102,14 +1089,16 @@ export async function StatisticsDashboard({
             </div>
           </section>
 
-          <RegistrationsTabsSection
-            buckets={ENROLLMENT_BUCKETS}
-            countryRows={countryRows}
-            groupRows={groupRows}
-            italianCityRows={italianCityRows}
-          />
+          <div className="grid gap-6 xl:grid-cols-2">
+            <RegistrationsTabsSection
+              buckets={ENROLLMENT_BUCKETS}
+              countryRows={countryRows}
+              groupRows={groupRows}
+              italianCityRows={italianCityRows}
+            />
 
-          <DailyPresenceSection participants={participants} />
+            <DailyPresenceSection participants={participants} />
+          </div>
 
           <RegistrationTrendSection series={trendSeries} t={t} />
 
