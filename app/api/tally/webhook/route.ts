@@ -3,6 +3,11 @@ import { NextResponse } from "next/server";
 import { computeParticipantCalculatedFields } from "@/lib/tally/calculated-fields";
 import { sendGmailTextEmail } from "@/lib/email/gmail";
 import { loadEmailSenderRuntimeSettings } from "@/lib/email/settings";
+import {
+  buildParticipantRegistrationConfirmationSubject,
+  buildParticipantRegistrationConfirmationText,
+  type ParticipantRegistrationConfirmationData,
+} from "@/lib/email/participant-registration-confirmation-template";
 import { alloggioLongToShort } from "@/lib/partecipante/constants";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
@@ -85,7 +90,40 @@ type GroupRow = {
 
 type SupabaseServiceClient = ReturnType<typeof createSupabaseServiceClient>;
 type SupabaseErrorLike = { code?: string | null; message?: string | null };
-type SupabaseWriteResult = { error: SupabaseErrorLike | null };
+type SupabaseWriteResult = {
+  data?: ParticipantPersistedRow | null;
+  error: SupabaseErrorLike | null;
+};
+
+type ParticipantPersistedRow = {
+  id?: string | null;
+  nome?: string | null;
+  cognome?: string | null;
+  email?: string | null;
+  email_secondaria?: string | null;
+  telefono?: string | null;
+  nazione?: string | null;
+  paese_residenza?: string | null;
+  "città"?: string | null;
+  tipo_iscrizione?: string | null;
+  sesso?: string | null;
+  data_nascita?: string | null;
+  data_arrivo?: string | null;
+  data_partenza?: string | null;
+  alloggio?: string | null;
+  alloggio_short?: string | null;
+  esigenze_alimentari?: string | null;
+  allergie?: string | null;
+  disabilita_accessibilita?: boolean | null;
+  difficolta_accessibilita?: string | null;
+  partecipa_intero_evento?: boolean | null;
+  presenza_dettaglio?: Record<string, unknown> | null;
+  gruppo_id?: string | null;
+  gruppo_label?: string | null;
+  note?: string | null;
+  tally_submission_id?: string | null;
+  tally_respondent_id?: string | null;
+};
 
 type TallyPayload = Record<string, unknown> & {
   data?: {
@@ -872,6 +910,207 @@ async function participantExistsBySubmissionId(
   return Boolean(data?.id);
 }
 
+function toParticipantConfirmationData(
+  row: ParticipantPersistedRow
+): ParticipantRegistrationConfirmationData {
+  const presenzaDettaglio =
+    row.presenza_dettaglio && typeof row.presenza_dettaglio === "object"
+      ? row.presenza_dettaglio
+      : null;
+
+  return {
+    nome: normalize(row.nome) || null,
+    cognome: normalize(row.cognome) || null,
+    email: normalize(row.email) || null,
+    emailSecondaria: normalize(row.email_secondaria) || null,
+    telefono: normalize(row.telefono) || null,
+    nazione: normalize(row.nazione) || null,
+    paeseResidenza: normalize(row.paese_residenza) || null,
+    citta: normalize(row["città"]) || null,
+    tipoIscrizione: normalize(row.tipo_iscrizione) || null,
+    sesso: normalize(row.sesso) || null,
+    dataNascita: normalize(row.data_nascita) || null,
+    dataArrivo: normalize(row.data_arrivo) || null,
+    dataPartenza: normalize(row.data_partenza) || null,
+    alloggio: normalize(row.alloggio_short || row.alloggio) || null,
+    esigenzeAlimentari: normalize(row.esigenze_alimentari) || null,
+    allergie: normalize(row.allergie) || null,
+    disabilitaAccessibilita:
+      typeof row.disabilita_accessibilita === "boolean"
+        ? row.disabilita_accessibilita
+        : null,
+    difficoltaAccessibilita: normalize(row.difficolta_accessibilita) || null,
+    partecipaInteroEvento:
+      typeof row.partecipa_intero_evento === "boolean"
+        ? row.partecipa_intero_evento
+        : null,
+    presenzaDettaglio,
+    gruppoId: normalize(row.gruppo_id) || null,
+    gruppoLabel: normalize(row.gruppo_label) || null,
+    note: normalize(row.note) || null,
+  };
+}
+
+async function loadPersistedParticipantForNotification(args: {
+  supabase: SupabaseServiceClient;
+  tallySubmissionId: string;
+  tallyRespondentId: string;
+  email: string;
+}): Promise<ParticipantPersistedRow | null> {
+  const submissionId = normalize(args.tallySubmissionId);
+  if (submissionId) {
+    const { data, error } = await args.supabase
+      .from("partecipanti")
+      .select("*")
+      .eq("tally_submission_id", submissionId)
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Unable to load participant by submission id: ${error.message}`);
+    }
+    if (data) return data as ParticipantPersistedRow;
+  }
+
+  const respondentId = normalize(args.tallyRespondentId);
+  if (respondentId) {
+    const { data, error } = await args.supabase
+      .from("partecipanti")
+      .select("*")
+      .eq("tally_respondent_id", respondentId)
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Unable to load participant by respondent id: ${error.message}`);
+    }
+    if (data) return data as ParticipantPersistedRow;
+  }
+
+  const email = normalize(args.email).toLowerCase();
+  if (!email) return null;
+
+  const { data, error } = await args.supabase
+    .from("partecipanti")
+    .select("*")
+    .ilike("email", email)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Unable to load participant by email: ${error.message}`);
+  }
+  return data ? (data as ParticipantPersistedRow) : null;
+}
+
+async function loadSuccessfulParticipantNotificationEmails(
+  supabase: SupabaseServiceClient,
+  notificationKey: string
+): Promise<{ dedupeAvailable: boolean; sentEmails: Set<string> }> {
+  const { data, error } = await supabase
+    .from("webhook_events")
+    .select("email")
+    .eq("source", "tally")
+    .eq("event_type", "participant_registration_confirmation")
+    .eq("status", "success")
+    .eq("submission_id", notificationKey);
+
+  if (error) {
+    const code = error.code ?? "";
+    if (WEBHOOK_EVENT_MISSING_TABLE_CODES.has(code)) {
+      return { dedupeAvailable: false, sentEmails: new Set<string>() };
+    }
+    throw new Error(`Unable to check participant notification history: ${error.message}`);
+  }
+
+  const sentEmails = new Set(
+    (data ?? [])
+      .map((row) => normalize(row.email).toLowerCase())
+      .filter(Boolean)
+  );
+
+  return { dedupeAvailable: true, sentEmails };
+}
+
+async function notifyParticipantAboutRegistration(args: {
+  supabase: SupabaseServiceClient;
+  participant: ParticipantPersistedRow | null;
+  notificationKey: string;
+  payload: unknown;
+  respondentId: string;
+  duplicateSubmission: boolean;
+}): Promise<{ sent: number; skipped: number }> {
+  const participantEmail = normalize(args.participant?.email).toLowerCase();
+  if (!participantEmail) return { sent: 0, skipped: 1 };
+
+  const { dedupeAvailable, sentEmails } = await loadSuccessfulParticipantNotificationEmails(
+    args.supabase,
+    args.notificationKey
+  );
+
+  if (args.duplicateSubmission && !dedupeAvailable) {
+    console.warn(
+      "Duplicate submission detected but participant notification dedupe storage is unavailable; skipping participant email."
+    );
+    return { sent: 0, skipped: 1 };
+  }
+
+  if (sentEmails.has(participantEmail)) {
+    return { sent: 0, skipped: 1 };
+  }
+
+  const senderSettings = await loadEmailSenderRuntimeSettings(args.supabase);
+  const participantData = toParticipantConfirmationData(args.participant ?? {});
+  const subject = buildParticipantRegistrationConfirmationSubject(participantData);
+  const text = buildParticipantRegistrationConfirmationText(participantData);
+
+  try {
+    await sendGmailTextEmail(
+      {
+        to: participantEmail,
+        subject,
+        text,
+        from: senderSettings.senderEmail,
+      },
+      {
+        gmailUser: senderSettings.gmailUser,
+        gmailAppPassword: senderSettings.gmailAppPassword,
+        senderEmail: senderSettings.senderEmail,
+      }
+    );
+
+    await logWebhookEvent(args.supabase, {
+      eventType: "participant_registration_confirmation",
+      submissionId: args.notificationKey,
+      respondentId: args.respondentId,
+      email: participantEmail,
+      status: "success",
+      payload: args.payload,
+      normalized: {
+        participantId: normalize(args.participant?.id) || null,
+      },
+    });
+
+    return { sent: 1, skipped: 0 };
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "Send failed";
+    await logWebhookEvent(args.supabase, {
+      eventType: "participant_registration_confirmation",
+      submissionId: args.notificationKey,
+      respondentId: args.respondentId,
+      email: participantEmail,
+      status: "error",
+      errorCode: "500",
+      errorMessage: reason,
+      payload: args.payload,
+      normalized: {
+        participantId: normalize(args.participant?.id) || null,
+      },
+    });
+    throw new Error(`Unable to send participant confirmation email: ${reason}`);
+  }
+}
+
 function normalizeSubmission(
   payload: TallyPayload,
   answers: Record<string, string>
@@ -1156,12 +1395,14 @@ async function handlePost(req: Request) {
   }
 
   let insertResult: SupabaseWriteResult = { error: null };
+  let persistedParticipant: ParticipantPersistedRow | null = null;
   if (!duplicateSubmission) {
     insertResult = await supabase
       .from("partecipanti")
       .insert(fullInsert)
-      .select("id")
+      .select("*")
       .single();
+    persistedParticipant = (insertResult.data ?? null) as ParticipantPersistedRow | null;
   }
 
   if (insertResult.error) {
@@ -1192,8 +1433,9 @@ async function handlePost(req: Request) {
           tally_respondent_id: normalized.tallyRespondentId || null,
           dati_tally: payload,
         })
-        .select("id")
+        .select("*")
         .single();
+      persistedParticipant = (insertResult.data ?? null) as ParticipantPersistedRow | null;
     }
   }
 
@@ -1235,6 +1477,15 @@ async function handlePost(req: Request) {
     }
   }
 
+  if (!persistedParticipant) {
+    persistedParticipant = await loadPersistedParticipantForNotification({
+      supabase,
+      tallySubmissionId: normalized.tallySubmissionId || submissionId,
+      tallyRespondentId: normalized.tallyRespondentId || respondentId,
+      email: normalized.email,
+    });
+  }
+
   try {
     await notifyGroupLeadersAboutRegistration({
       supabase,
@@ -1257,6 +1508,35 @@ async function handlePost(req: Request) {
       respondentId,
       email: normalized.email,
       status: "notification_error",
+      errorCode: "500",
+      errorMessage: reason,
+      payload,
+      normalized: { ...normalized, gruppoId, notificationKey, duplicateSubmission },
+    });
+
+    return NextResponse.json({ error: reason }, { status: 500 });
+  }
+
+  try {
+    await notifyParticipantAboutRegistration({
+      supabase,
+      participant: persistedParticipant,
+      notificationKey,
+      payload,
+      respondentId,
+      duplicateSubmission,
+    });
+  } catch (notificationError) {
+    const reason =
+      notificationError instanceof Error
+        ? notificationError.message
+        : "Unable to notify participant";
+
+    await logWebhookEvent(supabase, {
+      submissionId,
+      respondentId,
+      email: normalized.email,
+      status: "participant_notification_error",
       errorCode: "500",
       errorMessage: reason,
       payload,
