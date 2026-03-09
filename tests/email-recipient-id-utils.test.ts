@@ -132,12 +132,12 @@ test("participant registration confirmation email includes key summary and edit 
   );
 });
 
-test("participant registration confirmation email omits empty optional fields", () => {
+test("participant registration confirmation email omits secondary email and cleans malformed accessibility details", () => {
   const text = buildParticipantRegistrationConfirmationText({
     nome: "Anna",
     cognome: "Bianchi",
     email: "anna@example.com",
-    emailSecondaria: "",
+    emailSecondaria: "anna.secondary@example.com",
     telefono: "",
     nazione: "",
     paeseResidenza: "",
@@ -151,7 +151,8 @@ test("participant registration confirmation email omits empty optional fields", 
     esigenzeAlimentari: "",
     allergie: "",
     disabilitaAccessibilita: null,
-    difficoltaAccessibilita: "",
+    difficoltaAccessibilita:
+      "Difficulty seeing, even when wearing glasses, Select all that apply) (Difficulty seeing, even when wearing glasses",
     partecipaInteroEvento: null,
     presenzaDettaglio: null,
     gruppoId: "",
@@ -162,4 +163,10 @@ test("participant registration confirmation email omits empty optional fields", 
   assert.ok(!text.includes("Secondary email:"));
   assert.ok(!text.includes("Phone:"));
   assert.ok(!text.includes("Group:"));
+  assert.ok(
+    text.includes(
+      "- Accessibility details: Difficulty seeing, even when wearing glasses"
+    )
+  );
+  assert.ok(!text.includes("Select all that apply"));
 });

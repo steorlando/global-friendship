@@ -53,6 +53,27 @@ function formatPresenceDettaglio(value: Record<string, unknown> | null): string 
   return entries.join(" | ");
 }
 
+function formatAccessibilityDetails(value: string | null | undefined): string {
+  const raw = clean(value);
+  if (!raw) return "";
+
+  const cleanedItems = raw
+    .split(",")
+    .map((item) => {
+      const normalized = clean(item);
+      return clean(
+        normalized
+          .replace(/^Select all that apply\)\s*/i, "")
+          .replace(/^Select all that apply\s*/i, "")
+          .replace(/^\(\s*/, "")
+          .replace(/\s*\)\s*$/, "")
+      );
+    })
+    .filter(Boolean);
+
+  return [...new Set(cleanedItems)].join(", ");
+}
+
 function addSummaryLine(lines: string[], label: string, value: string) {
   const normalized = clean(value);
   if (!normalized) return;
@@ -81,7 +102,6 @@ export function buildParticipantRegistrationConfirmationText(
   addSummaryLine(summaryLines, "First name", data.nome ?? "");
   addSummaryLine(summaryLines, "Last name", data.cognome ?? "");
   addSummaryLine(summaryLines, "Email", data.email ?? "");
-  addSummaryLine(summaryLines, "Secondary email", data.emailSecondaria ?? "");
   addSummaryLine(summaryLines, "Phone", data.telefono ?? "");
   addSummaryLine(summaryLines, "Nationality", data.nazione ?? "");
   addSummaryLine(summaryLines, "Country of residence", data.paeseResidenza ?? "");
@@ -102,7 +122,7 @@ export function buildParticipantRegistrationConfirmationText(
   addSummaryLine(
     summaryLines,
     "Accessibility details",
-    data.difficoltaAccessibilita ?? ""
+    formatAccessibilityDetails(data.difficoltaAccessibilita)
   );
   addSummaryLine(
     summaryLines,

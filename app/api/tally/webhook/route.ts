@@ -284,8 +284,12 @@ function collectCheckedOptions(
   );
   for (const { key, value } of prefixed) {
     if (parseBool(value) === true || normalize(value).toLowerCase() === "true") {
-      const match = key.match(/\((.*)\)\s*$/);
-      const choiceLabel = (match?.[1] ?? "").trim();
+      const openIdx = key.lastIndexOf("(");
+      const closeIdx = key.lastIndexOf(")");
+      const choiceLabel =
+        openIdx >= 0 && closeIdx > openIdx
+          ? key.slice(openIdx + 1, closeIdx).trim()
+          : "";
       if (choiceLabel) selected.add(choiceLabel);
     }
   }
