@@ -88,7 +88,7 @@ export function buildParticipantRegistrationConfirmationSubject(
   data: ParticipantRegistrationConfirmationData
 ): string {
   const name = fullName(data);
-  return name ? `Registration received: ${name}` : "Registration received";
+  return name ? `Global Friendship - Registration received: ${name}` : "Registration received";
 }
 
 export function buildParticipantRegistrationConfirmationText(
@@ -150,7 +150,8 @@ export function buildParticipantRegistrationConfirmationText(
     "https://portal.globalfriendship.eu",
     "",
     `To access and edit your data, use the same email address you registered with: ${clean(data.email) || "-"}`,
+    "You will receive a magic link in your inbox to access the data (please verify spam folder if you don't receive it.",
     "",
-    "Global Friendship",
+    "Global Friendship Team",
   ].join("\n");
 }

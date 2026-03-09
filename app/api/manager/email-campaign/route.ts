@@ -15,9 +15,9 @@ import {
   type GroupLeaderTemplateData,
 } from "@/lib/email/group-leader-template";
 import {
-  DIFFICOLTA_ACCESSIBILITA_OPTIONS,
   ESIGENZE_ALIMENTARI_OPTIONS,
   alloggioLongToShort,
+  parseStoredDifficoltaAccessibilita,
 } from "@/lib/partecipante/constants";
 
 type ParticipantRow = {
@@ -85,7 +85,6 @@ const MAX_TOTAL_BASE64_LENGTH = 20 * 1024 * 1024;
 const SEND_CONCURRENCY = 5;
 
 const esigenzeSet = new Set<string>(ESIGENZE_ALIMENTARI_OPTIONS);
-const difficoltaSet = new Set<string>(DIFFICOLTA_ACCESSIBILITA_OPTIONS);
 
 function normalizeText(value: unknown): string {
   if (typeof value !== "string") return "";
@@ -153,13 +152,7 @@ function parseStoredEsigenze(value: string | null): string[] {
     .filter((item) => item && esigenzeSet.has(item));
 }
 
-function parseStoredDifficolta(value: string | null): string[] {
-  if (!value) return [];
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter((item) => item && difficoltaSet.has(item));
-}
+const parseStoredDifficolta = parseStoredDifficoltaAccessibilita;
 
 function buildGroupLabel(row: ParticipantRow): string {
   const value = (row.gruppo_label ?? row.gruppo_id ?? "").trim();

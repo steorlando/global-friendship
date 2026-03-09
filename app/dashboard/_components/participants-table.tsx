@@ -32,11 +32,15 @@ type Participant = {
   difficolta_accessibilita: string[];
   quota_totale: number | null;
   group: string;
+  gruppo_roma?: string | null;
 };
 
 type FormState = {
   nome: string;
   cognome: string;
+  paese_residenza: string;
+  citta: string;
+  gruppo_roma: string;
   nazione: string;
   email: string;
   telefono: string;
@@ -67,11 +71,15 @@ type ParticipantsTableProps = {
   groupSummaryLabel: string;
   showRegistrationDate?: boolean;
   showTotalFee?: boolean;
+  canEditGroupAssignment?: boolean;
 };
 
 const EMPTY_FORM: FormState = {
   nome: "",
   cognome: "",
+  paese_residenza: "",
+  citta: "",
+  gruppo_roma: "",
   nazione: "",
   email: "",
   telefono: "",
@@ -86,9 +94,14 @@ const EMPTY_FORM: FormState = {
 };
 
 function toFormState(participant: Participant): FormState {
+  const citta = participant.citta ?? "";
+  const isRomaCity = normalizeFilterText(citta) === "roma";
   return {
     nome: participant.nome ?? "",
     cognome: participant.cognome ?? "",
+    paese_residenza: participant.paese_residenza ?? "",
+    citta,
+    gruppo_roma: isRomaCity ? participant.group ?? "" : "",
     nazione: participant.nazione ?? "",
     email: participant.email ?? "",
     telefono: participant.telefono ?? "",
@@ -194,6 +207,7 @@ export function ParticipantsTable({
   groupSummaryLabel,
   showRegistrationDate = false,
   showTotalFee = true,
+  canEditGroupAssignment = false,
 }: ParticipantsTableProps) {
   const { t } = useI18n();
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -224,6 +238,7 @@ export function ParticipantsTable({
     () => participants.find((participant) => participant.id === editingId) ?? null,
     [editingId, participants]
   );
+  const isRomaCityInForm = normalizeFilterText(form.citta) === "roma";
 
   const filteredSortedParticipants = useMemo(() => {
     const filtered = participants.filter((participant) => {
@@ -428,13 +443,17 @@ export function ParticipantsTable({
     setSuccess(null);
 
     try {
+      const payload: Record<string, unknown> = { id: editingId, ...form };
+      if (!canEditGroupAssignment) {
+        delete payload.paese_residenza;
+        delete payload.citta;
+        delete payload.gruppo_roma;
+      }
+
       const res = await fetch(apiBasePath, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: editingId,
-          ...form,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const json = await res.json();
@@ -789,6 +808,59 @@ export function ParticipantsTable({
                     className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
                   />
                 </div>
+
+                {canEditGroupAssignment && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700">
+                        {t("manager.registrations.country")}
+                      </label>
+                      <input
+                        value={form.paese_residenza}
+                        onChange={(e) =>
+                          setForm((prev) => ({ ...prev, paese_residenza: e.target.value }))
+                        }
+                        className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700">
+                        {t("manager.registrations.city")}
+                      </label>
+                      <input
+                        value={form.citta}
+                        onChange={(e) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            citta: e.target.value,
+                            gruppo_roma:
+                              normalizeFilterText(e.target.value) === "roma"
+                                ? prev.gruppo_roma
+                                : "",
+                          }))
+                        }
+                        className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
+                      />
+                    </div>
+
+                    {isRomaCityInForm && (
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-slate-700">
+                          {t("participant.form.group")}
+                        </label>
+                        <input
+                          value={form.gruppo_roma}
+                          onChange={(e) =>
+                            setForm((prev) => ({ ...prev, gruppo_roma: e.target.value }))
+                          }
+                          placeholder={t("participants.table.filter.group")}
+                          className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
+                        />
+                      </div>
+                    )}
+                  </>
+                )}
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700">{t("auth.login.email")}</label>

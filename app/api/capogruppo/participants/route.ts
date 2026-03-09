@@ -10,6 +10,7 @@ import {
   DIFFICOLTA_ACCESSIBILITA_OPTIONS,
   ESIGENZE_ALIMENTARI_OPTIONS,
   alloggioLongToShort,
+  parseStoredDifficoltaAccessibilita,
   alloggioShortToLong,
 } from "@/lib/partecipante/constants";
 
@@ -89,13 +90,7 @@ function normalizeEsigenze(value: unknown): string[] {
   return [];
 }
 
-function parseStoredDifficolta(value: string | null): string[] {
-  if (!value) return [];
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter((item) => item && difficoltaSet.has(item));
-}
+const parseStoredDifficolta = parseStoredDifficoltaAccessibilita;
 
 function parseStoredEsigenze(value: string | null): string[] {
   if (!value) return [];

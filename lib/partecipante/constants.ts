@@ -77,3 +77,14 @@ export const DIFFICOLTA_ACCESSIBILITA_OPTIONS = [
   "I need accessible accommodation",
   "I need assistance during the event",
 ] as const;
+
+export function parseStoredDifficoltaAccessibilita(
+  value: string | null | undefined
+): string[] {
+  if (!value) return [];
+  const normalized = value.toLowerCase();
+
+  return DIFFICOLTA_ACCESSIBILITA_OPTIONS.filter((option) =>
+    normalized.includes(option.toLowerCase())
+  );
+}

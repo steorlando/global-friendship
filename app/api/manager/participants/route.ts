@@ -10,6 +10,7 @@ import {
   DIFFICOLTA_ACCESSIBILITA_OPTIONS,
   ESIGENZE_ALIMENTARI_OPTIONS,
   alloggioLongToShort,
+  parseStoredDifficoltaAccessibilita,
   alloggioShortToLong,
 } from "@/lib/partecipante/constants";
 
@@ -40,6 +41,7 @@ type ParticipantRow = {
 const SELECT_FIELDS_BASE =
   "id,created_at,nome,cognome,paese_residenza,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label";
 const SELECT_FIELDS_WITH_CITY = `${SELECT_FIELDS_BASE},citta:città`;
+const GROUP_COLUMN_MISSING_CODES = new Set(["42703", "PGRST204", "PGRST116"]);
 
 const esigenzeSet = new Set<string>(ESIGENZE_ALIMENTARI_OPTIONS);
 const difficoltaSet = new Set<string>(DIFFICOLTA_ACCESSIBILITA_OPTIONS);
@@ -92,13 +94,7 @@ function normalizeEsigenze(value: unknown): string[] {
   return [];
 }
 
-function parseStoredDifficolta(value: string | null): string[] {
-  if (!value) return [];
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter((item) => item && difficoltaSet.has(item));
-}
+const parseStoredDifficolta = parseStoredDifficoltaAccessibilita;
 
 function parseStoredEsigenze(value: string | null): string[] {
   if (!value) return [];
@@ -111,6 +107,104 @@ function parseStoredEsigenze(value: string | null): string[] {
 function buildGroupLabel(row: ParticipantRow): string {
   const value = (row.gruppo_label ?? row.gruppo_id ?? "").trim();
   return value || "-";
+}
+
+function normalizeForMatching(value: string | null | undefined): string {
+  return (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function isItalyCountry(value: string | null | undefined): boolean {
+  const normalized = normalizeForMatching(value);
+  return normalized === "italia" || normalized === "italy";
+}
+
+function isRomeCity(value: string | null | undefined): boolean {
+  return normalizeForMatching(value) === "roma" || normalizeForMatching(value) === "rome";
+}
+
+function computeGroupLabelFromLocation(args: {
+  paeseResidenza: string | null;
+  citta: string | null;
+  gruppoRoma: string | null;
+  fallback: string | null;
+}): string | null {
+  if (!isItalyCountry(args.paeseResidenza)) {
+    return args.paeseResidenza || args.fallback;
+  }
+
+  if (isRomeCity(args.citta)) {
+    return args.gruppoRoma || args.fallback;
+  }
+
+  return args.citta || args.fallback;
+}
+
+function canFallbackMissingColumn(error: { code?: string | null; message?: string | null }) {
+  const code = error.code ?? "";
+  const message = (error.message ?? "").toLowerCase();
+  return (
+    ["42703", "PGRST100", "PGRST204"].includes(code) ||
+    message.includes("column") ||
+    message.includes("parse")
+  );
+}
+
+async function findGroupIdByColumn(
+  service: ReturnType<typeof createSupabaseServiceClient>,
+  column: string,
+  value: string
+): Promise<string | null> {
+  const { data, error } = await service
+    .from("gruppi")
+    .select("id")
+    .ilike(column, value)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    if (GROUP_COLUMN_MISSING_CODES.has(error.code ?? "")) {
+      return null;
+    }
+    throw new Error(error.message);
+  }
+
+  return data?.id ?? null;
+}
+
+async function resolveGruppoId(
+  service: ReturnType<typeof createSupabaseServiceClient>,
+  groupLabel: string | null
+): Promise<string | null> {
+  const value = (groupLabel ?? "").trim();
+  if (!value) return null;
+
+  const { data: byId, error: byIdError } = await service
+    .from("gruppi")
+    .select("id")
+    .eq("id", value)
+    .maybeSingle();
+  if (byIdError && !GROUP_COLUMN_MISSING_CODES.has(byIdError.code ?? "")) {
+    throw new Error(byIdError.message);
+  }
+  if (byId?.id) return byId.id;
+
+  const byNome = await findGroupIdByColumn(service, "nome", value);
+  if (byNome) return byNome;
+
+  const byName = await findGroupIdByColumn(service, "name", value);
+  if (byName) return byName;
+
+  const byLabel = await findGroupIdByColumn(service, "label", value);
+  if (byLabel) return byLabel;
+
+  const byGruppoLabel = await findGroupIdByColumn(service, "gruppo_label", value);
+  if (byGruppoLabel) return byGruppoLabel;
+
+  return null;
 }
 
 async function requireManagerContext() {
@@ -165,14 +259,7 @@ async function loadAllParticipants() {
 
   let { data, error } = await executeSelect(SELECT_FIELDS_WITH_CITY);
   if (error) {
-    const code = error.code ?? "";
-    const message = (error.message ?? "").toLowerCase();
-    const canFallback =
-      ["42703", "PGRST100", "PGRST204"].includes(code) ||
-      message.includes("column") ||
-      message.includes("parse");
-
-    if (!canFallback) {
+    if (!canFallbackMissingColumn(error)) {
       throw new Error(error.message);
     }
 
@@ -192,11 +279,42 @@ async function loadAllParticipants() {
   });
 }
 
+async function loadParticipantById(
+  service: ReturnType<typeof createSupabaseServiceClient>,
+  participantId: string
+) {
+  const executeSelect = async (selectFields: string) =>
+    service
+      .from("partecipanti")
+      .select(selectFields)
+      .eq("id", participantId)
+      .maybeSingle();
+
+  let { data, error } = await executeSelect(SELECT_FIELDS_WITH_CITY);
+  if (error) {
+    if (!canFallbackMissingColumn(error)) {
+      throw new Error(error.message);
+    }
+
+    const fallback = await executeSelect(SELECT_FIELDS_BASE);
+    data = fallback.data;
+    error = fallback.error;
+  }
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data as unknown as ParticipantRow | null) ?? null;
+}
+
 function toResponseParticipant(row: ParticipantRow) {
+  const group = buildGroupLabel(row);
   return {
     ...row,
     alloggio: row.alloggio_short ?? alloggioLongToShort(row.alloggio),
-    group: buildGroupLabel(row),
+    group,
+    gruppo_roma: isRomeCity(row.citta) ? group : null,
     esigenze_alimentari: parseStoredEsigenze(row.esigenze_alimentari),
     difficolta_accessibilita: parseStoredDifficolta(row.difficolta_accessibilita),
   };
@@ -241,26 +359,41 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "id is required" }, { status: 400 });
   }
 
-  const { data: participant, error: participantError } = await auth.service
-    .from("partecipanti")
-    .select(SELECT_FIELDS_BASE)
-    .eq("id", participantId)
-    .maybeSingle();
-
-  if (participantError) {
-    return NextResponse.json({ error: participantError.message }, { status: 500 });
+  let current: ParticipantRow | null = null;
+  try {
+    current = await loadParticipantById(auth.service, participantId);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to load participant";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 
-  if (!participant) {
+  if (!current) {
     return NextResponse.json({ error: "Participant not found" }, { status: 404 });
   }
-
-  const current = participant as ParticipantRow;
 
   const nome = "nome" in body ? normalizeText(body.nome) : normalizeText(current.nome);
   const cognome =
     "cognome" in body ? normalizeText(body.cognome) : normalizeText(current.cognome);
   const nazione = "nazione" in body ? normalizeText(body.nazione) : current.nazione;
+  const paeseResidenza =
+    "paese_residenza" in body
+      ? normalizeText(body.paese_residenza)
+      : normalizeText(current.paese_residenza);
+  const citta = "citta" in body ? normalizeText(body.citta) : normalizeText(current.citta);
+  const fallbackGroupLabel =
+    normalizeText(current.gruppo_label) ?? normalizeText(current.gruppo_id);
+  const gruppoRoma =
+    "gruppo_roma" in body
+      ? normalizeText(body.gruppo_roma)
+      : isRomeCity(citta)
+        ? fallbackGroupLabel
+        : null;
+  const gruppoLabel = computeGroupLabelFromLocation({
+    paeseResidenza,
+    citta,
+    gruppoRoma,
+    fallback: fallbackGroupLabel,
+  });
   const email = "email" in body ? normalizeEmail(body.email) : normalizeEmail(current.email);
   const telefono =
     "telefono" in body ? normalizeText(body.telefono) : normalizeText(current.telefono);
@@ -308,6 +441,13 @@ export async function PATCH(req: Request) {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
     return NextResponse.json({ error: "email is invalid" }, { status: 400 });
+  }
+
+  if (isItalyCountry(paeseResidenza) && isRomeCity(citta) && !gruppoRoma) {
+    return NextResponse.json(
+      { error: "gruppo_roma is required when citta is Roma" },
+      { status: 400 }
+    );
   }
 
   if (dataNascita && !parseDateOnly(dataNascita)) {
@@ -364,6 +504,13 @@ export async function PATCH(req: Request) {
   }
 
   const normalizedDifficolta = disabilitaAccessibilita ? difficoltaAccessibilita : [];
+  let gruppoId: string | null = null;
+  try {
+    gruppoId = await resolveGruppoId(auth.service, gruppoLabel);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to resolve group";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 
   const calculated = computeParticipantCalculatedFields({
     arrival: parseDateOnly(dataArrivo),
@@ -371,12 +518,16 @@ export async function PATCH(req: Request) {
     dataNascita,
   });
 
-  const { data: updated, error: updateError } = await auth.service
+  const { error: updateError } = await auth.service
     .from("partecipanti")
     .update({
       nome,
       cognome,
       nazione,
+      "città": citta,
+      paese_residenza: paeseResidenza,
+      gruppo_id: gruppoId,
+      gruppo_label: gruppoLabel,
       email,
       telefono,
       data_nascita: dataNascita,
@@ -394,14 +545,26 @@ export async function PATCH(req: Request) {
       is_minorenne: calculated.isMinorenne,
     })
     .eq("id", participantId)
-    .select(SELECT_FIELDS_BASE)
+    .select("id")
     .single();
 
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, participant: toResponseParticipant(updated as ParticipantRow) });
+  let refreshed: ParticipantRow | null = null;
+  try {
+    refreshed = await loadParticipantById(auth.service, participantId);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Participant updated but reload failed";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+
+  return NextResponse.json({
+    ok: true,
+    participant: toResponseParticipant((refreshed ?? current) as ParticipantRow),
+  });
 }
 
 export async function DELETE(req: Request) {

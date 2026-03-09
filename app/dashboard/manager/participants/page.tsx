@@ -10,6 +10,7 @@ export default async function ManagerParticipantsPage() {
         groupSummaryLabel={t("participants.table.header.group")}
         showRegistrationDate
         showTotalFee={false}
+        canEditGroupAssignment
       />
     </section>
   );
