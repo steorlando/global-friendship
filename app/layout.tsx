@@ -4,7 +4,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { SiteHeader } from "@/app/_components/site-header";
 import { I18nProvider } from "@/lib/i18n/provider";
 import { getServerLocale } from "@/lib/i18n/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -37,15 +36,6 @@ export default async function RootLayout({
   const locale = await getServerLocale();
   const cookieStore = await cookies();
 
-  let userEmail: string | null = null;
-  try {
-    const supabase = await createSupabaseServerClient();
-    const { data } = await supabase.auth.getUser();
-    userEmail = data.user?.email ?? null;
-  } catch {
-    userEmail = null;
-  }
-
   const requestedRole = cookieStore.get("gf_requested_role")?.value ?? null;
   const lastUpdatedDate = new Date(`${APP_LAST_UPDATED}T00:00:00Z`);
   const formattedLastUpdated = Number.isNaN(lastUpdatedDate.getTime())
@@ -63,7 +53,7 @@ export default async function RootLayout({
       >
         <I18nProvider initialLocale={locale}>
           <div className="flex min-h-screen flex-col">
-            <SiteHeader userEmail={userEmail} requestedRole={requestedRole} />
+            <SiteHeader requestedRole={requestedRole} />
             <main className="flex-1">{children}</main>
             <footer className="border-t border-slate-200 bg-white/90 px-4 py-3 text-xs text-slate-500 sm:px-6 lg:px-8">
               <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3">

@@ -1,8 +1,5 @@
-"use client";
-
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 const AUTH_KEYS = [
   "code",
@@ -14,56 +11,50 @@ const AUTH_KEYS = [
   "error_description",
 ];
 
-function hasAuthQuery(params: URLSearchParams): boolean {
-  return AUTH_KEYS.some((key) => {
-    const value = params.get(key);
-    return Boolean(value && value.trim().length > 0);
-  });
+type HomePageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+function getFirstSearchParam(
+  value: string | string[] | undefined
+): string | null {
+  if (Array.isArray(value)) {
+    return typeof value[0] === "string" && value[0].trim() ? value[0] : null;
+  }
+
+  return typeof value === "string" && value.trim() ? value : null;
 }
 
-export default function Home() {
-  const router = useRouter();
+function hasAuthSearchParam(
+  searchParams: Record<string, string | string[] | undefined>
+): boolean {
+  return AUTH_KEYS.some((key) => Boolean(getFirstSearchParam(searchParams[key])));
+}
 
-  useEffect(() => {
-    async function run() {
-      const query = window.location.search ?? "";
-      const hash = window.location.hash ?? "";
-      const hasAuthInQuery = hasAuthQuery(new URLSearchParams(query));
-      const hasAuthInHash = hasAuthQuery(
-        new URLSearchParams(hash.startsWith("#") ? hash.slice(1) : hash)
-      );
+export default async function Home({ searchParams }: HomePageProps) {
+  const resolvedSearchParams = (await searchParams) ?? {};
 
-      if (hasAuthInQuery || hasAuthInHash) {
-        router.replace(`/auth/callback${query}${hash}`);
-        return;
-      }
+  if (hasAuthSearchParam(resolvedSearchParams)) {
+    const callbackSearchParams = new URLSearchParams();
 
-      const supabase = createSupabaseBrowserClient();
-      let session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"] =
-        null;
-      try {
-        const { data, error } = await supabase.auth.getSession();
-        if (error?.message?.toLowerCase().includes("refresh token")) {
-          await supabase.auth.signOut({ scope: "local" });
-          router.replace("/login");
-          return;
+    for (const [key, rawValue] of Object.entries(resolvedSearchParams)) {
+      if (Array.isArray(rawValue)) {
+        for (const value of rawValue) {
+          callbackSearchParams.append(key, value);
         }
-        session = data.session;
-      } catch {
-        router.replace("/login");
-        return;
+      } else if (typeof rawValue === "string") {
+        callbackSearchParams.set(key, rawValue);
       }
-
-      if (session?.user) {
-        router.replace("/dashboard");
-        return;
-      }
-
-      router.replace("/login");
     }
 
-    run();
-  }, [router]);
+    const query = callbackSearchParams.toString();
+    redirect(query ? `/auth/callback?${query}` : "/auth/callback");
+  }
 
-  return null;
+  const cookieStore = await cookies();
+  const hasSupabaseAuthCookie = cookieStore
+    .getAll()
+    .some(({ name }) => name.startsWith("sb-"));
+
+  redirect(hasSupabaseAuthCookie ? "/dashboard" : "/login");
 }
