@@ -213,6 +213,7 @@ export function ParticipantsTable({
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [showGroupColumn, setShowGroupColumn] = useState(false);
   const [groups, setGroups] = useState<string[]>([]);
+  const [assignableGroups, setAssignableGroups] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -360,6 +361,9 @@ export function ParticipantsTable({
         setParticipants(Array.isArray(json.participants) ? json.participants : []);
         setShowGroupColumn(Boolean(json.showGroupColumn));
         setGroups(Array.isArray(json.groups) ? json.groups : []);
+        setAssignableGroups(
+          Array.isArray(json.assignableGroups) ? json.assignableGroups : []
+        );
       } catch {
         setLoadError(t("participants.table.loadError"));
       } finally {
@@ -849,14 +853,21 @@ export function ParticipantsTable({
                         <label className="block text-sm font-medium text-slate-700">
                           {t("participant.form.group")}
                         </label>
-                        <input
+                        <select
+                          required
                           value={form.gruppo_roma}
                           onChange={(e) =>
                             setForm((prev) => ({ ...prev, gruppo_roma: e.target.value }))
                           }
-                          placeholder={t("participants.table.filter.group")}
                           className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
-                        />
+                        >
+                          <option value="">{t("participant.form.select")}</option>
+                          {assignableGroups.map((groupId) => (
+                            <option key={groupId} value={groupId}>
+                              {groupId}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     )}
                   </>

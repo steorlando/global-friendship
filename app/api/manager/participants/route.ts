@@ -279,6 +279,22 @@ async function loadAllParticipants() {
   });
 }
 
+async function loadAssignableGroups(
+  service: ReturnType<typeof createSupabaseServiceClient>
+): Promise<string[]> {
+  const { data, error } = await service
+    .from("profili_gruppi")
+    .select("gruppo_id");
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return [...new Set((data ?? []).map((row) => String(row.gruppo_id ?? "").trim()))]
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b));
+}
+
 async function loadParticipantById(
   service: ReturnType<typeof createSupabaseServiceClient>,
   participantId: string
@@ -325,7 +341,10 @@ export async function GET() {
   if ("errorResponse" in auth) return auth.errorResponse;
 
   try {
-    const participants = await loadAllParticipants();
+    const [participants, assignableGroups] = await Promise.all([
+      loadAllParticipants(),
+      loadAssignableGroups(auth.service),
+    ]);
     const groups = [
       ...new Set(participants.map((participant) => buildGroupLabel(participant))),
     ]
@@ -334,6 +353,7 @@ export async function GET() {
 
     return NextResponse.json({
       groups,
+      assignableGroups,
       showGroupColumn: true,
       participants: participants.map(toResponseParticipant),
     });
