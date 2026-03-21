@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import { GLOBAL_FRIENDSHIP_EVENT_DATE } from "@/lib/tally/calculated-fields";
+import { loadEventRuntimeSettings } from "@/lib/event/settings";
 import { DailyPresenceSection } from "./daily-presence-section";
 import { RegistrationsTabsSection } from "./registrations-tabs-section";
 import { StatisticsSectionsSidebar } from "./statistics-sections-sidebar";
@@ -209,8 +209,11 @@ async function parseHistoryCsv(
   return { raw, minDay };
 }
 
-async function buildTrendSeries(participants: ParticipantStatRow[]): Promise<TrendSeries | null> {
-  const eventDate = parseDateOnly(GLOBAL_FRIENDSHIP_EVENT_DATE);
+async function buildTrendSeries(
+  participants: ParticipantStatRow[],
+  eventStartDate: string
+): Promise<TrendSeries | null> {
+  const eventDate = parseDateOnly(eventStartDate);
   if (!eventDate) return null;
 
   const currentRaw = new Map<number, number>();
@@ -1009,9 +1012,10 @@ export async function StatisticsDashboard({
       total: ENROLLMENT_BUCKETS.reduce((acc, bucket) => acc + counts[bucket], 0),
     };
   });
+  const eventSettings = await loadEventRuntimeSettings(service);
   let trendSeries: TrendSeries | null = null;
   try {
-    trendSeries = await buildTrendSeries(participants);
+    trendSeries = await buildTrendSeries(participants, eventSettings.eventStartDate);
   } catch {
     trendSeries = null;
   }

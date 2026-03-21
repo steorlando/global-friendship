@@ -20,6 +20,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       isActive: pathname === "/dashboard/admin/participants",
     },
     {
+      href: "/dashboard/alloggi",
+      label: t("roles.alloggi"),
+      isActive: pathname.startsWith("/dashboard/alloggi"),
+    },
+    {
       href: "/dashboard/admin/users-profiles",
       label: t("dashboard.admin.tab.usersProfiles"),
       isActive: pathname === "/dashboard/admin/users-profiles",
@@ -30,7 +35,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       isActive: pathname.startsWith("/dashboard/admin/email-campaigns"),
     },
     {
-      href: "/dashboard/admin/settings/email",
+      href: "/dashboard/admin/settings/event",
       label: "Settings",
       isActive: pathname.startsWith("/dashboard/admin/settings"),
     },

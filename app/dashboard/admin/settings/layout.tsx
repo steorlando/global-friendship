@@ -8,6 +8,11 @@ export default function AdminSettingsLayout({ children }: { children: ReactNode 
   const pathname = usePathname();
   const tabs = [
     {
+      href: "/dashboard/admin/settings/event",
+      label: "Event informations",
+      isActive: pathname === "/dashboard/admin/settings/event",
+    },
+    {
       href: "/dashboard/admin/settings/email",
       label: "Email",
       isActive: pathname === "/dashboard/admin/settings/email",
