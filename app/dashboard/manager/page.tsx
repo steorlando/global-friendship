@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { GLOBAL_FRIENDSHIP_EVENT_DATE } from "@/lib/tally/calculated-fields";
 import { DailyPresenceSection } from "./daily-presence-section";
 import { RegistrationsTabsSection } from "./registrations-tabs-section";
 import { StatisticsSectionsSidebar } from "./statistics-sections-sidebar";
@@ -67,7 +68,6 @@ const ENROLLMENT_BUCKET_LABEL_KEYS: Record<EnrollmentBucket, string> = {
 const SELECT_FIELDS_BASE =
   "id,nome,cognome,email,tipo_iscrizione,paese_residenza,nazione,gruppo_label,gruppo_id,data_arrivo,data_partenza,alloggio_short,alloggio,created_at";
 const SELECT_FIELDS_WITH_CITY = `${SELECT_FIELDS_BASE},citta:città`;
-const CURRENT_EVENT_DATE = "2026-10-28";
 const HISTORY_FILES = ["history_2023.csv", "history_2024.csv", "history_2025.csv"] as const;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -210,7 +210,7 @@ async function parseHistoryCsv(
 }
 
 async function buildTrendSeries(participants: ParticipantStatRow[]): Promise<TrendSeries | null> {
-  const eventDate = parseDateOnly(CURRENT_EVENT_DATE);
+  const eventDate = parseDateOnly(GLOBAL_FRIENDSHIP_EVENT_DATE);
   if (!eventDate) return null;
 
   const currentRaw = new Map<number, number>();
