@@ -1,6 +1,7 @@
 import { strict as assert } from "node:assert";
 import test from "node:test";
 import {
+  buildLegacyParticipantRoomFields,
   normalizeParticipantSexCategory,
   validateGroupLeaderRoomAssignment,
 } from "../lib/capogruppo/room-assignments.ts";
@@ -11,6 +12,30 @@ test("normalizeParticipantSexCategory recognizes common male and female values",
   assert.equal(normalizeParticipantSexCategory("Female"), "female");
   assert.equal(normalizeParticipantSexCategory("Donna"), "female");
   assert.equal(normalizeParticipantSexCategory(""), null);
+});
+
+test("buildLegacyParticipantRoomFields keeps legacy participant room fields in sync", () => {
+  assert.deepEqual(
+    buildLegacyParticipantRoomFields({
+      roomId: "room-1",
+      hotelId: "hotel-1",
+    }),
+    {
+      stanza_id: "room-1",
+      albergo_id: "hotel-1",
+    }
+  );
+
+  assert.deepEqual(
+    buildLegacyParticipantRoomFields({
+      roomId: null,
+      hotelId: "",
+    }),
+    {
+      stanza_id: null,
+      albergo_id: null,
+    }
+  );
 });
 
 test("validateGroupLeaderRoomAssignment blocks secure gender mismatch", () => {

@@ -125,6 +125,11 @@ export type GroupLeaderRoomAssignmentValidationInput = {
   }>;
 };
 
+export type LegacyParticipantRoomFields = {
+  stanza_id: string | null;
+  albergo_id: string | null;
+};
+
 function normalizeText(value: string | null | undefined): string | null {
   const trimmed = (value ?? "").trim();
   return trimmed || null;
@@ -227,6 +232,42 @@ export function normalizeParticipantSexCategory(
   }
 
   return null;
+}
+
+export function buildLegacyParticipantRoomFields(args: {
+  roomId: string | null;
+  hotelId: string | null;
+}): LegacyParticipantRoomFields {
+  return {
+    stanza_id: normalizeText(args.roomId),
+    albergo_id: normalizeText(args.hotelId),
+  };
+}
+
+export async function syncLegacyParticipantRoomFields(
+  service: ServiceClient,
+  args: {
+    participantId: string;
+    roomId: string | null;
+    hotelId: string | null;
+  }
+) {
+  const participantId = normalizeText(args.participantId);
+  if (!participantId) {
+    throw new Error("participantId is required");
+  }
+
+  const { error } = await service
+    .from("partecipanti")
+    .update(buildLegacyParticipantRoomFields({
+      roomId: args.roomId,
+      hotelId: args.hotelId,
+    }))
+    .eq("id", participantId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
 }
 
 export function validateGroupLeaderRoomAssignment(

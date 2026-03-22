@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import {
+  syncLegacyParticipantRoomFields,
   loadGroupLeaderRoomAssignmentData,
   normalizeParticipantSexCategory,
   validateGroupLeaderRoomAssignment,
@@ -201,6 +202,12 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: deleteError.message }, { status: 500 });
     }
 
+    await syncLegacyParticipantRoomFields(auth.service, {
+      participantId,
+      roomId: null,
+      hotelId: null,
+    });
+
     return NextResponse.json({ ok: true, assignment: null, warnings: [] });
   }
 
@@ -306,6 +313,12 @@ export async function PATCH(req: Request) {
         return NextResponse.json({ error: insertError.message }, { status: 500 });
       }
     }
+
+    await syncLegacyParticipantRoomFields(auth.service, {
+      participantId,
+      roomId: room.id,
+      hotelId: room.hotelId,
+    });
 
     const { data: savedAssignment, error: savedAssignmentError } = await auth.service
       .from("partecipanti_stanze")
