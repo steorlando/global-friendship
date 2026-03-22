@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogoutButton } from "@/app/_components/logout-button";
 import { LanguageSelector } from "@/app/_components/language-selector";
@@ -29,7 +30,9 @@ export function SiteHeader({ userEmail, requestedRole }: SiteHeaderProps) {
     if (pathname.startsWith("/dashboard/alloggi")) return "alloggi";
     return null;
   })();
-  const resolvedRole = resolvedEmail ? roleFromPath ?? initialRole : null;
+  const resolvedRole = resolvedEmail ? initialRole ?? roleFromPath : null;
+  const showAdminBackLink =
+    resolvedRole === "admin" && pathname?.startsWith("/dashboard/alloggi");
 
   useEffect(() => {
     let active = true;
@@ -84,6 +87,14 @@ export function SiteHeader({ userEmail, requestedRole }: SiteHeaderProps) {
         </h1>
 
         <div className="ml-auto flex items-center gap-2">
+          {showAdminBackLink ? (
+            <Link
+              href="/dashboard/admin"
+              className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+            >
+              {t("dashboard.accommodation.backToAdmin")}
+            </Link>
+          ) : null}
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium text-slate-500">Language</span>
             <LanguageSelector />

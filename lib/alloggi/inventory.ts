@@ -13,16 +13,16 @@ export type RoomGenderPolicy = (typeof ROOM_GENDER_POLICIES)[number];
 export type AccommodationHotel = {
   id: string;
   name: string;
-  city: string | null;
-  country: string | null;
+  address: string | null;
+  googleMapsUrl: string | null;
   createdAt: string;
   roomCount: number;
 };
 
 export type AccommodationHotelMutationInput = {
   name: string;
-  city: string | null;
-  country: string | null;
+  address: string | null;
+  googleMapsUrl: string | null;
 };
 
 export type AccommodationRoom = {
@@ -44,10 +44,16 @@ export type AccommodationRoom = {
 
 export type AccommodationRoomMutationInput = {
   hotelId: string;
-  internalCode: string;
   realRoomNumber: string | null;
   capacity: number;
   genderPolicy: RoomGenderPolicy;
+  availableFrom: string | null;
+  availableTo: string | null;
+};
+
+export type AccommodationRoomImportRowInput = {
+  realRoomNumber: string | null;
+  capacity: number;
   availableFrom: string | null;
   availableTo: string | null;
 };
@@ -59,6 +65,8 @@ type HotelRow = {
   nome: string | null;
   città: string | null;
   nazione: string | null;
+  indirizzo: string | null;
+  google_maps_url: string | null;
   created_at: string;
 };
 
@@ -89,6 +97,7 @@ const HOTEL_SELECT_FIELDS = "*";
 const ROOM_SELECT_FIELDS =
   "id,albergo_id,nome,codice_interno,numero_reale,capienza,gender_policy,available_from,available_to,created_at,updated_at";
 const DATE_ONLY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+const DAY_FIRST_DATE_REGEX = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
 
 function normalizeText(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -100,10 +109,47 @@ function normalizeOptionalDate(
   value: unknown,
   fieldName: string
 ): { value: string | null; error: string | null } {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return {
+      value: value.toISOString().slice(0, 10),
+      error: null,
+    };
+  }
+
   const normalized = normalizeText(value);
   if (!normalized) return { value: null, error: null };
   if (!DATE_ONLY_REGEX.test(normalized)) {
-    return { value: null, error: `${fieldName} must be a valid YYYY-MM-DD date` };
+    const dayFirstMatch = normalized.match(DAY_FIRST_DATE_REGEX);
+    if (dayFirstMatch) {
+      const [, dayRaw, monthRaw, yearRaw] = dayFirstMatch;
+      const day = Number(dayRaw);
+      const month = Number(monthRaw);
+      const year = Number(yearRaw);
+      const parsed = new Date(Date.UTC(year, month - 1, day));
+      if (
+        parsed.getUTCFullYear() === year &&
+        parsed.getUTCMonth() === month - 1 &&
+        parsed.getUTCDate() === day
+      ) {
+        return {
+          value: `${yearRaw}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
+          error: null,
+        };
+      }
+    }
+
+    const parsed = new Date(normalized);
+    if (!Number.isNaN(parsed.getTime()) && normalized.includes("T")) {
+      return {
+        value: parsed.toISOString().slice(0, 10),
+        error: null,
+      };
+    }
+
+    return {
+      value: null,
+      error: `${fieldName} must be a valid date (YYYY-MM-DD or DD/MM/YYYY)`,
+    };
   }
   return { value: normalized, error: null };
 }
@@ -116,11 +162,100 @@ function normalizePositiveInteger(value: unknown): number | null {
   return numeric;
 }
 
+function normalizeOptionalUrl(
+  value: unknown,
+  fieldName: string
+): { value: string | null; error: string | null } {
+  const normalized = normalizeText(value);
+  if (!normalized) return { value: null, error: null };
+
+  try {
+    const url = new URL(normalized);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return { value: null, error: `${fieldName} must start with http:// or https://` };
+    }
+    return { value: normalized, error: null };
+  } catch {
+    return { value: null, error: `${fieldName} must be a valid URL` };
+  }
+}
+
 function normalizeRoomGenderPolicy(value: unknown): RoomGenderPolicy | null {
   if (value === "male_only") return "male_only";
   if (value === "female_only") return "female_only";
   if (value === "mixed") return "mixed";
   return null;
+}
+
+const ROOM_CODE_REGEX = /^([A-Z]{2})-(\d{2})-([A-Z]+)$/;
+
+export function buildHotelRoomCodePrefix(hotelName: string): string {
+  const asciiLetters = hotelName
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Za-z]/g, "")
+    .toUpperCase();
+
+  return (asciiLetters.slice(0, 2) || "XX").padEnd(2, "X");
+}
+
+function formatCapacityCode(capacity: number): string {
+  return String(capacity).padStart(2, "0");
+}
+
+export function formatRoomSequenceLabel(index: number): string {
+  if (!Number.isInteger(index) || index < 0) {
+    throw new Error("Room sequence index must be a non-negative integer");
+  }
+
+  let current = index + 1;
+  let label = "";
+  while (current > 0) {
+    current -= 1;
+    label = String.fromCharCode(65 + (current % 26)) + label;
+    current = Math.floor(current / 26);
+  }
+
+  return label;
+}
+
+function parseRoomSequenceLabel(label: string): number | null {
+  const normalized = label.trim().toUpperCase();
+  if (!/^[A-Z]+$/.test(normalized)) return null;
+
+  let value = 0;
+  for (const char of normalized) {
+    value = value * 26 + (char.charCodeAt(0) - 64);
+  }
+  return value - 1;
+}
+
+export function buildNextInternalRoomCode(args: {
+  hotelName: string;
+  capacity: number;
+  existingCodes: Iterable<string>;
+}): string {
+  const prefix = buildHotelRoomCodePrefix(args.hotelName);
+  const capacityCode = formatCapacityCode(args.capacity);
+  const roomCodeStem = `${prefix}-${capacityCode}-`;
+  const usedIndexes = new Set<number>();
+
+  for (const existingCode of args.existingCodes) {
+    const match = existingCode.trim().toUpperCase().match(ROOM_CODE_REGEX);
+    if (!match) continue;
+    const [, existingPrefix, existingCapacity, sequenceLabel] = match;
+    if (existingPrefix !== prefix || existingCapacity !== capacityCode) continue;
+    const index = parseRoomSequenceLabel(sequenceLabel);
+    if (index === null) continue;
+    usedIndexes.add(index);
+  }
+
+  let nextIndex = 0;
+  while (usedIndexes.has(nextIndex)) {
+    nextIndex += 1;
+  }
+
+  return `${roomCodeStem}${formatRoomSequenceLabel(nextIndex)}`;
 }
 
 function buildRoomLegacyName(internalCode: string): string {
@@ -130,7 +265,6 @@ function buildRoomLegacyName(internalCode: string): string {
 function roomRowToMutationDefaults(row: RoomRow): AccommodationRoomMutationInput {
   return {
     hotelId: row.albergo_id,
-    internalCode: row.codice_interno ?? row.nome ?? "",
     realRoomNumber: row.numero_reale,
     capacity: row.capienza ?? 1,
     genderPolicy: row.gender_policy ?? "mixed",
@@ -168,15 +302,27 @@ export function normalizeAccommodationHotelInput(
     return { data: null, error: "name is required" };
   }
 
-  const cityRaw = getObjectValue(value, ["city", "citta", "città"]);
-  const countryRaw = getObjectValue(value, ["country", "nazione"]);
+  const addressRaw = getObjectValue(value, ["address", "indirizzo"]);
+  const googleMapsUrlRaw = getObjectValue(value, [
+    "googleMapsUrl",
+    "google_maps_url",
+    "googleMapsLink",
+  ]);
+
+  const googleMapsUrlResult =
+    googleMapsUrlRaw === undefined
+      ? { value: current.googleMapsUrl ?? null, error: null }
+      : normalizeOptionalUrl(googleMapsUrlRaw, "googleMapsUrl");
+  if (googleMapsUrlResult.error) {
+    return { data: null, error: googleMapsUrlResult.error };
+  }
 
   return {
     data: {
       name,
-      city: cityRaw === undefined ? current.city ?? null : normalizeText(cityRaw),
-      country:
-        countryRaw === undefined ? current.country ?? null : normalizeText(countryRaw),
+      address:
+        addressRaw === undefined ? current.address ?? null : normalizeText(addressRaw),
+      googleMapsUrl: googleMapsUrlResult.value,
     },
     error: null,
   };
@@ -194,21 +340,6 @@ export function normalizeAccommodationRoomInput(
     null;
   if (!hotelId) {
     return { data: null, error: "hotelId is required" };
-  }
-
-  const internalCode =
-    normalizeText(
-      getObjectValue(value, [
-        "internalCode",
-        "codiceInterno",
-        "codice_interno",
-        "nome",
-      ])
-    ) ??
-    current.internalCode ??
-    null;
-  if (!internalCode) {
-    return { data: null, error: "internalCode is required" };
   }
 
   const realRoomNumberRaw = getObjectValue(value, [
@@ -274,7 +405,6 @@ export function normalizeAccommodationRoomInput(
   return {
     data: {
       hotelId,
-      internalCode,
       realRoomNumber,
       capacity,
       genderPolicy,
@@ -317,8 +447,8 @@ function mapHotelRow(row: HotelRow, roomCount: number): AccommodationHotel {
   return {
     id: row.id,
     name: row.nome ?? "",
-    city: row.città,
-    country: row.nazione,
+    address: row.indirizzo,
+    googleMapsUrl: row.google_maps_url,
     createdAt: row.created_at,
     roomCount,
   };
@@ -396,6 +526,77 @@ async function loadRoomRowById(
   }
 
   return (data as RoomRow | null) ?? null;
+}
+
+async function loadInternalCodesForHotel(
+  service: ServiceClient,
+  hotelId: string,
+  excludeRoomId?: string
+): Promise<string[]> {
+  let query = service
+    .from("stanze")
+    .select("id,codice_interno")
+    .eq("albergo_id", hotelId);
+
+  if (excludeRoomId) {
+    query = query.neq("id", excludeRoomId);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? [])
+    .map((row) =>
+      typeof row.codice_interno === "string" ? row.codice_interno.trim() : ""
+    )
+    .filter(Boolean);
+}
+
+async function buildGeneratedInternalCode(
+  service: ServiceClient,
+  hotelId: string,
+  capacity: number,
+  options: { excludeRoomId?: string } = {}
+): Promise<string> {
+  const [hotelRow, existingCodes] = await Promise.all([
+    loadHotelRowById(service, hotelId),
+    loadInternalCodesForHotel(service, hotelId, options.excludeRoomId),
+  ]);
+
+  if (!hotelRow?.id) {
+    throw new Error("Hotel not found");
+  }
+
+  return buildNextInternalRoomCode({
+    hotelName: hotelRow.nome ?? "",
+    capacity,
+    existingCodes,
+  });
+}
+
+function canReuseExistingInternalCode(
+  existingRoom: RoomRow,
+  nextHotelName: string,
+  nextCapacity: number
+): boolean {
+  const existingCode = (existingRoom.codice_interno ?? "").trim();
+  const existingCapacity = existingRoom.capienza ?? 0;
+  if (!existingCode || existingRoom.albergo_id === "" || existingCapacity < 1) {
+    return false;
+  }
+
+  const match = existingCode.toUpperCase().match(ROOM_CODE_REGEX);
+  if (!match) {
+    return false;
+  }
+
+  const [, existingPrefix, existingCapacityCode] = match;
+  return (
+    existingPrefix === buildHotelRoomCodePrefix(nextHotelName) &&
+    existingCapacityCode === formatCapacityCode(nextCapacity)
+  );
 }
 
 export async function loadAccommodationHotels(
@@ -587,13 +788,18 @@ export async function createAccommodationRoom(
   const roomInput = normalized.data;
 
   await ensureHotelExists(service, roomInput.hotelId);
+  const internalCode = await buildGeneratedInternalCode(
+    service,
+    roomInput.hotelId,
+    roomInput.capacity
+  );
 
   const { data, error } = await service
     .from("stanze")
     .insert({
       albergo_id: roomInput.hotelId,
-      nome: buildRoomLegacyName(roomInput.internalCode),
-      codice_interno: roomInput.internalCode,
+      nome: buildRoomLegacyName(internalCode),
+      codice_interno: internalCode,
       numero_reale: roomInput.realRoomNumber,
       capienza: roomInput.capacity,
       gender_policy: roomInput.genderPolicy,
@@ -615,6 +821,129 @@ export async function createAccommodationRoom(
   return room;
 }
 
+export function normalizeAccommodationRoomImportRow(
+  value: Record<string, unknown>
+):
+  | { data: AccommodationRoomImportRowInput; error: null }
+  | { data: null; error: string } {
+  const realRoomNumber = normalizeText(
+    getObjectValue(value, ["numero_reale", "real_room_number", "realRoomNumber"])
+  );
+
+  const capacity = normalizePositiveInteger(
+    getObjectValue(value, ["capienza", "capacity"])
+  );
+  if (!capacity) {
+    return { data: null, error: "capienza is required and must be a positive integer" };
+  }
+
+  const availableFromResult = normalizeOptionalDate(
+    getObjectValue(value, ["available_from", "availableFrom", "available_at", "availableAt"]),
+    "available_from"
+  );
+  if (availableFromResult.error) {
+    return { data: null, error: availableFromResult.error };
+  }
+
+  const availableToResult = normalizeOptionalDate(
+    getObjectValue(value, ["available_to", "availableTo"]),
+    "available_to"
+  );
+  if (availableToResult.error) {
+    return { data: null, error: availableToResult.error };
+  }
+
+  if (
+    availableFromResult.value &&
+    availableToResult.value &&
+    availableToResult.value <= availableFromResult.value
+  ) {
+    return {
+      data: null,
+      error: "available_to must be after available_from",
+    };
+  }
+
+  return {
+    data: {
+      realRoomNumber,
+      capacity,
+      availableFrom: availableFromResult.value,
+      availableTo: availableToResult.value,
+    },
+    error: null,
+  };
+}
+
+export async function importAccommodationRooms(
+  service: ServiceClient,
+  args: {
+    hotelId: string;
+    genderPolicy: RoomGenderPolicy;
+    rows: Record<string, unknown>[];
+  }
+): Promise<AccommodationRoom[]> {
+  const hotelId = args.hotelId.trim();
+  if (!hotelId) {
+    throw new Error("hotelId is required");
+  }
+  if (!args.rows.length) {
+    throw new Error("The Excel file does not contain any room rows");
+  }
+  if (!normalizeRoomGenderPolicy(args.genderPolicy)) {
+    throw new Error("genderPolicy must be one of male_only, female_only, mixed");
+  }
+
+  const hotelRow = await loadHotelRowById(service, hotelId);
+  if (!hotelRow?.id) {
+    throw new Error("Hotel not found");
+  }
+
+  const normalizedRows = args.rows.map((row, index) => {
+    const normalized = normalizeAccommodationRoomImportRow(row);
+    if (normalized.error || !normalized.data) {
+      throw new Error(`Row ${index + 2}: ${normalized.error}`);
+    }
+    return normalized.data;
+  });
+
+  const existingCodes = new Set(await loadInternalCodesForHotel(service, hotelId));
+  const rowsToInsert = normalizedRows.map((row) => {
+    const internalCode = buildNextInternalRoomCode({
+      hotelName: hotelRow.nome ?? "",
+      capacity: row.capacity,
+      existingCodes,
+    });
+    existingCodes.add(internalCode);
+
+    return {
+      albergo_id: hotelId,
+      nome: buildRoomLegacyName(internalCode),
+      codice_interno: internalCode,
+      numero_reale: row.realRoomNumber,
+      capienza: row.capacity,
+      gender_policy: args.genderPolicy,
+      available_from: row.availableFrom,
+      available_to: row.availableTo,
+    };
+  });
+
+  const { data, error } = await service
+    .from("stanze")
+    .insert(rowsToInsert)
+    .select("id");
+
+  if (error) {
+    throw new Error(mapInventoryErrorMessage(error, "Failed to import rooms"));
+  }
+
+  const roomIds = (data ?? [])
+    .map((row) => (typeof row.id === "string" ? row.id : ""))
+    .filter(Boolean);
+
+  return loadAccommodationRooms(service, { roomIds });
+}
+
 export async function createAccommodationHotel(
   service: ServiceClient,
   value: Record<string, unknown>
@@ -629,8 +958,8 @@ export async function createAccommodationHotel(
     .from("alberghi")
     .insert({
       nome: hotelInput.name,
-      città: hotelInput.city,
-      nazione: hotelInput.country,
+      indirizzo: hotelInput.address,
+      google_maps_url: hotelInput.googleMapsUrl,
     })
     .select("id")
     .single();
@@ -659,8 +988,8 @@ export async function updateAccommodationHotel(
 
   const normalized = normalizeAccommodationHotelInput(value, {
     name: existing.nome ?? "",
-    city: existing.città,
-    country: existing.nazione,
+    address: existing.indirizzo,
+    googleMapsUrl: existing.google_maps_url,
   });
   if (normalized.error || !normalized.data) {
     throw new Error(normalized.error);
@@ -671,8 +1000,8 @@ export async function updateAccommodationHotel(
     .from("alberghi")
     .update({
       nome: hotelInput.name,
-      città: hotelInput.city,
-      nazione: hotelInput.country,
+      indirizzo: hotelInput.address,
+      google_maps_url: hotelInput.googleMapsUrl,
     })
     .eq("id", hotelId);
 
@@ -707,14 +1036,27 @@ export async function updateAccommodationRoom(
   }
   const roomInput = normalized.data;
 
-  await ensureHotelExists(service, roomInput.hotelId);
+  const hotelRow = await loadHotelRowById(service, roomInput.hotelId);
+  if (!hotelRow?.id) {
+    throw new Error("Hotel not found");
+  }
+
+  const internalCode = canReuseExistingInternalCode(
+    existing,
+    hotelRow.nome ?? "",
+    roomInput.capacity
+  )
+    ? existing.codice_interno ?? existing.nome ?? ""
+    : await buildGeneratedInternalCode(service, roomInput.hotelId, roomInput.capacity, {
+        excludeRoomId: roomId,
+      });
 
   const { error } = await service
     .from("stanze")
     .update({
       albergo_id: roomInput.hotelId,
-      nome: buildRoomLegacyName(roomInput.internalCode),
-      codice_interno: roomInput.internalCode,
+      nome: buildRoomLegacyName(internalCode),
+      codice_interno: internalCode,
       numero_reale: roomInput.realRoomNumber,
       capienza: roomInput.capacity,
       gender_policy: roomInput.genderPolicy,

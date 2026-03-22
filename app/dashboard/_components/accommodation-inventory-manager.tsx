@@ -14,8 +14,8 @@ import { useI18n } from "@/lib/i18n/provider";
 type Hotel = {
   id: string;
   name: string;
-  city: string | null;
-  country: string | null;
+  address: string | null;
+  googleMapsUrl: string | null;
   createdAt: string;
   roomCount: number;
 };
@@ -61,17 +61,23 @@ type RoomMutationResponse = {
   error?: string;
 };
 
+type RoomImportResponse = {
+  ok?: boolean;
+  rooms?: Room[];
+  importedCount?: number;
+  error?: string;
+};
+
 type HotelFormState = {
   id: string | null;
   name: string;
-  city: string;
-  country: string;
+  address: string;
+  googleMapsUrl: string;
 };
 
 type RoomFormState = {
   id: string | null;
   hotelId: string;
-  internalCode: string;
   realRoomNumber: string;
   capacity: string;
   genderPolicy: RoomGenderPolicy;
@@ -82,7 +88,6 @@ type RoomFormState = {
 const EMPTY_FORM: RoomFormState = {
   id: null,
   hotelId: "",
-  internalCode: "",
   realRoomNumber: "",
   capacity: "1",
   genderPolicy: "mixed",
@@ -93,8 +98,8 @@ const EMPTY_FORM: RoomFormState = {
 const EMPTY_HOTEL_FORM: HotelFormState = {
   id: null,
   name: "",
-  city: "",
-  country: "",
+  address: "",
+  googleMapsUrl: "",
 };
 
 const POLICY_OPTIONS: RoomGenderPolicy[] = ["mixed", "female_only", "male_only"];
@@ -110,7 +115,6 @@ function toRoomFormState(room: Room): RoomFormState {
   return {
     id: room.id,
     hotelId: room.hotelId,
-    internalCode: room.internalCode,
     realRoomNumber: room.realRoomNumber ?? "",
     capacity: String(room.capacity),
     genderPolicy: room.genderPolicy,
@@ -123,14 +127,13 @@ function toHotelFormState(hotel: Hotel): HotelFormState {
   return {
     id: hotel.id,
     name: hotel.name,
-    city: hotel.city ?? "",
-    country: hotel.country ?? "",
+    address: hotel.address ?? "",
+    googleMapsUrl: hotel.googleMapsUrl ?? "",
   };
 }
 
-function formatHotelLocation(hotel: Hotel) {
-  const parts = [hotel.city, hotel.country].map((value) => (value ?? "").trim()).filter(Boolean);
-  return parts.join(", ");
+function formatHotelAddress(hotel: Hotel) {
+  return (hotel.address ?? "").trim();
 }
 
 function formatAvailability(room: Room) {
@@ -154,8 +157,7 @@ function roomMatchesSearch(room: Room, searchTerm: string) {
     room.internalCode,
     room.realRoomNumber ?? "",
     room.hotel?.name ?? "",
-    room.hotel?.city ?? "",
-    room.hotel?.country ?? "",
+    room.hotel?.address ?? "",
   ]
     .join(" ")
     .toLowerCase();
@@ -169,6 +171,13 @@ export function AccommodationInventoryManager() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [hotelForm, setHotelForm] = useState<HotelFormState>(EMPTY_HOTEL_FORM);
   const [form, setForm] = useState<RoomFormState>(EMPTY_FORM);
+  const [importHotelId, setImportHotelId] = useState("");
+  const [importGenderPolicy, setImportGenderPolicy] =
+    useState<RoomGenderPolicy>("mixed");
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importInputResetKey, setImportInputResetKey] = useState(0);
+  const [importing, setImporting] = useState(false);
+  const [showImportHelp, setShowImportHelp] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [hotelSaving, setHotelSaving] = useState(false);
@@ -210,6 +219,9 @@ export function AccommodationInventoryManager() {
       setRooms(nextRooms);
       setHotelFilter((current) =>
         current !== "all" && !nextHotelIds.has(current) ? "all" : current
+      );
+      setImportHotelId((current) =>
+        current && nextHotelIds.has(current) ? current : nextHotels[0]?.id ?? ""
       );
       setForm((current) => {
         if (current.hotelId && nextHotelIds.has(current.hotelId)) return current;
@@ -305,7 +317,6 @@ export function AccommodationInventoryManager() {
         body: JSON.stringify({
           id: form.id,
           hotelId: form.hotelId,
-          internalCode: form.internalCode,
           realRoomNumber: form.realRoomNumber,
           capacity: form.capacity,
           genderPolicy: form.genderPolicy,
@@ -330,6 +341,49 @@ export function AccommodationInventoryManager() {
       setError((submitError as Error).message);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleImportSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!importFile) {
+      setError(t("accommodation.inventory.import.fileRequired"));
+      setSuccess(null);
+      return;
+    }
+
+    setImporting(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const formData = new FormData();
+      formData.set("hotelId", importHotelId);
+      formData.set("genderPolicy", importGenderPolicy);
+      formData.set("file", importFile);
+
+      const response = await fetch("/api/alloggi/rooms/import", {
+        method: "POST",
+        body: formData,
+      });
+
+      const json = (await response.json()) as RoomImportResponse;
+      if (!response.ok) {
+        throw new Error(json.error || t("accommodation.inventory.import.importError"));
+      }
+
+      await loadInventory();
+      setImportFile(null);
+      setImportInputResetKey((current) => current + 1);
+      setSuccess(
+        t("accommodation.inventory.import.imported", {
+          count: json.importedCount ?? 0,
+        })
+      );
+    } catch (importError) {
+      setError((importError as Error).message);
+    } finally {
+      setImporting(false);
     }
   }
 
@@ -379,8 +433,8 @@ export function AccommodationInventoryManager() {
         body: JSON.stringify({
           id: hotelForm.id,
           name: hotelForm.name,
-          city: hotelForm.city,
-          country: hotelForm.country,
+          address: hotelForm.address,
+          googleMapsUrl: hotelForm.googleMapsUrl,
         }),
       });
 
@@ -492,6 +546,93 @@ export function AccommodationInventoryManager() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">
+                  {t("accommodation.inventory.import.title")}
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  {t("accommodation.inventory.import.subtitle")}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowImportHelp(true)}
+                className="text-xs font-medium text-indigo-700 underline-offset-2 hover:text-indigo-600 hover:underline"
+              >
+                {t("accommodation.inventory.import.instructionsLink")}
+              </button>
+            </div>
+
+            {sortedHotels.length === 0 ? (
+              <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                {t("accommodation.inventory.form.noHotels")}
+              </p>
+            ) : (
+              <form className="mt-5 space-y-4" onSubmit={handleImportSubmit}>
+                <label className="block text-sm font-medium text-slate-700">
+                  {t("accommodation.inventory.import.hotel")}
+                  <select
+                    value={importHotelId}
+                    onChange={(event) => setImportHotelId(event.target.value)}
+                    className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+                    required
+                  >
+                    {sortedHotels.map((hotel) => (
+                      <option key={hotel.id} value={hotel.id}>
+                        {hotel.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block text-sm font-medium text-slate-700">
+                  {t("accommodation.inventory.import.genderPolicy")}
+                  <select
+                    value={importGenderPolicy}
+                    onChange={(event) =>
+                      setImportGenderPolicy(event.target.value as RoomGenderPolicy)
+                    }
+                    className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+                  >
+                    {POLICY_OPTIONS.map((policy) => (
+                      <option key={policy} value={policy}>
+                        {t(`accommodation.inventory.policy.${policy}`)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block text-sm font-medium text-slate-700">
+                  {t("accommodation.inventory.import.file")}
+                  <input
+                    key={importInputResetKey}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={(event) =>
+                      setImportFile(event.target.files?.[0] ?? null)
+                    }
+                    className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 file:mr-4 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-slate-200"
+                    required
+                  />
+                </label>
+
+                <div className="flex flex-wrap gap-3 pt-1">
+                  <button
+                    type="submit"
+                    disabled={importing}
+                    className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {importing
+                      ? t("accommodation.inventory.import.importing")
+                      : t("accommodation.inventory.import.submit")}
+                  </button>
+                </div>
+              </form>
+            )}
+          </section>
+
+          <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">
                   {form.id
                     ? t("accommodation.inventory.form.editTitle")
                     : t("accommodation.inventory.form.createTitle")}
@@ -538,22 +679,20 @@ export function AccommodationInventoryManager() {
                   </select>
                 </label>
 
-                <label className="block text-sm font-medium text-slate-700">
-                  {t("accommodation.inventory.form.internalCode")}
-                  <input
-                    type="text"
-                    value={form.internalCode}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        internalCode: event.target.value,
-                      }))
-                    }
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900"
-                    placeholder="GF-A12"
-                    required
-                  />
-                </label>
+                {form.id ? (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                      {t("accommodation.inventory.form.currentInternalCode")}
+                    </p>
+                    <p className="mt-2 text-sm font-medium text-slate-900">
+                      {rooms.find((room) => room.id === form.id)?.internalCode ?? "-"}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+                    {t("accommodation.inventory.form.internalCodeGenerated")}
+                  </p>
+                )}
 
                 <label className="block text-sm font-medium text-slate-700">
                   {t("accommodation.inventory.form.realRoomNumber")}
@@ -725,14 +864,14 @@ export function AccommodationInventoryManager() {
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="block text-sm font-medium text-slate-700">
-                    {t("accommodation.inventory.hotels.formCity")}
+                    {t("accommodation.inventory.hotels.formAddress")}
                     <input
                       type="text"
-                      value={hotelForm.city}
+                      value={hotelForm.address}
                       onChange={(event) =>
                         setHotelForm((current) => ({
                           ...current,
-                          city: event.target.value,
+                          address: event.target.value,
                         }))
                       }
                       className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900"
@@ -740,17 +879,18 @@ export function AccommodationInventoryManager() {
                   </label>
 
                   <label className="block text-sm font-medium text-slate-700">
-                    {t("accommodation.inventory.hotels.formCountry")}
+                    {t("accommodation.inventory.hotels.formGoogleMaps")}
                     <input
-                      type="text"
-                      value={hotelForm.country}
+                      type="url"
+                      value={hotelForm.googleMapsUrl}
                       onChange={(event) =>
                         setHotelForm((current) => ({
                           ...current,
-                          country: event.target.value,
+                          googleMapsUrl: event.target.value,
                         }))
                       }
                       className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900"
+                      placeholder="https://maps.google.com/..."
                     />
                   </label>
                 </div>
@@ -792,10 +932,20 @@ export function AccommodationInventoryManager() {
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="font-medium text-slate-900">{hotel.name}</p>
-                        {formatHotelLocation(hotel) ? (
+                        {formatHotelAddress(hotel) ? (
                           <p className="mt-1 text-sm text-slate-500">
-                            {formatHotelLocation(hotel)}
+                            {formatHotelAddress(hotel)}
                           </p>
+                        ) : null}
+                        {hotel.googleMapsUrl ? (
+                          <a
+                            href={hotel.googleMapsUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-2 inline-flex text-xs font-medium text-indigo-700 underline-offset-2 hover:text-indigo-600 hover:underline"
+                          >
+                            {t("accommodation.inventory.hotels.googleMapsLink")}
+                          </a>
                         ) : null}
                       </div>
                       <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
@@ -948,16 +1098,9 @@ export function AccommodationInventoryManager() {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-slate-700">
-                        <div>
-                          <p className="font-medium text-slate-900">
-                            {room.hotel?.name ?? "-"}
-                          </p>
-                          {room.hotel ? (
-                            <p className="mt-1 text-xs text-slate-500">
-                              {formatHotelLocation(room.hotel) || "-"}
-                            </p>
-                          ) : null}
-                        </div>
+                        <p className="font-medium text-slate-900">
+                          {room.hotel?.name ?? "-"}
+                        </p>
                       </td>
                       <td className="px-4 py-3 text-slate-700">
                         {room.realRoomNumber || "-"}
@@ -1006,6 +1149,89 @@ export function AccommodationInventoryManager() {
           )}
         </section>
       </div>
+
+      {showImportHelp ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4 py-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="room-import-help-title"
+        >
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2
+                  id="room-import-help-title"
+                  className="text-lg font-semibold text-slate-900"
+                >
+                  {t("accommodation.inventory.import.helpTitle")}
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  {t("accommodation.inventory.import.helpSubtitle")}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowImportHelp(false)}
+                className="rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+              >
+                {t("common.close")}
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-4 text-sm text-slate-700">
+              <p>{t("accommodation.inventory.import.helpIntro")}</p>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p className="font-semibold text-slate-900">
+                  {t("accommodation.inventory.import.helpColumnsTitle")}
+                </p>
+                <ul className="mt-3 list-disc space-y-2 pl-5">
+                  <li>{t("accommodation.inventory.import.helpColumnCapacity")}</li>
+                  <li>{t("accommodation.inventory.import.helpColumnRealRoom")}</li>
+                  <li>{t("accommodation.inventory.import.helpColumnAvailableFrom")}</li>
+                  <li>{t("accommodation.inventory.import.helpColumnAvailableTo")}</li>
+                </ul>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 p-4">
+                <p className="font-semibold text-slate-900">
+                  {t("accommodation.inventory.import.helpExampleTitle")}
+                </p>
+                <div className="mt-3 overflow-x-auto">
+                  <table className="min-w-full border-collapse text-left text-sm">
+                    <thead>
+                      <tr className="bg-slate-50 text-slate-600">
+                        <th className="border border-slate-200 px-3 py-2">capienza</th>
+                        <th className="border border-slate-200 px-3 py-2">numero_reale</th>
+                        <th className="border border-slate-200 px-3 py-2">available_from</th>
+                        <th className="border border-slate-200 px-3 py-2">available_to</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td className="border border-slate-200 px-3 py-2">4</td>
+                        <td className="border border-slate-200 px-3 py-2">203</td>
+                        <td className="border border-slate-200 px-3 py-2">2026-08-27</td>
+                        <td className="border border-slate-200 px-3 py-2">2026-08-31</td>
+                      </tr>
+                      <tr>
+                        <td className="border border-slate-200 px-3 py-2">2</td>
+                        <td className="border border-slate-200 px-3 py-2"></td>
+                        <td className="border border-slate-200 px-3 py-2">2026-08-28</td>
+                        <td className="border border-slate-200 px-3 py-2">2026-08-31</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-900">
+                <p>{t("accommodation.inventory.import.helpNotes")}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

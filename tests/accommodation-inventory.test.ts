@@ -1,7 +1,11 @@
 import { strict as assert } from "node:assert";
 import test from "node:test";
 import {
+  buildHotelRoomCodePrefix,
+  buildNextInternalRoomCode,
+  formatRoomSequenceLabel,
   normalizeAccommodationHotelInput,
+  normalizeAccommodationRoomImportRow,
   isOrganizationProvidedAccommodation,
   normalizeAccommodationRoomInput,
 } from "../lib/alloggi/inventory.ts";
@@ -15,7 +19,6 @@ test("isOrganizationProvidedAccommodation matches the canonical short value", ()
 test("normalizeAccommodationRoomInput parses a valid room payload", () => {
   const result = normalizeAccommodationRoomInput({
     hotelId: "hotel-1",
-    internalCode: "GF-A12",
     realRoomNumber: "203",
     capacity: "4",
     genderPolicy: "mixed",
@@ -26,7 +29,6 @@ test("normalizeAccommodationRoomInput parses a valid room payload", () => {
   assert.equal(result.error, null);
   assert.deepEqual(result.data, {
     hotelId: "hotel-1",
-    internalCode: "GF-A12",
     realRoomNumber: "203",
     capacity: 4,
     genderPolicy: "mixed",
@@ -38,7 +40,6 @@ test("normalizeAccommodationRoomInput parses a valid room payload", () => {
 test("normalizeAccommodationRoomInput rejects inverted availability dates", () => {
   const result = normalizeAccommodationRoomInput({
     hotelId: "hotel-1",
-    internalCode: "GF-A12",
     capacity: 4,
     genderPolicy: "mixed",
     availableFrom: "2026-08-31",
@@ -57,7 +58,6 @@ test("normalizeAccommodationRoomInput can merge partial updates with current dat
     },
     {
       hotelId: "hotel-1",
-      internalCode: "GF-A12",
       realRoomNumber: "301",
       capacity: 4,
       genderPolicy: "female_only",
@@ -69,7 +69,6 @@ test("normalizeAccommodationRoomInput can merge partial updates with current dat
   assert.equal(result.error, null);
   assert.deepEqual(result.data, {
     hotelId: "hotel-1",
-    internalCode: "GF-A12",
     realRoomNumber: null,
     capacity: 6,
     genderPolicy: "female_only",
@@ -81,7 +80,6 @@ test("normalizeAccommodationRoomInput can merge partial updates with current dat
 test("normalizeAccommodationRoomInput rejects invalid gender policy", () => {
   const result = normalizeAccommodationRoomInput({
     hotelId: "hotel-1",
-    internalCode: "GF-A12",
     capacity: 4,
     genderPolicy: "coed",
   });
@@ -93,46 +91,124 @@ test("normalizeAccommodationRoomInput rejects invalid gender policy", () => {
   );
 });
 
+test("buildHotelRoomCodePrefix keeps the first two significant letters", () => {
+  assert.equal(buildHotelRoomCodePrefix("Wombat's City Hostel"), "WO");
+  assert.equal(buildHotelRoomCodePrefix("Å&O Hostel"), "AO");
+  assert.equal(buildHotelRoomCodePrefix("1"), "XX");
+});
+
+test("formatRoomSequenceLabel creates alphabetical suffixes", () => {
+  assert.equal(formatRoomSequenceLabel(0), "A");
+  assert.equal(formatRoomSequenceLabel(1), "B");
+  assert.equal(formatRoomSequenceLabel(25), "Z");
+  assert.equal(formatRoomSequenceLabel(26), "AA");
+});
+
+test("buildNextInternalRoomCode increments within the same hotel prefix and capacity", () => {
+  const roomCode = buildNextInternalRoomCode({
+    hotelName: "Wombat's City Hostel",
+    capacity: 4,
+    existingCodes: ["WO-04-A", "WO-04-B", "WO-02-A", "XX-04-A"],
+  });
+
+  assert.equal(roomCode, "WO-04-C");
+});
+
+test("normalizeAccommodationRoomImportRow validates Excel rows", () => {
+  const result = normalizeAccommodationRoomImportRow({
+    capienza: "8",
+    numero_reale: "",
+    available_at: "27/08/2026",
+    available_to: "31/08/2026",
+  });
+
+  assert.equal(result.error, null);
+  assert.deepEqual(result.data, {
+    realRoomNumber: null,
+    capacity: 8,
+    availableFrom: "2026-08-27",
+    availableTo: "2026-08-31",
+  });
+});
+
+test("normalizeAccommodationRoomImportRow rejects missing capacity", () => {
+  const result = normalizeAccommodationRoomImportRow({
+    numero_reale: "203",
+  });
+
+  assert.equal(result.data, null);
+  assert.equal(
+    result.error,
+    "capienza is required and must be a positive integer"
+  );
+});
+
+test("normalizeAccommodationRoomImportRow accepts ISO-like datetime strings", () => {
+  const result = normalizeAccommodationRoomImportRow({
+    capienza: 4,
+    available_from: "2026-08-27T00:00:00.000Z",
+    available_to: "2026-08-31T00:00:00.000Z",
+  });
+
+  assert.equal(result.error, null);
+  assert.deepEqual(result.data, {
+    realRoomNumber: null,
+    capacity: 4,
+    availableFrom: "2026-08-27",
+    availableTo: "2026-08-31",
+  });
+});
+
 test("normalizeAccommodationHotelInput parses a valid hotel payload", () => {
   const result = normalizeAccommodationHotelInput({
     name: "Hotel Roma Centro",
-    city: "Rome",
-    country: "Italy",
+    address: "Via Example 10, Budapest",
+    googleMapsUrl: "https://maps.google.com/?q=Hotel+Roma+Centro",
   });
 
   assert.equal(result.error, null);
   assert.deepEqual(result.data, {
     name: "Hotel Roma Centro",
-    city: "Rome",
-    country: "Italy",
+    address: "Via Example 10, Budapest",
+    googleMapsUrl: "https://maps.google.com/?q=Hotel+Roma+Centro",
   });
 });
 
 test("normalizeAccommodationHotelInput merges partial updates", () => {
   const result = normalizeAccommodationHotelInput(
     {
-      city: "",
+      address: "",
     },
     {
       name: "Hotel Roma Centro",
-      city: "Rome",
-      country: "Italy",
+      address: "Via Example 10, Budapest",
+      googleMapsUrl: "https://maps.google.com/?q=Hotel+Roma+Centro",
     }
   );
 
   assert.equal(result.error, null);
   assert.deepEqual(result.data, {
     name: "Hotel Roma Centro",
-    city: null,
-    country: "Italy",
+    address: null,
+    googleMapsUrl: "https://maps.google.com/?q=Hotel+Roma+Centro",
   });
 });
 
 test("normalizeAccommodationHotelInput requires a name", () => {
   const result = normalizeAccommodationHotelInput({
-    city: "Rome",
+    address: "Via Example 10, Budapest",
   });
 
   assert.equal(result.data, null);
   assert.equal(result.error, "name is required");
+});
+
+test("normalizeAccommodationHotelInput rejects an invalid Google Maps url", () => {
+  const result = normalizeAccommodationHotelInput({
+    name: "Hotel Roma Centro",
+    googleMapsUrl: "maps.google.com/hotel",
+  });
+
+  assert.equal(result.data, null);
+  assert.equal(result.error, "googleMapsUrl must be a valid URL");
 });
