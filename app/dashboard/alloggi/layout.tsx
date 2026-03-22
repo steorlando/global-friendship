@@ -25,6 +25,16 @@ export default function AlloggiLayout({ children }: { children: ReactNode }) {
       label: t("dashboard.accommodation.tab.hotelOverview"),
       isActive: pathname.startsWith("/dashboard/alloggi/hotel-overview"),
     },
+    {
+      href: "/dashboard/alloggi/hotel-rosters",
+      label: t("dashboard.accommodation.tab.hotelRoster"),
+      isActive: pathname.startsWith("/dashboard/alloggi/hotel-rosters"),
+    },
+    {
+      href: "/dashboard/alloggi/room-rosters",
+      label: t("dashboard.accommodation.tab.roomRoster"),
+      isActive: pathname.startsWith("/dashboard/alloggi/room-rosters"),
+    },
   ];
 
   return (
