@@ -7,7 +7,7 @@ import {
 } from "../lib/capogruppo/room-assignment-presentation.ts";
 import type { GroupLeaderParticipant } from "../lib/capogruppo/room-assignments.ts";
 
-test("buildGroupLeaderRoomOptionLabel uses code and hotel name", () => {
+test("buildGroupLeaderRoomOptionLabel uses code, hotel name, and availability", () => {
   assert.equal(
     buildGroupLeaderRoomOptionLabel({
       id: "r1",
@@ -25,14 +25,14 @@ test("buildGroupLeaderRoomOptionLabel uses code and hotel name", () => {
       realRoomNumber: null,
       capacity: 4,
       genderPolicy: "mixed",
-      availableFrom: null,
-      availableTo: null,
+      availableFrom: "2026-08-28",
+      availableTo: "2026-08-31",
       createdAt: "",
       updatedAt: "",
       assignedGroupCount: 1,
       assignedParticipantCount: 0,
     }),
-    "WO-04-A · Wombat's"
+    "WO-04-A · Wombat's · 2026-08-28 -> 2026-08-31"
   );
 });
 

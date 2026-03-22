@@ -2,7 +2,10 @@ import type { AccommodationRoom } from "../alloggi/inventory.ts";
 import type { GroupLeaderParticipant } from "./room-assignments.ts";
 
 export function buildGroupLeaderRoomOptionLabel(room: AccommodationRoom): string {
-  return [room.internalCode, room.hotel?.name ?? ""].filter(Boolean).join(" · ");
+  const availability = formatGroupLeaderRoomAvailability(room);
+  return [room.internalCode, room.hotel?.name ?? "", availability === "-" ? "" : availability]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 export function formatGroupLeaderRoomAvailability(room: AccommodationRoom): string {
