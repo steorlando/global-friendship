@@ -62,6 +62,9 @@ type Summary = {
   groupId: string;
   groupName: string;
   needsAccommodationCount: number;
+  maleNeedCount: number;
+  femaleNeedCount: number;
+  unknownNeedCount: number;
   assignedCapacity: number;
   assignedRoomCount: number;
   status: AccommodationGroupSummaryStatus;
@@ -126,6 +129,14 @@ function buildStatusBadgeClasses(status: AccommodationGroupSummaryStatus): strin
     default:
       return "bg-slate-100 text-slate-700";
   }
+}
+
+function formatGroupNeedBreakdown(summary: Summary): string {
+  const parts = [`${summary.maleNeedCount} M`, `${summary.femaleNeedCount} F`];
+  if (summary.unknownNeedCount > 0) {
+    parts.push(`${summary.unknownNeedCount} ?`);
+  }
+  return parts.join(" - ");
 }
 
 function findRoomIdFromQuery(rooms: Room[], query: string): string | null {
@@ -545,7 +556,7 @@ export function AccommodationGroupAllocationsManager() {
                         <p className="mt-1 text-xs text-slate-500">{summary.groupId}</p>
                       </td>
                       <td className="px-4 py-3 text-slate-700">
-                        {formatNumber(summary.needsAccommodationCount)}
+                        {formatGroupNeedBreakdown(summary)}
                       </td>
                       <td className="px-4 py-3 text-slate-700">
                         {formatNumber(summary.assignedCapacity)}

@@ -36,6 +36,7 @@ test("buildAccommodationGroupSummaries reports exact allocation without warnings
         gruppo_label: null,
         alloggio: null,
         alloggio_short: "Provided by organization",
+        sesso: "Male",
         data_arrivo: "2026-08-27",
         data_partenza: "2026-08-29",
       },
@@ -45,6 +46,7 @@ test("buildAccommodationGroupSummaries reports exact allocation without warnings
         gruppo_label: null,
         alloggio: null,
         alloggio_short: "Provided by organization",
+        sesso: "Female",
         data_arrivo: "2026-08-27",
         data_partenza: "2026-08-29",
       },
@@ -54,6 +56,9 @@ test("buildAccommodationGroupSummaries reports exact allocation without warnings
   assert.equal(summaries.length, 1);
   assert.equal(summaries[0]?.status, "exactly_allocated");
   assert.equal(summaries[0]?.needsAccommodationCount, 2);
+  assert.equal(summaries[0]?.maleNeedCount, 1);
+  assert.equal(summaries[0]?.femaleNeedCount, 1);
+  assert.equal(summaries[0]?.unknownNeedCount, 0);
   assert.equal(summaries[0]?.assignedCapacity, 2);
   assert.deepEqual(summaries[0]?.warnings, []);
 });
@@ -92,6 +97,7 @@ test("buildAccommodationGroupSummaries flags late room start and daily shortage"
         gruppo_label: null,
         alloggio: null,
         alloggio_short: "Provided by organization",
+        sesso: "Male",
         data_arrivo: "2026-08-27",
         data_partenza: "2026-08-30",
       },
@@ -101,6 +107,7 @@ test("buildAccommodationGroupSummaries flags late room start and daily shortage"
         gruppo_label: null,
         alloggio: null,
         alloggio_short: "Provided by organization",
+        sesso: "Female",
         data_arrivo: "2026-08-27",
         data_partenza: "2026-08-30",
       },
@@ -151,6 +158,7 @@ test("buildAccommodationGroupSummaries flags shared rooms, missing dates, and no
         gruppo_label: "Group One",
         alloggio: null,
         alloggio_short: "Provided by organization",
+        sesso: "Female",
         data_arrivo: "2026-08-27",
         data_partenza: "2026-08-30",
       },
@@ -160,6 +168,7 @@ test("buildAccommodationGroupSummaries flags shared rooms, missing dates, and no
         gruppo_label: null,
         alloggio: null,
         alloggio_short: "Provided by organization",
+        sesso: null,
         data_arrivo: null,
         data_partenza: null,
       },
@@ -169,6 +178,7 @@ test("buildAccommodationGroupSummaries flags shared rooms, missing dates, and no
         gruppo_label: null,
         alloggio: null,
         alloggio_short: "Provided by organization",
+        sesso: "Male",
         data_arrivo: "2026-08-27",
         data_partenza: "2026-08-30",
       },
@@ -177,6 +187,9 @@ test("buildAccommodationGroupSummaries flags shared rooms, missing dates, and no
 
   const warningCodes = summaries[0]?.warnings.map((warning) => warning.code) ?? [];
   assert.equal(summaries[0]?.status, "under_allocated");
+  assert.equal(summaries[0]?.maleNeedCount, 1);
+  assert.equal(summaries[0]?.femaleNeedCount, 1);
+  assert.equal(summaries[0]?.unknownNeedCount, 1);
   assert.deepEqual(warningCodes, [
     "nominal_capacity_shortage",
     "room_shared_across_groups",

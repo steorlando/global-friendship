@@ -100,6 +100,9 @@ export async function middleware(req: NextRequest) {
 
   const isAllowed = (requiredRole: AppRole): boolean => {
     if (requiredRole === "partecipante") return true;
+    if (requiredRole === "alloggi") {
+      return roleSet.has("admin") || roleSet.has("alloggi") || roleSet.has("manager");
+    }
     if (roleSet.has("admin")) return true;
     return roleSet.has(requiredRole);
   };

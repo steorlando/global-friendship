@@ -60,7 +60,13 @@ function participantBelongsToGroup(participant: GroupLeaderParticipant, groupId:
   return participant.groupId === groupId || participant.groupLabel === groupId;
 }
 
-export function GroupLeaderRoomAssignmentManager() {
+export type GroupLeaderRoomAssignmentManagerProps = {
+  apiBasePath?: string;
+};
+
+export function GroupLeaderRoomAssignmentManager({
+  apiBasePath = "/api/capogruppo/room-assignments",
+}: GroupLeaderRoomAssignmentManagerProps = {}) {
   const { t, formatNumber, formatDate } = useI18n();
   const [groups, setGroups] = useState<GroupLeaderRoomAssignmentGroup[]>([]);
   const [participants, setParticipants] = useState<GroupLeaderParticipant[]>([]);
@@ -81,7 +87,7 @@ export function GroupLeaderRoomAssignmentManager() {
     setError(null);
 
     try {
-      const response = await fetch("/api/capogruppo/room-assignments", {
+      const response = await fetch(apiBasePath, {
         cache: "no-store",
       });
       const json = (await response.json()) as RoomAssignmentResponse;
@@ -112,7 +118,7 @@ export function GroupLeaderRoomAssignmentManager() {
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [apiBasePath, t]);
 
   useEffect(() => {
     void loadData();
@@ -192,7 +198,7 @@ export function GroupLeaderRoomAssignmentManager() {
     });
 
     try {
-      const response = await fetch("/api/capogruppo/room-assignments", {
+      const response = await fetch(apiBasePath, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

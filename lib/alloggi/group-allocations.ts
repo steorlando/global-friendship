@@ -32,6 +32,7 @@ type SummaryParticipantRow = {
   gruppo_label: string | null;
   alloggio: string | null;
   alloggio_short: string | null;
+  sesso: string | null;
   data_arrivo: string | null;
   data_partenza: string | null;
 };
@@ -73,6 +74,9 @@ export type AccommodationGroupSummary = {
   groupId: string;
   groupName: string;
   needsAccommodationCount: number;
+  maleNeedCount: number;
+  femaleNeedCount: number;
+  unknownNeedCount: number;
   assignedCapacity: number;
   assignedRoomCount: number;
   status: AccommodationGroupSummaryStatus;
@@ -96,6 +100,7 @@ type GroupSummaryParticipantInput = {
   id: string;
   arrivalDate: string | null;
   departureDate: string | null;
+  sexCategory: "male" | "female" | null;
 };
 
 type GroupSummaryInput = {
@@ -122,6 +127,36 @@ function parseDateOnly(value: string | null): Date | null {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
   const parsed = new Date(`${value}T00:00:00Z`);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function normalizeParticipantSexCategory(
+  value: string | null | undefined
+): "male" | "female" | null {
+  const normalized = normalizeForMatching(value);
+  if (!normalized) return null;
+
+  if (
+    ["male", "m", "man", "maschio", "maschile", "uomo", "boy"].includes(normalized)
+  ) {
+    return "male";
+  }
+
+  if (
+    [
+      "female",
+      "f",
+      "woman",
+      "female ",
+      "femmina",
+      "femminile",
+      "donna",
+      "girl",
+    ].includes(normalized)
+  ) {
+    return "female";
+  }
+
+  return null;
 }
 
 function formatDateOnly(date: Date): string {
@@ -166,6 +201,14 @@ function participantBelongsToGroup(
 
 function toGroupSummary(input: GroupSummaryInput): AccommodationGroupSummary {
   const needsAccommodationCount = input.participants.length;
+  const maleNeedCount = input.participants.filter(
+    (participant) => participant.sexCategory === "male"
+  ).length;
+  const femaleNeedCount = input.participants.filter(
+    (participant) => participant.sexCategory === "female"
+  ).length;
+  const unknownNeedCount =
+    needsAccommodationCount - maleNeedCount - femaleNeedCount;
   const assignedCapacity = input.rooms.reduce((sum, room) => sum + room.capacity, 0);
   const assignedRoomCount = input.rooms.length;
   const participantsWithDates = input.participants.filter((participant) => {
@@ -318,6 +361,9 @@ function toGroupSummary(input: GroupSummaryInput): AccommodationGroupSummary {
     groupId: input.groupId,
     groupName: input.groupName,
     needsAccommodationCount,
+    maleNeedCount,
+    femaleNeedCount,
+    unknownNeedCount,
     assignedCapacity,
     assignedRoomCount,
     status,
@@ -353,6 +399,7 @@ export function buildAccommodationGroupSummaries(args: {
         id: participant.id,
         arrivalDate: normalizeText(participant.data_arrivo),
         departureDate: normalizeText(participant.data_partenza),
+        sexCategory: normalizeParticipantSexCategory(participant.sesso),
       }));
 
     const roomInputs = (allocationsByGroupId.get(group.id) ?? [])
@@ -570,7 +617,7 @@ export async function loadAccommodationGroupSummaries(
     loadAccommodationGroupRoomAllocations(service, filters),
     service
       .from("partecipanti")
-      .select("id,gruppo_id,gruppo_label,alloggio,alloggio_short,data_arrivo,data_partenza"),
+      .select("id,gruppo_id,gruppo_label,alloggio,alloggio_short,sesso,data_arrivo,data_partenza"),
   ]);
 
   if (participantsRes.error) {

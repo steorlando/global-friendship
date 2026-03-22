@@ -72,6 +72,7 @@ const en: TranslationDictionary = {
   "dashboard.accommodation.tab.inventory": "Inventory",
   "dashboard.accommodation.tab.groupAllocations": "Group Allocations",
   "dashboard.accommodation.tab.hotelOverview": "Assignment Status",
+  "dashboard.accommodation.tab.roomAssignment": "Room Assignment",
   "dashboard.accommodation.tab.hotelRoster": "Hotel Roster",
   "dashboard.accommodation.tab.roomRoster": "Room Roster",
 
@@ -410,6 +411,8 @@ const en: TranslationDictionary = {
   "accommodation.hotelOverview.table.unassigned": "Unassigned",
   "accommodation.hotelOverview.table.uncoveredBeds": "Uncovered beds",
   "accommodation.hotelOverview.table.total": "Total",
+  "accommodation.roomAssignment.title": "Participant Room Assignment",
+  "accommodation.roomAssignment.subtitle": "Assign participants from any eligible group to the rooms already linked to that group, with full accommodation-team visibility.",
   "accommodation.rosters.status.loadError": "Unable to load operational rosters.",
   "accommodation.rosters.status.loading": "Loading operational rosters...",
   "accommodation.rosters.status.exportError": "Unable to export the roster.",

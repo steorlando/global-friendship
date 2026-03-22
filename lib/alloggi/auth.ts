@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
-const ACCOMMODATION_MANAGER_ROLES = ["alloggi", "admin"] as const;
+const ACCOMMODATION_MANAGER_ROLES = ["alloggi", "admin", "manager"] as const;
 
 export type AccommodationManagerRole =
   (typeof ACCOMMODATION_MANAGER_ROLES)[number];
