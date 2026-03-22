@@ -68,6 +68,18 @@ type RoomImportResponse = {
   error?: string;
 };
 
+type RoomOccupant = {
+  participantId: string;
+  firstName: string | null;
+  lastName: string | null;
+  groupName: string | null;
+};
+
+type RoomOccupantsResponse = {
+  occupants?: RoomOccupant[];
+  error?: string;
+};
+
 type HotelFormState = {
   id: string | null;
   name: string;
@@ -103,6 +115,26 @@ const EMPTY_HOTEL_FORM: HotelFormState = {
 };
 
 const POLICY_OPTIONS: RoomGenderPolicy[] = ["mixed", "female_only", "male_only"];
+const OCCUPANCY_FILTERS = ["all", "empty", "partial"] as const;
+type OccupancyFilter = (typeof OCCUPANCY_FILTERS)[number];
+
+type RoomFormCardProps = {
+  title: string;
+  subtitle: string;
+  hotels: Hotel[];
+  rooms: Room[];
+  form: RoomFormState;
+  saving: boolean;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  onChange: (updater: (current: RoomFormState) => RoomFormState) => void;
+  onReset: () => void;
+  submitLabel: string;
+  resetLabel: string;
+  savingLabel: string;
+  cancelLabel?: string;
+  onCancel?: () => void;
+  t: (key: string) => string;
+};
 
 function buildEmptyForm(hotels: Hotel[]): RoomFormState {
   return {
@@ -165,12 +197,212 @@ function roomMatchesSearch(room: Room, searchTerm: string) {
   return haystack.includes(normalized);
 }
 
+function buildRoomInventoryRowClasses(room: Room): string {
+  if (room.assignedParticipantCount <= 0) {
+    return "bg-white";
+  }
+
+  if (room.assignedParticipantCount >= room.capacity) {
+    return "bg-emerald-50";
+  }
+
+  return "bg-amber-50";
+}
+
+function RoomFormCard({
+  title,
+  subtitle,
+  hotels,
+  rooms,
+  form,
+  saving,
+  onSubmit,
+  onChange,
+  onReset,
+  submitLabel,
+  resetLabel,
+  savingLabel,
+  cancelLabel,
+  onCancel,
+  t,
+}: RoomFormCardProps) {
+  return (
+    <>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+          <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
+        </div>
+        {onCancel && cancelLabel ? (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+          >
+            {cancelLabel}
+          </button>
+        ) : null}
+      </div>
+
+      {hotels.length === 0 ? (
+        <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {t("accommodation.inventory.form.noHotels")}
+        </p>
+      ) : (
+        <form className="mt-5 space-y-4" onSubmit={onSubmit}>
+          <label className="block text-sm font-medium text-slate-700">
+            {t("accommodation.inventory.form.hotel")}
+            <select
+              value={form.hotelId}
+              onChange={(event) =>
+                onChange((current) => ({
+                  ...current,
+                  hotelId: event.target.value,
+                }))
+              }
+              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+              required
+            >
+              {hotels.map((hotel) => (
+                <option key={hotel.id} value={hotel.id}>
+                  {hotel.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {form.id ? (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                {t("accommodation.inventory.form.currentInternalCode")}
+              </p>
+              <p className="mt-2 text-sm font-medium text-slate-900">
+                {rooms.find((room) => room.id === form.id)?.internalCode ?? "-"}
+              </p>
+            </div>
+          ) : (
+            <p className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+              {t("accommodation.inventory.form.internalCodeGenerated")}
+            </p>
+          )}
+
+          <label className="block text-sm font-medium text-slate-700">
+            {t("accommodation.inventory.form.realRoomNumber")}
+            <input
+              type="text"
+              value={form.realRoomNumber}
+              onChange={(event) =>
+                onChange((current) => ({
+                  ...current,
+                  realRoomNumber: event.target.value,
+                }))
+              }
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900"
+              placeholder={t("accommodation.inventory.form.realRoomNumberPlaceholder")}
+            />
+          </label>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block text-sm font-medium text-slate-700">
+              {t("accommodation.inventory.form.capacity")}
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={form.capacity}
+                onChange={(event) =>
+                  onChange((current) => ({
+                    ...current,
+                    capacity: event.target.value,
+                  }))
+                }
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900"
+                required
+              />
+            </label>
+
+            <label className="block text-sm font-medium text-slate-700">
+              {t("accommodation.inventory.form.genderPolicy")}
+              <select
+                value={form.genderPolicy}
+                onChange={(event) =>
+                  onChange((current) => ({
+                    ...current,
+                    genderPolicy: event.target.value as RoomGenderPolicy,
+                  }))
+                }
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+              >
+                {POLICY_OPTIONS.map((policy) => (
+                  <option key={policy} value={policy}>
+                    {t(`accommodation.inventory.policy.${policy}`)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block text-sm font-medium text-slate-700">
+              {t("accommodation.inventory.form.availableFrom")}
+              <input
+                type="date"
+                value={form.availableFrom}
+                onChange={(event) =>
+                  onChange((current) => ({
+                    ...current,
+                    availableFrom: event.target.value,
+                  }))
+                }
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900"
+              />
+            </label>
+
+            <label className="block text-sm font-medium text-slate-700">
+              {t("accommodation.inventory.form.availableTo")}
+              <input
+                type="date"
+                value={form.availableTo}
+                onChange={(event) =>
+                  onChange((current) => ({
+                    ...current,
+                    availableTo: event.target.value,
+                  }))
+                }
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900"
+              />
+            </label>
+          </div>
+
+          <div className="flex flex-wrap gap-3 pt-2">
+            <button
+              type="submit"
+              disabled={saving}
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {saving ? savingLabel : submitLabel}
+            </button>
+            <button
+              type="button"
+              onClick={onReset}
+              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+            >
+              {resetLabel}
+            </button>
+          </div>
+        </form>
+      )}
+    </>
+  );
+}
+
 export function AccommodationInventoryManager() {
   const { t, formatNumber } = useI18n();
   const [hotels, setHotels] = useState<Hotel[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [hotelForm, setHotelForm] = useState<HotelFormState>(EMPTY_HOTEL_FORM);
-  const [form, setForm] = useState<RoomFormState>(EMPTY_FORM);
+  const [createForm, setCreateForm] = useState<RoomFormState>(EMPTY_FORM);
+  const [editForm, setEditForm] = useState<RoomFormState | null>(null);
   const [importHotelId, setImportHotelId] = useState("");
   const [importGenderPolicy, setImportGenderPolicy] =
     useState<RoomGenderPolicy>("mixed");
@@ -180,14 +412,18 @@ export function AccommodationInventoryManager() {
   const [showImportHelp, setShowImportHelp] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [occupantsLoading, setOccupantsLoading] = useState(false);
   const [hotelSaving, setHotelSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deletingHotelId, setDeletingHotelId] = useState<string | null>(null);
+  const [removingOccupantId, setRemovingOccupantId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [hotelFilter, setHotelFilter] = useState("all");
   const [policyFilter, setPolicyFilter] = useState("all");
+  const [occupancyFilter, setOccupancyFilter] = useState<OccupancyFilter>("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [editRoomOccupants, setEditRoomOccupants] = useState<RoomOccupant[]>([]);
   const deferredSearchTerm = useDeferredValue(searchTerm);
 
   const loadInventory = useCallback(async () => {
@@ -223,7 +459,15 @@ export function AccommodationInventoryManager() {
       setImportHotelId((current) =>
         current && nextHotelIds.has(current) ? current : nextHotels[0]?.id ?? ""
       );
-      setForm((current) => {
+      setCreateForm((current) => {
+        if (current.hotelId && nextHotelIds.has(current.hotelId)) return current;
+        return {
+          ...current,
+          hotelId: nextHotels[0]?.id ?? "",
+        };
+      });
+      setEditForm((current) => {
+        if (!current) return null;
         if (current.hotelId && nextHotelIds.has(current.hotelId)) return current;
         return {
           ...current,
@@ -265,10 +509,16 @@ export function AccommodationInventoryManager() {
     return rooms.filter((room) => {
       const matchesHotel = hotelFilter === "all" || room.hotelId === hotelFilter;
       const matchesPolicy = policyFilter === "all" || room.genderPolicy === policyFilter;
+      const matchesOccupancy =
+        occupancyFilter === "all" ||
+        (occupancyFilter === "empty" && room.assignedParticipantCount === 0) ||
+        (occupancyFilter === "partial" &&
+          room.assignedParticipantCount > 0 &&
+          room.assignedParticipantCount < room.capacity);
       const matchesSearch = roomMatchesSearch(room, deferredSearchTerm);
-      return matchesHotel && matchesPolicy && matchesSearch;
+      return matchesHotel && matchesPolicy && matchesOccupancy && matchesSearch;
     });
-  }, [deferredSearchTerm, hotelFilter, policyFilter, rooms]);
+  }, [deferredSearchTerm, hotelFilter, occupancyFilter, policyFilter, rooms]);
 
   const sortedHotels = useMemo(
     () => [...hotels].sort((a, b) => a.name.localeCompare(b.name)),
@@ -276,7 +526,11 @@ export function AccommodationInventoryManager() {
   );
 
   function resetForm() {
-    setForm(buildEmptyForm(sortedHotels));
+    setCreateForm(buildEmptyForm(sortedHotels));
+  }
+
+  function resetEditForm() {
+    setEditForm(null);
   }
 
   function resetHotelForm() {
@@ -286,11 +540,12 @@ export function AccommodationInventoryManager() {
   function startEditing(room: Room) {
     setError(null);
     setSuccess(null);
-    setForm(toRoomFormState(room));
+    setEditForm(toRoomFormState(room));
   }
 
   function cancelEditing() {
-    resetForm();
+    resetEditForm();
+    setEditRoomOccupants([]);
   }
 
   function startEditingHotel(hotel: Hotel) {
@@ -310,18 +565,17 @@ export function AccommodationInventoryManager() {
     setSuccess(null);
 
     try {
-      const method = form.id ? "PATCH" : "POST";
+      const method = "POST";
       const response = await fetch("/api/alloggi/rooms", {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          id: form.id,
-          hotelId: form.hotelId,
-          realRoomNumber: form.realRoomNumber,
-          capacity: form.capacity,
-          genderPolicy: form.genderPolicy,
-          availableFrom: form.availableFrom,
-          availableTo: form.availableTo,
+          hotelId: createForm.hotelId,
+          realRoomNumber: createForm.realRoomNumber,
+          capacity: createForm.capacity,
+          genderPolicy: createForm.genderPolicy,
+          availableFrom: createForm.availableFrom,
+          availableTo: createForm.availableTo,
         }),
       });
 
@@ -332,11 +586,45 @@ export function AccommodationInventoryManager() {
 
       await loadInventory();
       resetForm();
-      setSuccess(
-        form.id
-          ? t("accommodation.inventory.status.roomUpdated")
-          : t("accommodation.inventory.status.roomCreated")
-      );
+      setSuccess(t("accommodation.inventory.status.roomCreated"));
+    } catch (submitError) {
+      setError((submitError as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleEditSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editForm?.id) return;
+
+    setSaving(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const response = await fetch("/api/alloggi/rooms", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editForm.id,
+          hotelId: editForm.hotelId,
+          realRoomNumber: editForm.realRoomNumber,
+          capacity: editForm.capacity,
+          genderPolicy: editForm.genderPolicy,
+          availableFrom: editForm.availableFrom,
+          availableTo: editForm.availableTo,
+        }),
+      });
+
+      const json = (await response.json()) as RoomMutationResponse;
+      if (!response.ok) {
+        throw new Error(json.error || t("accommodation.inventory.status.saveError"));
+      }
+
+      await loadInventory();
+      resetEditForm();
+      setSuccess(t("accommodation.inventory.status.roomUpdated"));
     } catch (submitError) {
       setError((submitError as Error).message);
     } finally {
@@ -408,8 +696,8 @@ export function AccommodationInventoryManager() {
       }
 
       await loadInventory();
-      if (form.id === room.id) {
-        resetForm();
+      if (editForm?.id === room.id) {
+        resetEditForm();
       }
       setSuccess(t("accommodation.inventory.status.roomDeleted"));
     } catch (deleteError) {
@@ -418,6 +706,63 @@ export function AccommodationInventoryManager() {
       setDeletingId(null);
     }
   }
+
+  const loadRoomOccupants = useCallback(async (roomId: string) => {
+    setOccupantsLoading(true);
+
+    try {
+      const response = await fetch(
+        `/api/alloggi/rooms/occupants?roomId=${encodeURIComponent(roomId)}`,
+        { cache: "no-store" }
+      );
+      const json = (await response.json()) as RoomOccupantsResponse;
+      if (!response.ok) {
+        throw new Error(json.error || t("accommodation.inventory.form.occupantsLoadError"));
+      }
+      setEditRoomOccupants(json.occupants ?? []);
+    } catch (loadError) {
+      setError((loadError as Error).message);
+      setEditRoomOccupants([]);
+    } finally {
+      setOccupantsLoading(false);
+    }
+  }, [t]);
+
+  async function handleRemoveOccupant(participantId: string) {
+    if (!editForm?.id) return;
+
+    setRemovingOccupantId(participantId);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const response = await fetch("/api/alloggi/room-assignments", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          participantId,
+          roomId: null,
+        }),
+      });
+
+      const json = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(json.error || t("accommodation.inventory.form.removeOccupantError"));
+      }
+
+      await Promise.all([loadInventory(), loadRoomOccupants(editForm.id)]);
+      setSuccess(t("accommodation.inventory.form.occupantRemoved"));
+    } catch (removeError) {
+      setError((removeError as Error).message);
+    } finally {
+      setRemovingOccupantId(null);
+    }
+  }
+
+  useEffect(() => {
+    if (!editForm?.id) return;
+    void loadRoomOccupants(editForm.id);
+  }, [editForm?.id, loadRoomOccupants]);
 
   async function handleHotelSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -540,6 +885,83 @@ export function AccommodationInventoryManager() {
         </p>
       ) : null}
 
+      {editForm ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-6">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+            <RoomFormCard
+              title={t("accommodation.inventory.form.editTitle")}
+              subtitle={t("accommodation.inventory.form.subtitle")}
+              hotels={sortedHotels}
+              rooms={rooms}
+              form={editForm}
+              saving={saving}
+              onSubmit={handleEditSubmit}
+              onChange={(updater) => setEditForm((current) => (current ? updater(current) : current))}
+              onReset={() =>
+                setEditForm((current) => {
+                  if (!current) return current;
+                  const room = rooms.find((item) => item.id === current.id);
+                  return room ? toRoomFormState(room) : current;
+                })
+              }
+              submitLabel={t("accommodation.inventory.form.update")}
+              resetLabel={t("accommodation.inventory.form.reset")}
+              savingLabel={t("accommodation.inventory.form.saving")}
+              cancelLabel={t("accommodation.inventory.form.cancelEdit")}
+              onCancel={cancelEditing}
+              t={t}
+            />
+
+            <section className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900">
+                  {t("accommodation.inventory.form.occupantsTitle")}
+                </h3>
+                <p className="mt-1 text-xs text-slate-500">
+                  {t("accommodation.inventory.form.occupantsSubtitle")}
+                </p>
+              </div>
+
+              {occupantsLoading ? (
+                <p className="mt-4 text-sm text-slate-500">{t("common.loading")}</p>
+              ) : editRoomOccupants.length === 0 ? (
+                <p className="mt-4 rounded-lg border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500">
+                  {t("accommodation.inventory.form.occupantsEmpty")}
+                </p>
+              ) : (
+                <ul className="mt-4 space-y-3">
+                  {editRoomOccupants.map((occupant) => (
+                    <li
+                      key={occupant.participantId}
+                      className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3"
+                    >
+                      <div>
+                        <p className="font-medium text-slate-900">
+                          {[occupant.firstName, occupant.lastName].filter(Boolean).join(" ") || "-"}
+                        </p>
+                        <p className="mt-1 text-sm text-slate-500">
+                          {occupant.groupName || "-"}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void handleRemoveOccupant(occupant.participantId)}
+                        disabled={removingOccupantId === occupant.participantId}
+                        className="rounded-full border border-rose-200 px-3 py-1 text-xs font-medium text-rose-700 transition hover:border-rose-300 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {removingOccupantId === occupant.participantId
+                          ? t("accommodation.inventory.form.removingOccupant")
+                          : t("accommodation.inventory.form.removeOccupant")}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </div>
+        </div>
+      ) : null}
+
       <div className="grid gap-6 xl:grid-cols-[22rem_minmax(0,1fr)]">
         <div className="space-y-6">
           <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -630,180 +1052,21 @@ export function AccommodationInventoryManager() {
           </section>
 
           <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-900">
-                  {form.id
-                    ? t("accommodation.inventory.form.editTitle")
-                    : t("accommodation.inventory.form.createTitle")}
-                </h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  {t("accommodation.inventory.form.subtitle")}
-                </p>
-              </div>
-              {form.id ? (
-                <button
-                  type="button"
-                  onClick={cancelEditing}
-                  className="rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
-                >
-                  {t("accommodation.inventory.form.cancelEdit")}
-                </button>
-              ) : null}
-            </div>
-
-            {sortedHotels.length === 0 ? (
-              <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                {t("accommodation.inventory.form.noHotels")}
-              </p>
-            ) : (
-              <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
-                <label className="block text-sm font-medium text-slate-700">
-                  {t("accommodation.inventory.form.hotel")}
-                  <select
-                    value={form.hotelId}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        hotelId: event.target.value,
-                      }))
-                    }
-                    className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
-                    required
-                  >
-                    {sortedHotels.map((hotel) => (
-                      <option key={hotel.id} value={hotel.id}>
-                        {hotel.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                {form.id ? (
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                      {t("accommodation.inventory.form.currentInternalCode")}
-                    </p>
-                    <p className="mt-2 text-sm font-medium text-slate-900">
-                      {rooms.find((room) => room.id === form.id)?.internalCode ?? "-"}
-                    </p>
-                  </div>
-                ) : (
-                  <p className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
-                    {t("accommodation.inventory.form.internalCodeGenerated")}
-                  </p>
-                )}
-
-                <label className="block text-sm font-medium text-slate-700">
-                  {t("accommodation.inventory.form.realRoomNumber")}
-                  <input
-                    type="text"
-                    value={form.realRoomNumber}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        realRoomNumber: event.target.value,
-                      }))
-                    }
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900"
-                    placeholder={t("accommodation.inventory.form.realRoomNumberPlaceholder")}
-                  />
-                </label>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="block text-sm font-medium text-slate-700">
-                    {t("accommodation.inventory.form.capacity")}
-                    <input
-                      type="number"
-                      min="1"
-                      step="1"
-                      value={form.capacity}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          capacity: event.target.value,
-                        }))
-                      }
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900"
-                      required
-                    />
-                  </label>
-
-                  <label className="block text-sm font-medium text-slate-700">
-                    {t("accommodation.inventory.form.genderPolicy")}
-                    <select
-                      value={form.genderPolicy}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          genderPolicy: event.target.value as RoomGenderPolicy,
-                        }))
-                      }
-                      className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
-                    >
-                      {POLICY_OPTIONS.map((policy) => (
-                        <option key={policy} value={policy}>
-                          {t(`accommodation.inventory.policy.${policy}`)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="block text-sm font-medium text-slate-700">
-                    {t("accommodation.inventory.form.availableFrom")}
-                    <input
-                      type="date"
-                      value={form.availableFrom}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          availableFrom: event.target.value,
-                        }))
-                      }
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900"
-                    />
-                  </label>
-
-                  <label className="block text-sm font-medium text-slate-700">
-                    {t("accommodation.inventory.form.availableTo")}
-                    <input
-                      type="date"
-                      value={form.availableTo}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          availableTo: event.target.value,
-                        }))
-                      }
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900"
-                    />
-                  </label>
-                </div>
-
-                <div className="flex flex-wrap gap-3 pt-2">
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {saving
-                      ? t("accommodation.inventory.form.saving")
-                      : form.id
-                        ? t("accommodation.inventory.form.update")
-                        : t("accommodation.inventory.form.create")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
-                  >
-                    {t("accommodation.inventory.form.reset")}
-                  </button>
-                </div>
-              </form>
-            )}
+            <RoomFormCard
+              title={t("accommodation.inventory.form.createTitle")}
+              subtitle={t("accommodation.inventory.form.subtitle")}
+              hotels={sortedHotels}
+              rooms={rooms}
+              form={createForm}
+              saving={saving}
+              onSubmit={handleSubmit}
+              onChange={(updater) => setCreateForm((current) => updater(current))}
+              onReset={resetForm}
+              submitLabel={t("accommodation.inventory.form.create")}
+              resetLabel={t("accommodation.inventory.form.reset")}
+              savingLabel={t("accommodation.inventory.form.saving")}
+              t={t}
+            />
           </section>
 
           <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -1001,7 +1264,7 @@ export function AccommodationInventoryManager() {
             </p>
           </div>
 
-          <div className="mt-5 grid gap-3 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
             <label className="block text-sm font-medium text-slate-700">
               {t("accommodation.inventory.filters.search")}
               <input
@@ -1040,6 +1303,23 @@ export function AccommodationInventoryManager() {
                 {POLICY_OPTIONS.map((policy) => (
                   <option key={policy} value={policy}>
                     {t(`accommodation.inventory.policy.${policy}`)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block text-sm font-medium text-slate-700">
+              {t("accommodation.inventory.filters.occupancy")}
+              <select
+                value={occupancyFilter}
+                onChange={(event) =>
+                  setOccupancyFilter(event.target.value as OccupancyFilter)
+                }
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+              >
+                {OCCUPANCY_FILTERS.map((filter) => (
+                  <option key={filter} value={filter}>
+                    {t(`accommodation.inventory.filters.occupancyOption.${filter}`)}
                   </option>
                 ))}
               </select>
@@ -1088,7 +1368,10 @@ export function AccommodationInventoryManager() {
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
                   {filteredRooms.map((room) => (
-                    <tr key={room.id} className="align-top">
+                    <tr
+                      key={room.id}
+                      className={`align-top transition-colors ${buildRoomInventoryRowClasses(room)}`}
+                    >
                       <td className="px-4 py-3">
                         <div>
                           <p className="font-medium text-slate-900">{room.internalCode}</p>

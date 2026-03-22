@@ -11,6 +11,7 @@ export default function ManagerLayout({ children }: { children: ReactNode }) {
   const tabs = [
     { href: "/dashboard/manager", label: t("dashboard.manager.tab.statistics") },
     { href: "/dashboard/manager/participants", label: t("dashboard.manager.tab.participants") },
+    { href: "/dashboard/alloggi", label: t("dashboard.manager.tab.accommodation") },
     { href: "/dashboard/manager/participation-fees", label: t("dashboard.manager.tab.fees") },
     { href: "/dashboard/manager/event-finance", label: t("dashboard.manager.tab.finance") },
     {

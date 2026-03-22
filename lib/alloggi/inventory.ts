@@ -42,6 +42,13 @@ export type AccommodationRoom = {
   assignedParticipantCount: number;
 };
 
+export type AccommodationRoomOccupant = {
+  participantId: string;
+  firstName: string | null;
+  lastName: string | null;
+  groupName: string | null;
+};
+
 export type AccommodationRoomMutationInput = {
   hotelId: string;
   realRoomNumber: string | null;
@@ -90,7 +97,16 @@ type RoomGroupRow = {
 };
 
 type ParticipantRoomAssignmentRow = {
+  partecipante_id?: string | null;
   stanza_id: string | null;
+};
+
+type OccupantParticipantRow = {
+  id: string;
+  nome: string | null;
+  cognome: string | null;
+  gruppo_id: string | null;
+  gruppo_label: string | null;
 };
 
 const HOTEL_SELECT_FIELDS = "*";
@@ -775,6 +791,57 @@ export async function loadAccommodationRoomById(
 ): Promise<AccommodationRoom | null> {
   const rooms = await loadAccommodationRooms(service, { roomIds: [roomId] });
   return rooms[0] ?? null;
+}
+
+export async function loadAccommodationRoomOccupants(
+  service: ServiceClient,
+  roomId: string
+): Promise<AccommodationRoomOccupant[]> {
+  const normalizedRoomId = normalizeText(roomId);
+  if (!normalizedRoomId) {
+    throw new Error("roomId is required");
+  }
+
+  const { data: assignments, error: assignmentsError } = await service
+    .from("partecipanti_stanze")
+    .select("partecipante_id,stanza_id")
+    .eq("stanza_id", normalizedRoomId);
+
+  if (assignmentsError) {
+    throw new Error(assignmentsError.message);
+  }
+
+  const participantIds = [...new Set(
+    ((assignments ?? []) as ParticipantRoomAssignmentRow[])
+      .map((row) => normalizeText(row.partecipante_id))
+      .filter((value): value is string => Boolean(value))
+  )];
+
+  if (participantIds.length === 0) {
+    return [];
+  }
+
+  const { data: participants, error: participantsError } = await service
+    .from("partecipanti")
+    .select("id,nome,cognome,gruppo_id,gruppo_label")
+    .in("id", participantIds);
+
+  if (participantsError) {
+    throw new Error(participantsError.message);
+  }
+
+  return ((participants ?? []) as OccupantParticipantRow[])
+    .map((participant) => ({
+      participantId: participant.id,
+      firstName: participant.nome,
+      lastName: participant.cognome,
+      groupName: normalizeText(participant.gruppo_label) ?? normalizeText(participant.gruppo_id),
+    }))
+    .sort((a, b) => {
+      const bySurname = (a.lastName ?? "").localeCompare(b.lastName ?? "");
+      if (bySurname !== 0) return bySurname;
+      return (a.firstName ?? "").localeCompare(b.firstName ?? "");
+    });
 }
 
 export async function createAccommodationRoom(
