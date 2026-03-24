@@ -17,6 +17,7 @@ type Participant = {
   created_at: string | null;
   nome: string | null;
   cognome: string | null;
+  tipo_iscrizione: string | null;
   citta: string | null;
   paese_residenza: string | null;
   nazione: string | null;
@@ -59,10 +60,14 @@ type SortKey =
   | "created_at"
   | "nome"
   | "cognome"
+  | "tipo_iscrizione"
+  | "citta"
   | "data_arrivo"
   | "data_partenza"
   | "alloggio"
   | "quota_totale";
+
+type OptionalColumnKey = "tipo_iscrizione" | "citta";
 
 type SortDirection = "asc" | "desc";
 
@@ -92,6 +97,8 @@ const EMPTY_FORM: FormState = {
   disabilita_accessibilita: false,
   difficolta_accessibilita: [],
 };
+
+const OPTIONAL_COLUMNS: OptionalColumnKey[] = ["tipo_iscrizione", "citta"];
 
 function toFormState(participant: Participant): FormState {
   const citta = participant.citta ?? "";
@@ -212,6 +219,7 @@ export function ParticipantsTable({
   const { t } = useI18n();
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [showGroupColumn, setShowGroupColumn] = useState(false);
+  const [visibleOptionalColumns, setVisibleOptionalColumns] = useState<OptionalColumnKey[]>([]);
   const [groups, setGroups] = useState<string[]>([]);
   const [assignableGroups, setAssignableGroups] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -227,6 +235,8 @@ export function ParticipantsTable({
   const [groupFilter, setGroupFilter] = useState("");
   const [nomeFilter, setNomeFilter] = useState("");
   const [cognomeFilter, setCognomeFilter] = useState("");
+  const [tipoIscrizioneFilter, setTipoIscrizioneFilter] = useState("");
+  const [cittaFilter, setCittaFilter] = useState("");
   const [registrationDateFilter, setRegistrationDateFilter] = useState("");
   const [arrivoFilter, setArrivoFilter] = useState("");
   const [partenzaFilter, setPartenzaFilter] = useState("");
@@ -240,6 +250,8 @@ export function ParticipantsTable({
     [editingId, participants]
   );
   const isRomaCityInForm = normalizeFilterText(form.citta) === "roma";
+  const showRegistrationTypeColumn = visibleOptionalColumns.includes("tipo_iscrizione");
+  const showCityColumn = visibleOptionalColumns.includes("citta");
 
   const filteredSortedParticipants = useMemo(() => {
     const filtered = participants.filter((participant) => {
@@ -259,6 +271,22 @@ export function ParticipantsTable({
       if (
         cognomeFilter &&
         !(participant.cognome ?? "").toLowerCase().includes(cognomeFilter.toLowerCase())
+      ) {
+        return false;
+      }
+      if (
+        showRegistrationTypeColumn &&
+        tipoIscrizioneFilter &&
+        !(participant.tipo_iscrizione ?? "")
+          .toLowerCase()
+          .includes(tipoIscrizioneFilter.toLowerCase())
+      ) {
+        return false;
+      }
+      if (
+        showCityColumn &&
+        cittaFilter &&
+        !(participant.citta ?? "").toLowerCase().includes(cittaFilter.toLowerCase())
       ) {
         return false;
       }
@@ -320,6 +348,7 @@ export function ParticipantsTable({
     alloggioFilter,
     arrivoFilter,
     cognomeFilter,
+    cittaFilter,
     groupFilter,
     nomeFilter,
     participants,
@@ -329,15 +358,19 @@ export function ParticipantsTable({
     quotaMinFilter,
     registrationDateFilter,
     showGroupColumn,
+    showCityColumn,
     showRegistrationDate,
+    showRegistrationTypeColumn,
     sortDirection,
     sortKey,
+    tipoIscrizioneFilter,
     showTotalFee,
   ]);
 
   const tableColumnCount =
     (showGroupColumn ? 1 : 0) +
     2 +
+    visibleOptionalColumns.length +
     (showRegistrationDate ? 1 : 0) +
     2 +
     1 +
@@ -430,12 +463,35 @@ export function ParticipantsTable({
     setGroupFilter("");
     setNomeFilter("");
     setCognomeFilter("");
+    setTipoIscrizioneFilter("");
+    setCittaFilter("");
     setRegistrationDateFilter("");
     setArrivoFilter("");
     setPartenzaFilter("");
     setAlloggioFilter("");
     setQuotaMinFilter("");
     setQuotaMaxFilter("");
+  }
+
+  function toggleOptionalColumn(column: OptionalColumnKey) {
+    setVisibleOptionalColumns((prev) => {
+      if (prev.includes(column)) {
+        if (column === "tipo_iscrizione") {
+          setTipoIscrizioneFilter("");
+        }
+        if (column === "citta") {
+          setCittaFilter("");
+        }
+        if (sortKey === column) {
+          setSortKey("cognome");
+          setSortDirection("asc");
+        }
+        return prev.filter((item) => item !== column);
+      }
+      return [...prev, column].sort(
+        (a, b) => OPTIONAL_COLUMNS.indexOf(a) - OPTIONAL_COLUMNS.indexOf(b)
+      );
+    });
   }
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
@@ -537,7 +593,35 @@ export function ParticipantsTable({
         <p className="text-sm text-slate-500">
           {groupSummaryLabel}: {groups.length > 0 ? groups.join(", ") : t("participants.table.noGroup")}
         </p>
-        <div className="mt-3 flex justify-end">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              {t("participants.table.controls.extraColumns")}
+            </span>
+            <button
+              type="button"
+              onClick={() => toggleOptionalColumn("tipo_iscrizione")}
+              className={`rounded border px-3 py-1.5 text-xs font-medium transition ${
+                showRegistrationTypeColumn
+                  ? "border-indigo-600 bg-indigo-600 text-white"
+                  : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
+              }`}
+            >
+              {t("participants.table.header.registrationType")}
+            </button>
+            <button
+              type="button"
+              onClick={() => toggleOptionalColumn("citta")}
+              className={`rounded border px-3 py-1.5 text-xs font-medium transition ${
+                showCityColumn
+                  ? "border-indigo-600 bg-indigo-600 text-white"
+                  : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
+              }`}
+            >
+              {t("participants.table.header.city")}
+            </button>
+          </div>
+
           <button
             type="button"
             onClick={() => setOnlyRoma((prev) => !prev)}
@@ -572,6 +656,21 @@ export function ParticipantsTable({
                     {t("participants.table.header.lastName")} {sortLabel("cognome")}
                   </button>
                 </th>
+                {showRegistrationTypeColumn && (
+                  <th className="px-4 py-3">
+                    <button type="button" onClick={() => toggleSort("tipo_iscrizione")}>
+                      {t("participants.table.header.registrationType")}{" "}
+                      {sortLabel("tipo_iscrizione")}
+                    </button>
+                  </th>
+                )}
+                {showCityColumn && (
+                  <th className="px-4 py-3">
+                    <button type="button" onClick={() => toggleSort("citta")}>
+                      {t("participants.table.header.city")} {sortLabel("citta")}
+                    </button>
+                  </th>
+                )}
                 <th className="px-4 py-3">
                   <button type="button" onClick={() => toggleSort("data_arrivo")}>
                     {t("participants.table.header.arrivalDate")} {sortLabel("data_arrivo")}
@@ -630,6 +729,26 @@ export function ParticipantsTable({
                     className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
                   />
                 </th>
+                {showRegistrationTypeColumn && (
+                  <th className="px-2 pb-3">
+                    <input
+                      value={tipoIscrizioneFilter}
+                      onChange={(e) => setTipoIscrizioneFilter(e.target.value)}
+                      placeholder={t("participants.table.filter.registrationType")}
+                      className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
+                    />
+                  </th>
+                )}
+                {showCityColumn && (
+                  <th className="px-2 pb-3">
+                    <input
+                      value={cittaFilter}
+                      onChange={(e) => setCittaFilter(e.target.value)}
+                      placeholder={t("participants.table.filter.city")}
+                      className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
+                    />
+                  </th>
+                )}
                 <th className="px-2 pb-3">
                   <input
                     type="date"
@@ -719,6 +838,12 @@ export function ParticipantsTable({
                     )}
                     <td className="px-4 py-3">{participant.nome || "-"}</td>
                     <td className="px-4 py-3">{participant.cognome || "-"}</td>
+                    {showRegistrationTypeColumn && (
+                      <td className="px-4 py-3">{participant.tipo_iscrizione || "-"}</td>
+                    )}
+                    {showCityColumn && (
+                      <td className="px-4 py-3">{participant.citta || "-"}</td>
+                    )}
                     <td className="px-4 py-3">
                       {displayDate(
                         participant.data_arrivo,

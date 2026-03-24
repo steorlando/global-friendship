@@ -19,6 +19,7 @@ type ParticipantRow = {
   created_at: string | null;
   nome: string | null;
   cognome: string | null;
+  tipo_iscrizione: string | null;
   citta: string | null;
   paese_residenza: string | null;
   nazione: string | null;
@@ -39,7 +40,7 @@ type ParticipantRow = {
 };
 
 const SELECT_FIELDS_BASE =
-  "id,created_at,nome,cognome,paese_residenza,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label";
+  "id,created_at,nome,cognome,tipo_iscrizione,paese_residenza,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label";
 const SELECT_FIELDS_WITH_CITY = `${SELECT_FIELDS_BASE},citta:città`;
 const GROUP_COLUMN_MISSING_CODES = new Set(["42703", "PGRST204", "PGRST116"]);
 

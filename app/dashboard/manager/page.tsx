@@ -283,6 +283,14 @@ async function buildTrendSeries(
     const eps = 1e-6;
     const histAtLatest = pointValueAtOrBefore(historyAverage, latestCurrentDay);
     const histFinal = pointValueAtOrBefore(historyAverage, 0);
+    const maxHistoricalRemainingGain = Math.max(
+      0,
+      ...historyFilled.map((series) => {
+        const atLatest = pointValueAtOrBefore(series, latestCurrentDay);
+        const atFinal = pointValueAtOrBefore(series, 0);
+        return Math.max(0, atFinal - atLatest);
+      })
+    );
 
     const levelRatio =
       histAtLatest > eps ? latestCurrentValue / histAtLatest : 1;
@@ -317,12 +325,42 @@ async function buildTrendSeries(
           Math.max(0, 0 - latestCurrentDay)
     );
 
-    forecastFinal = Math.max(
+    const uncappedForecastFinal = Math.max(
       latestCurrentValue,
       terminalFromShape,
       histFinal > eps ? Math.round(shapeScale * histFinal) : latestCurrentValue,
       fallbackLinear
     );
+    const averageCap = histFinal > eps ? Math.round(histFinal * 1.2) : uncappedForecastFinal;
+    const remainingGainCap = latestCurrentValue + maxHistoricalRemainingGain;
+    const conservativeCap = Math.max(
+      latestCurrentValue,
+      Math.min(averageCap, remainingGainCap)
+    );
+
+    forecastFinal = Math.min(uncappedForecastFinal, conservativeCap);
+
+    if (rawCurve.length > 0) {
+      const rawFinal = rawCurve[rawCurve.length - 1].value;
+      if (rawFinal > latestCurrentValue && forecastFinal < rawFinal) {
+        const adjustedCurve: TrendPoint[] = [];
+        let previous = latestCurrentValue;
+        for (const point of rawCurve) {
+          const progress = clamp(
+            (point.value - latestCurrentValue) / Math.max(1, rawFinal - latestCurrentValue),
+            0,
+            1
+          );
+          const value = Math.max(
+            previous,
+            Math.round(latestCurrentValue + progress * (forecastFinal - latestCurrentValue))
+          );
+          adjustedCurve.push({ day: point.day, value });
+          previous = value;
+        }
+        rawCurve.splice(0, rawCurve.length, ...adjustedCurve);
+      }
+    }
 
     rawCurve[rawCurve.length - 1] = { day: 0, value: forecastFinal };
     forecast = rawCurve;
