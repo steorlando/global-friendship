@@ -69,6 +69,7 @@ const en: TranslationDictionary = {
   "dashboard.accommodation.title": "Accommodation Dashboard",
   "dashboard.accommodation.subtitle": "Manage room inventory for the accommodation team.",
   "dashboard.accommodation.backToAdmin": "Back to Admin",
+  "dashboard.accommodation.backToManager": "Back to Manager",
   "dashboard.accommodation.sections": "Sections",
   "dashboard.accommodation.tab.inventory": "Inventory",
   "dashboard.accommodation.tab.groupAllocations": "Group Allocations",

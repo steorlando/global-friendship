@@ -33,6 +33,8 @@ export function SiteHeader({ userEmail, requestedRole }: SiteHeaderProps) {
   const resolvedRole = resolvedEmail ? initialRole ?? roleFromPath : null;
   const showAdminBackLink =
     resolvedRole === "admin" && pathname?.startsWith("/dashboard/alloggi");
+  const showManagerBackLink =
+    resolvedRole === "manager" && pathname?.startsWith("/dashboard/alloggi");
 
   useEffect(() => {
     let active = true;
@@ -93,6 +95,14 @@ export function SiteHeader({ userEmail, requestedRole }: SiteHeaderProps) {
               className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
             >
               {t("dashboard.accommodation.backToAdmin")}
+            </Link>
+          ) : null}
+          {showManagerBackLink ? (
+            <Link
+              href="/dashboard/manager"
+              className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+            >
+              {t("dashboard.accommodation.backToManager")}
             </Link>
           ) : null}
           <div className="flex items-center gap-2">
