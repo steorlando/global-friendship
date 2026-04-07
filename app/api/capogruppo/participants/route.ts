@@ -19,6 +19,9 @@ type ParticipantRow = {
   created_at: string | null;
   nome: string | null;
   cognome: string | null;
+  eta: number | null;
+  tipo_iscrizione: string | null;
+  citta: string | null;
   nazione: string | null;
   email: string | null;
   telefono: string | null;
@@ -36,8 +39,9 @@ type ParticipantRow = {
   gruppo_label: string | null;
 };
 
-const SELECT_FIELDS =
-  "id,created_at,nome,cognome,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label";
+const SELECT_FIELDS_BASE =
+  "id,created_at,nome,cognome,eta,tipo_iscrizione,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label";
+const SELECT_FIELDS_WITH_CITY = `${SELECT_FIELDS_BASE},citta:città`;
 
 const esigenzeSet = new Set<string>(ESIGENZE_ALIMENTARI_OPTIONS);
 const difficoltaSet = new Set<string>(DIFFICOLTA_ACCESSIBILITA_OPTIONS);
@@ -114,6 +118,16 @@ function participantBelongsToGroups(
   return groupIds.has(gruppoId) || groupIds.has(gruppoLabel);
 }
 
+function canFallbackMissingColumn(error: { code?: string | null; message?: string | null }) {
+  const code = error.code ?? "";
+  const message = (error.message ?? "").toLowerCase();
+  return (
+    ["42703", "PGRST100", "PGRST204"].includes(code) ||
+    message.includes("column") ||
+    message.includes("parse")
+  );
+}
+
 async function requireCapogruppoContext() {
   const supabase = await createSupabaseServerClient();
   const {
@@ -176,10 +190,22 @@ async function loadParticipantsForGroups(groupIds: string[]) {
   if (groupIds.length === 0) return [] as ParticipantRow[];
 
   const service = createSupabaseServiceClient();
-  const [byGroupId, byGroupLabel] = await Promise.all([
-    service.from("partecipanti").select(SELECT_FIELDS).in("gruppo_id", groupIds),
-    service.from("partecipanti").select(SELECT_FIELDS).in("gruppo_label", groupIds),
-  ]);
+  const executeSelect = async (selectFields: string) =>
+    Promise.all([
+      service.from("partecipanti").select(selectFields).in("gruppo_id", groupIds),
+      service.from("partecipanti").select(selectFields).in("gruppo_label", groupIds),
+    ]);
+
+  let [byGroupId, byGroupLabel] = await executeSelect(SELECT_FIELDS_WITH_CITY);
+
+  if (byGroupId.error || byGroupLabel.error) {
+    const firstError = byGroupId.error ?? byGroupLabel.error;
+    if (!firstError || !canFallbackMissingColumn(firstError)) {
+      throw new Error(firstError?.message ?? "Unable to load participants");
+    }
+
+    [byGroupId, byGroupLabel] = await executeSelect(SELECT_FIELDS_BASE);
+  }
 
   if (byGroupId.error) {
     throw new Error(byGroupId.error.message);
@@ -200,6 +226,31 @@ async function loadParticipantsForGroups(groupIds: string[]) {
     if (bySurname !== 0) return bySurname;
     return (a.nome ?? "").localeCompare(b.nome ?? "");
   });
+}
+
+async function loadParticipantById(
+  service: ReturnType<typeof createSupabaseServiceClient>,
+  participantId: string
+) {
+  const executeSelect = async (selectFields: string) =>
+    service.from("partecipanti").select(selectFields).eq("id", participantId).maybeSingle();
+
+  let { data, error } = await executeSelect(SELECT_FIELDS_WITH_CITY);
+  if (error) {
+    if (!canFallbackMissingColumn(error)) {
+      throw new Error(error.message);
+    }
+
+    const fallback = await executeSelect(SELECT_FIELDS_BASE);
+    data = fallback.data;
+    error = fallback.error;
+  }
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data as ParticipantRow | null) ?? null;
 }
 
 function toResponseParticipant(row: ParticipantRow) {
@@ -246,14 +297,12 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "id is required" }, { status: 400 });
   }
 
-  const { data: participant, error: participantError } = await auth.service
-    .from("partecipanti")
-    .select(SELECT_FIELDS)
-    .eq("id", participantId)
-    .maybeSingle();
-
-  if (participantError) {
-    return NextResponse.json({ error: participantError.message }, { status: 500 });
+  let participant: ParticipantRow | null = null;
+  try {
+    participant = await loadParticipantById(auth.service, participantId);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to load participant";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 
   if (!participant) {
@@ -381,7 +430,7 @@ export async function PATCH(req: Request) {
     dataNascita,
   });
 
-  const { data: updated, error: updateError } = await auth.service
+  const { error: updateError } = await auth.service
     .from("partecipanti")
     .update({
       nome,
@@ -406,14 +455,26 @@ export async function PATCH(req: Request) {
       is_minorenne: calculated.isMinorenne,
     })
     .eq("id", participantId)
-    .select(SELECT_FIELDS)
+    .select("id")
     .single();
 
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, participant: toResponseParticipant(updated as ParticipantRow) });
+  let refreshed: ParticipantRow | null = null;
+  try {
+    refreshed = await loadParticipantById(auth.service, participantId);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Participant updated but reload failed";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+
+  return NextResponse.json({
+    ok: true,
+    participant: toResponseParticipant((refreshed ?? current) as ParticipantRow),
+  });
 }
 
 export async function DELETE(req: Request) {
@@ -432,14 +493,12 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: "id is required" }, { status: 400 });
   }
 
-  const { data: participant, error: participantError } = await auth.service
-    .from("partecipanti")
-    .select(SELECT_FIELDS)
-    .eq("id", participantId)
-    .maybeSingle();
-
-  if (participantError) {
-    return NextResponse.json({ error: participantError.message }, { status: 500 });
+  let participant: ParticipantRow | null = null;
+  try {
+    participant = await loadParticipantById(auth.service, participantId);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to load participant";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 
   if (!participant) {
