@@ -156,6 +156,7 @@ const en: TranslationDictionary = {
   "participants.table.header.lastName": "Last name",
   "participants.table.header.registrationType": "Registration type",
   "participants.table.header.city": "City",
+  "participants.table.header.age": "Age",
   "participants.table.header.arrivalDate": "Arrival date",
   "participants.table.header.departureDate": "Departure date",
   "participants.table.header.accommodation": "Accommodation",

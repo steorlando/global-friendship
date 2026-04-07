@@ -136,6 +136,7 @@ const it: TranslationDictionary = {
   "participants.table.header.lastName": "Cognome",
   "participants.table.header.registrationType": "Tipo iscrizione",
   "participants.table.header.city": "Città",
+  "participants.table.header.age": "Età",
   "participants.table.header.arrivalDate": "Data arrivo",
   "participants.table.header.departureDate": "Data partenza",
   "participants.table.header.accommodation": "Alloggio",

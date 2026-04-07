@@ -17,6 +17,7 @@ type Participant = {
   created_at: string | null;
   nome: string | null;
   cognome: string | null;
+  eta: number | null;
   tipo_iscrizione: string | null;
   citta: string | null;
   paese_residenza: string | null;
@@ -60,6 +61,7 @@ type SortKey =
   | "created_at"
   | "nome"
   | "cognome"
+  | "eta"
   | "tipo_iscrizione"
   | "citta"
   | "data_arrivo"
@@ -67,7 +69,7 @@ type SortKey =
   | "alloggio"
   | "quota_totale";
 
-type OptionalColumnKey = "tipo_iscrizione" | "citta";
+type OptionalColumnKey = "tipo_iscrizione" | "citta" | "eta";
 
 type SortDirection = "asc" | "desc";
 
@@ -98,7 +100,7 @@ const EMPTY_FORM: FormState = {
   difficolta_accessibilita: [],
 };
 
-const OPTIONAL_COLUMNS: OptionalColumnKey[] = ["tipo_iscrizione", "citta"];
+const OPTIONAL_COLUMNS: OptionalColumnKey[] = ["tipo_iscrizione", "citta", "eta"];
 
 function toFormState(participant: Participant): FormState {
   const citta = participant.citta ?? "";
@@ -237,6 +239,8 @@ export function ParticipantsTable({
   const [cognomeFilter, setCognomeFilter] = useState("");
   const [tipoIscrizioneFilter, setTipoIscrizioneFilter] = useState("");
   const [cittaFilter, setCittaFilter] = useState("");
+  const [etaMinFilter, setEtaMinFilter] = useState("");
+  const [etaMaxFilter, setEtaMaxFilter] = useState("");
   const [registrationDateFilter, setRegistrationDateFilter] = useState("");
   const [arrivoFilter, setArrivoFilter] = useState("");
   const [partenzaFilter, setPartenzaFilter] = useState("");
@@ -252,6 +256,7 @@ export function ParticipantsTable({
   const isRomaCityInForm = normalizeFilterText(form.citta) === "roma";
   const showRegistrationTypeColumn = visibleOptionalColumns.includes("tipo_iscrizione");
   const showCityColumn = visibleOptionalColumns.includes("citta");
+  const showAgeColumn = visibleOptionalColumns.includes("eta");
 
   const filteredSortedParticipants = useMemo(() => {
     const filtered = participants.filter((participant) => {
@@ -289,6 +294,18 @@ export function ParticipantsTable({
         !(participant.citta ?? "").toLowerCase().includes(cittaFilter.toLowerCase())
       ) {
         return false;
+      }
+      if (showAgeColumn && etaMinFilter) {
+        const min = Number(etaMinFilter);
+        if (!Number.isNaN(min) && (participant.eta ?? -Infinity) < min) {
+          return false;
+        }
+      }
+      if (showAgeColumn && etaMaxFilter) {
+        const max = Number(etaMaxFilter);
+        if (!Number.isNaN(max) && (participant.eta ?? Infinity) > max) {
+          return false;
+        }
       }
       if (showRegistrationDate && registrationDateFilter) {
         const registrationDateOnly = (participant.created_at ?? "").slice(0, 10);
@@ -328,13 +345,17 @@ export function ParticipantsTable({
       const aValue =
         sortKey === "quota_totale"
           ? a.quota_totale ?? -Infinity
-          : sortKey === "created_at"
+          : sortKey === "eta"
+            ? a.eta ?? -Infinity
+            : sortKey === "created_at"
             ? new Date(a.created_at ?? "").getTime() || -Infinity
             : (a[sortKey] ?? "").toString().toLowerCase();
       const bValue =
         sortKey === "quota_totale"
           ? b.quota_totale ?? -Infinity
-          : sortKey === "created_at"
+          : sortKey === "eta"
+            ? b.eta ?? -Infinity
+            : sortKey === "created_at"
             ? new Date(b.created_at ?? "").getTime() || -Infinity
             : (b[sortKey] ?? "").toString().toLowerCase();
 
@@ -349,6 +370,8 @@ export function ParticipantsTable({
     arrivoFilter,
     cognomeFilter,
     cittaFilter,
+    etaMaxFilter,
+    etaMinFilter,
     groupFilter,
     nomeFilter,
     participants,
@@ -359,6 +382,7 @@ export function ParticipantsTable({
     registrationDateFilter,
     showGroupColumn,
     showCityColumn,
+    showAgeColumn,
     showRegistrationDate,
     showRegistrationTypeColumn,
     sortDirection,
@@ -465,6 +489,8 @@ export function ParticipantsTable({
     setCognomeFilter("");
     setTipoIscrizioneFilter("");
     setCittaFilter("");
+    setEtaMinFilter("");
+    setEtaMaxFilter("");
     setRegistrationDateFilter("");
     setArrivoFilter("");
     setPartenzaFilter("");
@@ -481,6 +507,10 @@ export function ParticipantsTable({
         }
         if (column === "citta") {
           setCittaFilter("");
+        }
+        if (column === "eta") {
+          setEtaMinFilter("");
+          setEtaMaxFilter("");
         }
         if (sortKey === column) {
           setSortKey("cognome");
@@ -620,6 +650,17 @@ export function ParticipantsTable({
             >
               {t("participants.table.header.city")}
             </button>
+            <button
+              type="button"
+              onClick={() => toggleOptionalColumn("eta")}
+              className={`rounded border px-3 py-1.5 text-xs font-medium transition ${
+                showAgeColumn
+                  ? "border-indigo-600 bg-indigo-600 text-white"
+                  : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
+              }`}
+            >
+              {t("participants.table.header.age")}
+            </button>
           </div>
 
           <button
@@ -668,6 +709,13 @@ export function ParticipantsTable({
                   <th className="px-4 py-3">
                     <button type="button" onClick={() => toggleSort("citta")}>
                       {t("participants.table.header.city")} {sortLabel("citta")}
+                    </button>
+                  </th>
+                )}
+                {showAgeColumn && (
+                  <th className="px-4 py-3">
+                    <button type="button" onClick={() => toggleSort("eta")}>
+                      {t("participants.table.header.age")} {sortLabel("eta")}
                     </button>
                   </th>
                 )}
@@ -747,6 +795,26 @@ export function ParticipantsTable({
                       placeholder={t("participants.table.filter.city")}
                       className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
                     />
+                  </th>
+                )}
+                {showAgeColumn && (
+                  <th className="px-2 pb-3">
+                    <div className="grid grid-cols-2 gap-1">
+                      <input
+                        type="number"
+                        placeholder={t("participants.table.filter.min")}
+                        value={etaMinFilter}
+                        onChange={(e) => setEtaMinFilter(e.target.value)}
+                        className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
+                      />
+                      <input
+                        type="number"
+                        placeholder={t("participants.table.filter.max")}
+                        value={etaMaxFilter}
+                        onChange={(e) => setEtaMaxFilter(e.target.value)}
+                        className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
+                      />
+                    </div>
                   </th>
                 )}
                 <th className="px-2 pb-3">
@@ -843,6 +911,11 @@ export function ParticipantsTable({
                     )}
                     {showCityColumn && (
                       <td className="px-4 py-3">{participant.citta || "-"}</td>
+                    )}
+                    {showAgeColumn && (
+                      <td className="px-4 py-3">
+                        {participant.eta === null ? "-" : participant.eta}
+                      </td>
                     )}
                     <td className="px-4 py-3">
                       {displayDate(
