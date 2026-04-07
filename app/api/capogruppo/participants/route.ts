@@ -215,10 +215,12 @@ async function loadParticipantsForGroups(groupIds: string[]) {
     throw new Error(byGroupLabel.error.message);
   }
 
+  const groupIdRows = (byGroupId.data ?? []) as unknown as ParticipantRow[];
+  const groupLabelRows = (byGroupLabel.data ?? []) as unknown as ParticipantRow[];
   const merged = new Map<string, ParticipantRow>();
-  for (const row of [...(byGroupId.data ?? []), ...(byGroupLabel.data ?? [])]) {
+  for (const row of [...groupIdRows, ...groupLabelRows]) {
     if (!row.id) continue;
-    merged.set(row.id, row as ParticipantRow);
+    merged.set(row.id, row);
   }
 
   return [...merged.values()].sort((a, b) => {
@@ -250,7 +252,7 @@ async function loadParticipantById(
     throw new Error(error.message);
   }
 
-  return (data as ParticipantRow | null) ?? null;
+  return (data as unknown as ParticipantRow | null) ?? null;
 }
 
 function toResponseParticipant(row: ParticipantRow) {
