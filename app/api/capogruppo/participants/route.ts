@@ -21,6 +21,7 @@ type ParticipantRow = {
   cognome: string | null;
   eta: number | null;
   tipo_iscrizione: string | null;
+  paese_residenza: string | null;
   citta: string | null;
   nazione: string | null;
   email: string | null;
@@ -37,11 +38,15 @@ type ParticipantRow = {
   quota_totale: number | null;
   gruppo_id: string | null;
   gruppo_label: string | null;
+  partecipa_intero_evento: boolean | null;
+  presenza_dettaglio: Record<string, unknown> | null;
 };
 
 const SELECT_FIELDS_BASE =
-  "id,created_at,nome,cognome,eta,tipo_iscrizione,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label";
+  "id,created_at,nome,cognome,eta,tipo_iscrizione,paese_residenza,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label,partecipa_intero_evento,presenza_dettaglio";
 const SELECT_FIELDS_WITH_CITY = `${SELECT_FIELDS_BASE},citta:città`;
+const SELECT_FIELDS_LEGACY =
+  "id,created_at,nome,cognome,eta,tipo_iscrizione,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label";
 
 const esigenzeSet = new Set<string>(ESIGENZE_ALIMENTARI_OPTIONS);
 const difficoltaSet = new Set<string>(DIFFICOLTA_ACCESSIBILITA_OPTIONS);
@@ -104,6 +109,33 @@ function parseStoredEsigenze(value: string | null): string[] {
     .filter((item) => item && esigenzeSet.has(item));
 }
 
+function parseBooleanLoose(value: unknown): boolean | null {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value === 1 ? true : value === 0 ? false : null;
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (["true", "1", "yes", "y", "on"].includes(normalized)) return true;
+  if (["false", "0", "no", "n", "off", ""].includes(normalized)) return false;
+  return null;
+}
+
+function normalizePresenceDettaglio(
+  value: unknown
+): Record<string, boolean> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+
+  const normalized: Record<string, boolean> = {};
+  for (const [rawKey, rawValue] of Object.entries(value as Record<string, unknown>)) {
+    const key = rawKey.trim();
+    if (!key || key.toLowerCase() === "general") continue;
+    const parsed = parseBooleanLoose(rawValue);
+    if (parsed === null) continue;
+    normalized[key] = parsed;
+  }
+
+  return Object.keys(normalized).length > 0 ? normalized : null;
+}
+
 function buildGroupLabel(row: ParticipantRow): string {
   const value = (row.gruppo_label ?? row.gruppo_id ?? "").trim();
   return value || "-";
@@ -128,6 +160,41 @@ function canFallbackMissingColumn(error: { code?: string | null; message?: strin
   );
 }
 
+function toParticipantRow(value: unknown): ParticipantRow {
+  const row = (value ?? {}) as Record<string, unknown>;
+  return {
+    id: typeof row.id === "string" ? row.id : "",
+    created_at: (row.created_at as string | null | undefined) ?? null,
+    nome: (row.nome as string | null | undefined) ?? null,
+    cognome: (row.cognome as string | null | undefined) ?? null,
+    eta: (row.eta as number | null | undefined) ?? null,
+    tipo_iscrizione: (row.tipo_iscrizione as string | null | undefined) ?? null,
+    paese_residenza: (row.paese_residenza as string | null | undefined) ?? null,
+    citta: (row.citta as string | null | undefined) ?? null,
+    nazione: (row.nazione as string | null | undefined) ?? null,
+    email: (row.email as string | null | undefined) ?? null,
+    telefono: (row.telefono as string | null | undefined) ?? null,
+    data_nascita: (row.data_nascita as string | null | undefined) ?? null,
+    data_arrivo: (row.data_arrivo as string | null | undefined) ?? null,
+    data_partenza: (row.data_partenza as string | null | undefined) ?? null,
+    alloggio: (row.alloggio as string | null | undefined) ?? null,
+    allergie: (row.allergie as string | null | undefined) ?? null,
+    esigenze_alimentari: (row.esigenze_alimentari as string | null | undefined) ?? null,
+    disabilita_accessibilita:
+      (row.disabilita_accessibilita as boolean | null | undefined) ?? null,
+    difficolta_accessibilita:
+      (row.difficolta_accessibilita as string | null | undefined) ?? null,
+    alloggio_short: (row.alloggio_short as string | null | undefined) ?? null,
+    quota_totale: (row.quota_totale as number | null | undefined) ?? null,
+    gruppo_id: (row.gruppo_id as string | null | undefined) ?? null,
+    gruppo_label: (row.gruppo_label as string | null | undefined) ?? null,
+    partecipa_intero_evento:
+      (row.partecipa_intero_evento as boolean | null | undefined) ?? null,
+    presenza_dettaglio:
+      (row.presenza_dettaglio as Record<string, unknown> | null | undefined) ?? null,
+  };
+}
+
 async function requireCapogruppoContext() {
   const supabase = await createSupabaseServerClient();
   const {
@@ -148,13 +215,25 @@ async function requireCapogruppoContext() {
   }
 
   const service = createSupabaseServiceClient();
-  const { data: profile, error: profileError } = await service
+  let { data: profile, error: profileError } = await service
     .from("profili")
-    .select("id")
+    .select("id,capogruppo_host")
     .ilike("email", email)
     .eq("ruolo", "capogruppo")
     .order("created_at", { ascending: false })
     .maybeSingle();
+
+  if (profileError && canFallbackMissingColumn(profileError)) {
+    const fallback = await service
+      .from("profili")
+      .select("id")
+      .ilike("email", email)
+      .eq("ruolo", "capogruppo")
+      .order("created_at", { ascending: false })
+      .maybeSingle();
+    profile = fallback.data as typeof profile;
+    profileError = fallback.error;
+  }
 
   if (profileError) {
     return {
@@ -183,7 +262,14 @@ async function requireCapogruppoContext() {
     .filter(Boolean)
     .sort((a, b) => a.localeCompare(b));
 
-  return { user, service, groups };
+  return {
+    user,
+    service,
+    groups,
+    isHostGroupLeader: Boolean(
+      (profile as { capogruppo_host?: boolean | null })?.capogruppo_host
+    ),
+  };
 }
 
 async function loadParticipantsForGroups(groupIds: string[]) {
@@ -205,6 +291,13 @@ async function loadParticipantsForGroups(groupIds: string[]) {
     }
 
     [byGroupId, byGroupLabel] = await executeSelect(SELECT_FIELDS_BASE);
+    if (byGroupId.error || byGroupLabel.error) {
+      const fallbackError = byGroupId.error ?? byGroupLabel.error;
+      if (!fallbackError || !canFallbackMissingColumn(fallbackError)) {
+        throw new Error(fallbackError?.message ?? "Unable to load participants");
+      }
+      [byGroupId, byGroupLabel] = await executeSelect(SELECT_FIELDS_LEGACY);
+    }
   }
 
   if (byGroupId.error) {
@@ -215,8 +308,8 @@ async function loadParticipantsForGroups(groupIds: string[]) {
     throw new Error(byGroupLabel.error.message);
   }
 
-  const groupIdRows = (byGroupId.data ?? []) as unknown as ParticipantRow[];
-  const groupLabelRows = (byGroupLabel.data ?? []) as unknown as ParticipantRow[];
+  const groupIdRows = (byGroupId.data ?? []).map(toParticipantRow);
+  const groupLabelRows = (byGroupLabel.data ?? []).map(toParticipantRow);
   const merged = new Map<string, ParticipantRow>();
   for (const row of [...groupIdRows, ...groupLabelRows]) {
     if (!row.id) continue;
@@ -243,7 +336,10 @@ async function loadParticipantById(
       throw new Error(error.message);
     }
 
-    const fallback = await executeSelect(SELECT_FIELDS_BASE);
+    let fallback = await executeSelect(SELECT_FIELDS_BASE);
+    if (fallback.error && canFallbackMissingColumn(fallback.error)) {
+      fallback = await executeSelect(SELECT_FIELDS_LEGACY);
+    }
     data = fallback.data;
     error = fallback.error;
   }
@@ -252,16 +348,20 @@ async function loadParticipantById(
     throw new Error(error.message);
   }
 
-  return (data as unknown as ParticipantRow | null) ?? null;
+  return data ? toParticipantRow(data) : null;
 }
 
 function toResponseParticipant(row: ParticipantRow) {
+  const presenzaDettaglio = normalizePresenceDettaglio(row.presenza_dettaglio);
   return {
     ...row,
     alloggio: row.alloggio_short ?? alloggioLongToShort(row.alloggio),
     group: buildGroupLabel(row),
     esigenze_alimentari: parseStoredEsigenze(row.esigenze_alimentari),
     difficolta_accessibilita: parseStoredDifficolta(row.difficolta_accessibilita),
+    partecipa_intero_evento:
+      typeof row.partecipa_intero_evento === "boolean" ? row.partecipa_intero_evento : null,
+    presenza_dettaglio: presenzaDettaglio,
   };
 }
 
@@ -275,6 +375,7 @@ export async function GET() {
     return NextResponse.json({
       groups: auth.groups,
       showGroupColumn: auth.groups.length > 1,
+      canManageHostCityParticipants: auth.isHostGroupLeader,
       participants: participants.map(toResponseParticipant),
     });
   } catch (error) {
@@ -317,6 +418,7 @@ export async function PATCH(req: Request) {
   }
 
   const current = participant as ParticipantRow;
+  const canManageHostCityParticipant = auth.isHostGroupLeader;
 
   const nome = "nome" in body ? normalizeText(body.nome) : normalizeText(current.nome);
   const cognome =
@@ -354,6 +456,47 @@ export async function PATCH(req: Request) {
     "difficolta_accessibilita" in body
       ? normalizeDifficolta(body.difficolta_accessibilita)
       : parseStoredDifficolta(current.difficolta_accessibilita);
+  const rawPartecipaInteroEvento = body.partecipa_intero_evento;
+  if (
+    canManageHostCityParticipant &&
+    "partecipa_intero_evento" in body &&
+    !(rawPartecipaInteroEvento === null || typeof rawPartecipaInteroEvento === "boolean")
+  ) {
+    return NextResponse.json(
+      { error: "partecipa_intero_evento must be a boolean or null" },
+      { status: 400 }
+    );
+  }
+  const partecipaInteroEvento = canManageHostCityParticipant
+    ? "partecipa_intero_evento" in body
+      ? (rawPartecipaInteroEvento as boolean | null)
+      : typeof current.partecipa_intero_evento === "boolean"
+        ? current.partecipa_intero_evento
+        : null
+    : typeof current.partecipa_intero_evento === "boolean"
+      ? current.partecipa_intero_evento
+      : null;
+
+  const rawPresenzaDettaglio = body.presenza_dettaglio;
+  const normalizedCurrentPresenzaDettaglio = normalizePresenceDettaglio(
+    current.presenza_dettaglio
+  );
+  if (
+    canManageHostCityParticipant &&
+    "presenza_dettaglio" in body &&
+    rawPresenzaDettaglio !== null &&
+    normalizePresenceDettaglio(rawPresenzaDettaglio) === null
+  ) {
+    return NextResponse.json(
+      { error: "presenza_dettaglio must be an object map of boolean values or null" },
+      { status: 400 }
+    );
+  }
+  const presenzaDettaglio = canManageHostCityParticipant
+    ? "presenza_dettaglio" in body
+      ? normalizePresenceDettaglio(rawPresenzaDettaglio)
+      : normalizedCurrentPresenzaDettaglio
+    : normalizedCurrentPresenzaDettaglio;
 
   if (!nome || !cognome) {
     return NextResponse.json(
@@ -432,30 +575,37 @@ export async function PATCH(req: Request) {
     dataNascita,
   });
 
+  const updatePayload: Record<string, unknown> = {
+    nome,
+    cognome,
+    nazione,
+    email,
+    telefono,
+    data_nascita: dataNascita,
+    data_arrivo: dataArrivo,
+    data_partenza: dataPartenza,
+    alloggio: normalizedAlloggio,
+    alloggio_short: alloggioLongToShort(normalizedAlloggio),
+    allergie,
+    esigenze_alimentari:
+      esigenzeAlimentari.length > 0 ? esigenzeAlimentari.join(", ") : null,
+    disabilita_accessibilita: disabilitaAccessibilita,
+    difficolta_accessibilita:
+      normalizedDifficolta.length > 0 ? normalizedDifficolta.join(", ") : null,
+    giorni_permanenza: calculated.giorniPermanenza,
+    quota_totale: calculated.quotaTotale,
+    eta: calculated.eta,
+    is_minorenne: calculated.isMinorenne,
+  };
+
+  if (canManageHostCityParticipant) {
+    updatePayload.partecipa_intero_evento = partecipaInteroEvento;
+    updatePayload.presenza_dettaglio = presenzaDettaglio;
+  }
+
   const { error: updateError } = await auth.service
     .from("partecipanti")
-    .update({
-      nome,
-      cognome,
-      nazione,
-      email,
-      telefono,
-      data_nascita: dataNascita,
-      data_arrivo: dataArrivo,
-      data_partenza: dataPartenza,
-      alloggio: normalizedAlloggio,
-      alloggio_short: alloggioLongToShort(normalizedAlloggio),
-      allergie,
-      esigenze_alimentari:
-        esigenzeAlimentari.length > 0 ? esigenzeAlimentari.join(", ") : null,
-      disabilita_accessibilita: disabilitaAccessibilita,
-      difficolta_accessibilita:
-        normalizedDifficolta.length > 0 ? normalizedDifficolta.join(", ") : null,
-      giorni_permanenza: calculated.giorniPermanenza,
-      quota_totale: calculated.quotaTotale,
-      eta: calculated.eta,
-      is_minorenne: calculated.isMinorenne,
-    })
+    .update(updatePayload)
     .eq("id", participantId)
     .select("id")
     .single();

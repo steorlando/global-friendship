@@ -12,6 +12,7 @@ type Profilo = {
   telefono: string | null;
   italia: boolean | null;
   roma: boolean | null;
+  capogruppo_host: boolean | null;
   created_at: string;
   groups: string[];
 };
@@ -29,6 +30,7 @@ type EditDraft = {
   telefono: string;
   italia: boolean;
   roma: boolean;
+  capogruppo_host: boolean;
   groups: string[];
   newGroup: string;
 };
@@ -151,6 +153,7 @@ export default function AdminUsersProfilesPage() {
         telefono: profile.telefono ?? "",
         italia: Boolean(profile.italia),
         roma: Boolean(profile.roma),
+        capogruppo_host: Boolean(profile.capogruppo_host),
         groups: [...profile.groups],
         newGroup: "",
       },
@@ -276,6 +279,7 @@ export default function AdminUsersProfilesPage() {
           telefono: draft.telefono,
           italia: draft.italia,
           roma: draft.roma,
+          capogruppo_host: draft.capogruppo_host,
           groups: draft.groups,
         }),
       });
@@ -595,6 +599,7 @@ export default function AdminUsersProfilesPage() {
                   <th className="px-4 py-3">Rome</th>
                   <th className="px-4 py-3">Groups</th>
                   <th className="px-4 py-3">Role</th>
+                  <th className="px-4 py-3">Host Group Leader</th>
                   <th className="px-4 py-3">Action</th>
                 </tr>
               </thead>
@@ -602,7 +607,7 @@ export default function AdminUsersProfilesPage() {
                 {filteredProfiles.length === 0 && (
                   <tr>
                     <td
-                      colSpan={9}
+                      colSpan={10}
                       className="px-3 py-6 text-center text-sm text-slate-500"
                     >
                       No users found with the selected filters.
@@ -798,6 +803,10 @@ export default function AdminUsersProfilesPage() {
                               [profile.id]: {
                                 ...prev[profile.id],
                                 ruolo: e.target.value,
+                                capogruppo_host:
+                                  e.target.value === "capogruppo"
+                                    ? prev[profile.id]?.capogruppo_host ?? false
+                                    : false,
                               },
                             }))
                           }
@@ -815,6 +824,29 @@ export default function AdminUsersProfilesPage() {
                             ? ROLE_LABELS[profile.ruolo]
                             : profile.ruolo}
                         </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {editingId === profile.id ? (
+                        <label className="inline-flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(editDrafts[profile.id]?.capogruppo_host)}
+                            disabled={editDrafts[profile.id]?.ruolo !== "capogruppo"}
+                            onChange={(e) =>
+                              setEditDrafts((prev) => ({
+                                ...prev,
+                                [profile.id]: {
+                                  ...prev[profile.id],
+                                  capogruppo_host: e.target.checked,
+                                },
+                              }))
+                            }
+                          />
+                          <span className="text-xs text-slate-700">Host</span>
+                        </label>
+                      ) : (
+                        <span>{profile.capogruppo_host ? "Yes" : "No"}</span>
                       )}
                     </td>
                     <td className="px-4 py-3">

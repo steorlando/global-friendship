@@ -9,6 +9,7 @@ export type ProfiloInput = {
   telefono?: string | null;
   italia?: boolean | null;
   roma?: boolean | null;
+  capogruppoHost?: boolean | null;
   groups?: string[] | null;
 };
 
@@ -21,10 +22,30 @@ type ProfiloRow = {
   telefono: string | null;
   italia: boolean | null;
   roma: boolean | null;
+  capogruppo_host?: boolean | null;
+  created_at: string;
+};
+
+type ProfiloPersisted = {
+  id: string;
+  email: string;
+  nome: string | null;
+  cognome: string | null;
+  ruolo: string;
+  telefono: string | null;
+  italia: boolean | null;
+  roma: boolean | null;
+  capogruppo_host: boolean | null;
   created_at: string;
 };
 
 const GROUP_COLUMN_MISSING_CODES = new Set(["42703", "PGRST204", "PGRST116"]);
+
+function isMissingCapogruppoHostColumn(error: { code?: string | null; message?: string | null }) {
+  const code = error.code ?? "";
+  const message = (error.message ?? "").toLowerCase();
+  return code === "42703" || message.includes("capogruppo_host");
+}
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -112,14 +133,31 @@ async function ensureAuthUserIdByEmail(
 }
 
 export async function listProfili(supabase: SupabaseClient) {
-  const { data, error } = await supabase
+  const primary = await supabase
     .from("profili")
-    .select("id,email,nome,cognome,ruolo,telefono,italia,roma,created_at")
+    .select("id,email,nome,cognome,ruolo,telefono,italia,roma,capogruppo_host,created_at")
     .order("created_at", { ascending: false });
+
+  let rows = primary.data as Record<string, unknown>[] | null;
+  let error = primary.error;
+
+  if (error) {
+    if (!isMissingCapogruppoHostColumn(error)) {
+      throw new Error(error.message);
+    }
+
+    const fallback = await supabase
+      .from("profili")
+      .select("id,email,nome,cognome,ruolo,telefono,italia,roma,created_at")
+      .order("created_at", { ascending: false });
+
+    rows = fallback.data as Record<string, unknown>[] | null;
+    error = fallback.error;
+  }
 
   if (error) throw new Error(error.message);
 
-  const profili = (data ?? []) as ProfiloRow[];
+  const profili = (rows ?? []) as unknown as ProfiloRow[];
   if (profili.length === 0) return [];
 
   const profileIds = profili.map((row) => row.id);
@@ -142,6 +180,7 @@ export async function listProfili(supabase: SupabaseClient) {
 
   return profili.map((row) => ({
     ...row,
+    capogruppo_host: Boolean(row.capogruppo_host),
     groups: [...new Set(groupsByProfileId.get(row.id) ?? [])].sort(),
   }));
 }
@@ -209,7 +248,7 @@ async function resolveCanonicalGroupId(
 export async function upsertProfiloByEmail(
   supabase: SupabaseClient,
   input: ProfiloInput
-) {
+): Promise<ProfiloPersisted> {
   const email = normalizeEmail(input.email);
   const ruolo = ensureRole(input.ruolo);
   const nome = normalizeText(input.nome);
@@ -217,6 +256,7 @@ export async function upsertProfiloByEmail(
   const telefono = normalizeText(input.telefono ?? null);
   const italia = input.italia ?? null;
   const roma = input.roma ?? null;
+  const capogruppoHost = ruolo === "capogruppo" ? Boolean(input.capogruppoHost) : false;
   const groups = normalizeGroups(input.groups);
 
   if (!email) throw new Error("Email is required");
@@ -233,7 +273,7 @@ export async function upsertProfiloByEmail(
   const existingRow = (existing ?? [])[0];
 
   if (existingRow?.id) {
-    const { data: updated, error: updateError } = await supabase
+    let { data: updated, error: updateError } = await supabase
       .from("profili")
       .update({
         email,
@@ -243,16 +283,39 @@ export async function upsertProfiloByEmail(
         telefono,
         italia,
         roma,
+        capogruppo_host: capogruppoHost,
       })
       .eq("id", existingRow.id)
-      .select("id,email,nome,cognome,ruolo,telefono,italia,roma,created_at")
+      .select("id,email,nome,cognome,ruolo,telefono,italia,roma,capogruppo_host,created_at")
       .single();
+
+    if (updateError && isMissingCapogruppoHostColumn(updateError)) {
+      const fallback = await supabase
+        .from("profili")
+        .update({
+          email,
+          nome,
+          cognome,
+          ruolo,
+          telefono,
+          italia,
+          roma,
+        })
+        .eq("id", existingRow.id)
+        .select("id,email,nome,cognome,ruolo,telefono,italia,roma,created_at")
+        .single();
+      updated = fallback.data as typeof updated;
+      updateError = fallback.error;
+    }
 
     if (updateError) throw new Error(updateError.message);
     if (input.groups !== undefined) {
       await setProfiloGruppi(supabase, existingRow.id, groups);
     }
-    return updated;
+    return {
+      ...(updated as Record<string, unknown>),
+      capogruppo_host: Boolean((updated as { capogruppo_host?: boolean | null }).capogruppo_host),
+    } as ProfiloPersisted;
   }
 
   const authUserId = await ensureAuthUserIdByEmail(supabase, email);
@@ -265,7 +328,7 @@ export async function upsertProfiloByEmail(
   if (idLookupError) throw new Error(idLookupError.message);
   const profileId = idAlreadyInUse?.id ? crypto.randomUUID() : authUserId;
 
-  const { data: inserted, error: insertError } = await supabase
+  let { data: inserted, error: insertError } = await supabase
     .from("profili")
     .insert({
       id: profileId,
@@ -276,15 +339,41 @@ export async function upsertProfiloByEmail(
       telefono,
       italia,
       roma,
+      capogruppo_host: capogruppoHost,
     })
-    .select("id,email,nome,cognome,ruolo,telefono,italia,roma,created_at")
+    .select("id,email,nome,cognome,ruolo,telefono,italia,roma,capogruppo_host,created_at")
     .single();
 
+  if (insertError && isMissingCapogruppoHostColumn(insertError)) {
+    const fallback = await supabase
+      .from("profili")
+      .insert({
+        id: profileId,
+        email,
+        nome,
+        cognome,
+        ruolo,
+        telefono,
+        italia,
+        roma,
+      })
+      .select("id,email,nome,cognome,ruolo,telefono,italia,roma,created_at")
+      .single();
+    inserted = fallback.data as typeof inserted;
+    insertError = fallback.error;
+  }
+
   if (insertError) throw new Error(insertError.message);
+  if (!inserted) throw new Error("Unable to create profile");
   if (input.groups !== undefined) {
     await setProfiloGruppi(supabase, inserted.id, groups);
   }
-  return inserted;
+  return {
+    ...(inserted as Record<string, unknown>),
+    capogruppo_host: Boolean(
+      (inserted as { capogruppo_host?: boolean | null }).capogruppo_host
+    ),
+  } as ProfiloPersisted;
 }
 
 export async function updateProfiloById(
@@ -297,13 +386,15 @@ export async function updateProfiloById(
     telefono?: string | null;
     italia?: boolean | null;
     roma?: boolean | null;
+    capogruppoHost?: boolean | null;
     groups?: string[] | null;
   }
-) {
+): Promise<ProfiloPersisted> {
   let existingRole: string | null = null;
   const wantsRoleChange = input.ruolo !== undefined && input.ruolo !== null;
+  const needsCurrentRole = wantsRoleChange || input.capogruppoHost !== undefined;
 
-  if (wantsRoleChange) {
+  if (needsCurrentRole) {
     const { data: existing, error: existingError } = await supabase
       .from("profili")
       .select("ruolo")
@@ -326,13 +417,31 @@ export async function updateProfiloById(
   if (input.telefono !== undefined) patch.telefono = normalizeText(input.telefono);
   if (input.italia !== undefined) patch.italia = input.italia;
   if (input.roma !== undefined) patch.roma = input.roma;
+  const effectiveRole = (patch.ruolo as string | undefined) ?? existingRole ?? null;
+  if (input.capogruppoHost !== undefined || effectiveRole !== "capogruppo") {
+    patch.capogruppo_host =
+      effectiveRole === "capogruppo" ? Boolean(input.capogruppoHost) : false;
+  }
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("profili")
     .update(patch)
     .eq("id", id)
-    .select("id,email,nome,cognome,ruolo,telefono,italia,roma,created_at")
+    .select("id,email,nome,cognome,ruolo,telefono,italia,roma,capogruppo_host,created_at")
     .single();
+
+  if (error && isMissingCapogruppoHostColumn(error)) {
+    const legacyPatch = { ...patch };
+    delete legacyPatch.capogruppo_host;
+    const fallback = await supabase
+      .from("profili")
+      .update(legacyPatch)
+      .eq("id", id)
+      .select("id,email,nome,cognome,ruolo,telefono,italia,roma,created_at")
+      .single();
+    data = fallback.data as typeof data;
+    error = fallback.error;
+  }
 
   if (error) throw new Error(error.message);
 
@@ -341,7 +450,10 @@ export async function updateProfiloById(
     await setProfiloGruppi(supabase, id, groups);
   }
 
-  return data;
+  return {
+    ...(data as Record<string, unknown>),
+    capogruppo_host: Boolean((data as { capogruppo_host?: boolean | null }).capogruppo_host),
+  } as ProfiloPersisted;
 }
 
 export async function linkProfiloToGruppo(

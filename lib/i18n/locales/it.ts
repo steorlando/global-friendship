@@ -94,6 +94,15 @@ const it: TranslationDictionary = {
   "participant.form.dietaryRequirements": "Esigenze alimentari",
   "participant.form.allergies": "Allergie",
   "participant.form.accessibilityNeeds": "Disabilità / accessibilità",
+  "participant.form.hostCity.sectionTitle":
+    "Dettagli partecipazione città ospitante",
+  "participant.form.hostCity.sectionHint":
+    "Questa sezione è attiva perché la tua città coincide con la città ospitante ({city}).",
+  "participant.form.hostCity.entireEventLabel":
+    "Partecipa all'intero evento (venerdì-domenica)",
+  "participant.form.hostCity.optionYes": "Sì",
+  "participant.form.hostCity.optionNo": "No, solo alcuni momenti",
+  "participant.form.hostCity.presenceLabel": "Momenti di presenza",
   "participant.option.dietary.vegetarian": "Vegetariano",
   "participant.option.dietary.vegan": "Vegano",
   "participant.option.dietary.noPork": "Non mangio carne di maiale",
@@ -158,6 +167,15 @@ const it: TranslationDictionary = {
   "participants.table.modal.accessibility": "Disabilità / accessibilità",
   "participants.table.modal.cancel": "Annulla",
   "participants.table.modal.saving": "Salvataggio...",
+  "participants.table.modal.hostCity.sectionTitle":
+    "Dettagli partecipazione città ospitante",
+  "participants.table.modal.hostCity.sectionHint":
+    "Visibile solo per i partecipanti gestiti da un capogruppo host.",
+  "participants.table.modal.hostCity.entireEventLabel":
+    "Partecipa all'intero evento (venerdì-domenica)",
+  "participants.table.modal.hostCity.optionYes": "Sì",
+  "participants.table.modal.hostCity.optionNo": "No, solo alcuni momenti",
+  "participants.table.modal.hostCity.presenceLabel": "Momenti di presenza",
   "manager.statistics.sections": "Sezioni",
   "manager.statistics.openSections": "Apri",
   "manager.statistics.closeSections": "Chiudi",

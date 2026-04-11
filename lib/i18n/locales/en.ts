@@ -112,6 +112,14 @@ const en: TranslationDictionary = {
   "participant.form.dietaryRequirements": "Dietary requirements",
   "participant.form.allergies": "Allergies",
   "participant.form.accessibilityNeeds": "Disability / accessibility needs",
+  "participant.form.hostCity.sectionTitle": "Host city participation details",
+  "participant.form.hostCity.sectionHint":
+    "This section is enabled because your city matches the host city ({city}).",
+  "participant.form.hostCity.entireEventLabel":
+    "Attending the full event (Friday to Sunday)",
+  "participant.form.hostCity.optionYes": "Yes",
+  "participant.form.hostCity.optionNo": "No, only selected moments",
+  "participant.form.hostCity.presenceLabel": "Moments attended",
   "participant.option.dietary.vegetarian": "Vegetarian",
   "participant.option.dietary.vegan": "Vegan",
   "participant.option.dietary.noPork": "I don't eat pork",
@@ -179,6 +187,14 @@ const en: TranslationDictionary = {
   "participants.table.modal.accessibility": "Disability / accessibility",
   "participants.table.modal.cancel": "Cancel",
   "participants.table.modal.saving": "Saving...",
+  "participants.table.modal.hostCity.sectionTitle": "Host city participation details",
+  "participants.table.modal.hostCity.sectionHint":
+    "Visible only for participants managed by a host group leader.",
+  "participants.table.modal.hostCity.entireEventLabel":
+    "Attending the full event (Friday to Sunday)",
+  "participants.table.modal.hostCity.optionYes": "Yes",
+  "participants.table.modal.hostCity.optionNo": "No, only selected moments",
+  "participants.table.modal.hostCity.presenceLabel": "Moments attended",
 
   "manager.email.title": "Email Campaigns",
   "manager.statistics.sections": "Sections",

@@ -12,6 +12,8 @@ import {
 } from "@/lib/partecipante/constants";
 import { useI18n } from "@/lib/i18n/provider";
 
+type PresenceDettaglioMap = Record<string, boolean>;
+
 type Participant = {
   id: string;
   created_at: string | null;
@@ -35,6 +37,8 @@ type Participant = {
   quota_totale: number | null;
   group: string;
   gruppo_roma?: string | null;
+  partecipa_intero_evento?: boolean | null;
+  presenza_dettaglio?: PresenceDettaglioMap | null;
 };
 
 type FormState = {
@@ -54,6 +58,8 @@ type FormState = {
   esigenze_alimentari: string[];
   disabilita_accessibilita: boolean;
   difficolta_accessibilita: string[];
+  partecipa_intero_evento: boolean | null;
+  presenza_dettaglio: PresenceDettaglioMap | null;
 };
 
 type SortKey =
@@ -98,9 +104,46 @@ const EMPTY_FORM: FormState = {
   esigenze_alimentari: [],
   disabilita_accessibilita: false,
   difficolta_accessibilita: [],
+  partecipa_intero_evento: null,
+  presenza_dettaglio: null,
 };
 
 const OPTIONAL_COLUMNS: OptionalColumnKey[] = ["tipo_iscrizione", "citta", "eta"];
+const HOST_CITY_PRESENCE_OPTIONS = [
+  "Opening ceremony Friday 28th August",
+  "Dinner - Friday 28th August",
+  "Friday 29 August – Morning",
+  "Lunch – August 29",
+  "Afternoon – August 29",
+  "Dinner – August 29",
+  "Saturday morning, August 30",
+  "Lunch – August 30",
+  "Afternoon – August 30",
+  "Dinner and party – August 30",
+];
+
+function parseBooleanLoose(value: unknown): boolean | null {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value === 1 ? true : value === 0 ? false : null;
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (["true", "1", "yes", "y", "on"].includes(normalized)) return true;
+  if (["false", "0", "no", "n", "off", ""].includes(normalized)) return false;
+  return null;
+}
+
+function normalizePresenceDettaglio(value: unknown): PresenceDettaglioMap | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const map: PresenceDettaglioMap = {};
+  for (const [rawKey, rawValue] of Object.entries(value as Record<string, unknown>)) {
+    const key = rawKey.trim();
+    if (!key || key.toLowerCase() === "general") continue;
+    const parsed = parseBooleanLoose(rawValue);
+    if (parsed === null) continue;
+    map[key] = parsed;
+  }
+  return Object.keys(map).length > 0 ? map : null;
+}
 
 function toFormState(participant: Participant): FormState {
   const citta = participant.citta ?? "";
@@ -124,6 +167,11 @@ function toFormState(participant: Participant): FormState {
       : [],
     disabilita_accessibilita: Boolean(participant.disabilita_accessibilita),
     difficolta_accessibilita: participant.difficolta_accessibilita ?? [],
+    partecipa_intero_evento:
+      typeof participant.partecipa_intero_evento === "boolean"
+        ? participant.partecipa_intero_evento
+        : null,
+    presenza_dettaglio: normalizePresenceDettaglio(participant.presenza_dettaglio),
   };
 }
 
@@ -211,6 +259,12 @@ function isRomaParticipant(participant: Participant) {
   return candidates.some((value) => value.includes("roma"));
 }
 
+function toPresenceOptionLabel(key: string) {
+  const trimmed = key.trim();
+  const match = /^\((.*)\)$/.exec(trimmed);
+  return match ? match[1] : trimmed;
+}
+
 export function ParticipantsTable({
   apiBasePath,
   groupSummaryLabel,
@@ -224,6 +278,7 @@ export function ParticipantsTable({
   const [visibleOptionalColumns, setVisibleOptionalColumns] = useState<OptionalColumnKey[]>([]);
   const [groups, setGroups] = useState<string[]>([]);
   const [assignableGroups, setAssignableGroups] = useState<string[]>([]);
+  const [canManageHostCityParticipants, setCanManageHostCityParticipants] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -253,6 +308,13 @@ export function ParticipantsTable({
     () => participants.find((participant) => participant.id === editingId) ?? null,
     [editingId, participants]
   );
+  const canEditHostCityFields = canManageHostCityParticipants;
+  const presenceOptions = useMemo(() => {
+    const fromParticipant = Object.keys(editingParticipant?.presenza_dettaglio ?? {});
+    const fromForm = Object.keys(form.presenza_dettaglio ?? {});
+    const merged = [...new Set([...fromParticipant, ...fromForm, ...HOST_CITY_PRESENCE_OPTIONS])];
+    return merged.filter(Boolean);
+  }, [editingParticipant?.presenza_dettaglio, form.presenza_dettaglio]);
   const isRomaCityInForm = normalizeFilterText(form.citta) === "roma";
   const showRegistrationTypeColumn = visibleOptionalColumns.includes("tipo_iscrizione");
   const showCityColumn = visibleOptionalColumns.includes("citta");
@@ -421,6 +483,7 @@ export function ParticipantsTable({
         setAssignableGroups(
           Array.isArray(json.assignableGroups) ? json.assignableGroups : []
         );
+        setCanManageHostCityParticipants(Boolean(json.canManageHostCityParticipants));
       } catch {
         setLoadError(t("participants.table.loadError"));
       } finally {
@@ -465,6 +528,19 @@ export function ParticipantsTable({
         esigenze_alimentari: exists
           ? prev.esigenze_alimentari.filter((item) => item !== option)
           : [...prev.esigenze_alimentari, option],
+      };
+    });
+  }
+
+  function togglePresenzaDettaglio(option: string) {
+    setForm((prev) => {
+      const current = prev.presenza_dettaglio ?? {};
+      return {
+        ...prev,
+        presenza_dettaglio: {
+          ...current,
+          [option]: !Boolean(current[option]),
+        },
       };
     });
   }
@@ -538,6 +614,10 @@ export function ParticipantsTable({
         delete payload.paese_residenza;
         delete payload.citta;
         delete payload.gruppo_roma;
+      }
+      if (!canEditHostCityFields) {
+        delete payload.partecipa_intero_evento;
+        delete payload.presenza_dettaglio;
       }
 
       const res = await fetch(apiBasePath, {
@@ -1134,6 +1214,73 @@ export function ParticipantsTable({
                     className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
                   />
                 </div>
+
+                {canEditHostCityFields && (
+                  <div className="md:col-span-2 rounded border border-amber-200 bg-amber-50 p-3">
+                    <p className="text-sm font-medium text-amber-900">
+                      {t("participants.table.modal.hostCity.sectionTitle")}
+                    </p>
+                    <p className="mt-1 text-xs text-amber-800">
+                      {t("participants.table.modal.hostCity.sectionHint")}
+                    </p>
+
+                    <div className="mt-3 grid gap-3 md:grid-cols-2">
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-slate-700">
+                          {t("participants.table.modal.hostCity.entireEventLabel")}
+                        </label>
+                        <select
+                          value={
+                            form.partecipa_intero_evento === null
+                              ? ""
+                              : form.partecipa_intero_evento
+                                ? "yes"
+                                : "no"
+                          }
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              partecipa_intero_evento:
+                                e.target.value === ""
+                                  ? null
+                                  : e.target.value === "yes",
+                            }))
+                          }
+                          className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
+                        >
+                          <option value="">{t("participant.form.select")}</option>
+                          <option value="yes">
+                            {t("participants.table.modal.hostCity.optionYes")}
+                          </option>
+                          <option value="no">
+                            {t("participants.table.modal.hostCity.optionNo")}
+                          </option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="mt-4">
+                      <label className="block text-sm font-medium text-slate-700">
+                        {t("participants.table.modal.hostCity.presenceLabel")}
+                      </label>
+                      <div className="mt-2 grid gap-2 md:grid-cols-2">
+                        {presenceOptions.map((option) => (
+                          <label
+                            key={option}
+                            className="flex items-start gap-2 rounded border border-amber-200 bg-white px-2 py-1.5 text-xs"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={Boolean(form.presenza_dettaglio?.[option])}
+                              onChange={() => togglePresenzaDettaglio(option)}
+                            />
+                            <span>{toPresenceOptionLabel(option)}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-slate-700">{t("participant.form.accommodation")}</label>

@@ -48,6 +48,8 @@ export async function POST(req: Request) {
       telefono: body.telefono !== undefined ? String(body.telefono) : null,
       italia: body.italia !== undefined ? Boolean(body.italia) : null,
       roma: body.roma !== undefined ? Boolean(body.roma) : null,
+      capogruppoHost:
+        body.capogruppo_host !== undefined ? Boolean(body.capogruppo_host) : null,
       groups,
     });
     return NextResponse.json({ data });
@@ -84,6 +86,8 @@ export async function PATCH(req: Request) {
       telefono: body.telefono !== undefined ? String(body.telefono) : undefined,
       italia: body.italia !== undefined ? Boolean(body.italia) : undefined,
       roma: body.roma !== undefined ? Boolean(body.roma) : undefined,
+      capogruppoHost:
+        body.capogruppo_host !== undefined ? Boolean(body.capogruppo_host) : undefined,
       groups,
     });
 

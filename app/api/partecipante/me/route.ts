@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { getGmailSenderAddress, sendGmailTextEmail } from "@/lib/email/gmail";
 import { computeParticipantCalculatedFields } from "@/lib/tally/calculated-fields";
+import { loadEventRuntimeSettings } from "@/lib/event/settings";
 import {
   ALLOGGIO_OPTIONS,
   ARRIVAL_DATE_MAX,
@@ -13,6 +14,8 @@ import {
   ESIGENZE_ALIMENTARI_OPTIONS,
   parseStoredDifficoltaAccessibilita,
 } from "@/lib/partecipante/constants";
+
+type PresenceDettaglioMap = Record<string, boolean>;
 
 type ParticipantDbRow = {
   id: string;
@@ -31,6 +34,9 @@ type ParticipantDbRow = {
   esigenze_alimentari: string | null;
   disabilita_accessibilita: boolean | null;
   difficolta_accessibilita: string | null;
+  citta: string | null;
+  partecipa_intero_evento: boolean | null;
+  presenza_dettaglio: Record<string, unknown> | null;
   submitted_at_tally: string | null;
 };
 
@@ -46,11 +52,25 @@ type ParticipantCandidate = {
 const alloggioSet = new Set<string>(ALLOGGIO_OPTIONS);
 const esigenzeSet = new Set<string>(ESIGENZE_ALIMENTARI_OPTIONS);
 const difficoltaSet = new Set<string>(DIFFICOLTA_ACCESSIBILITA_OPTIONS);
+const SELECT_FIELDS_BASE =
+  "id,email,nome,cognome,gruppo_id,gruppo_label,tally_submission_id,nazione,data_nascita,data_arrivo,data_partenza,alloggio,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,submitted_at_tally";
+const SELECT_FIELDS_WITH_HOST = `${SELECT_FIELDS_BASE},partecipa_intero_evento,presenza_dettaglio`;
+const SELECT_FIELDS_WITH_CITY = `${SELECT_FIELDS_BASE},citta:città`;
+const SELECT_FIELDS_WITH_CITY_AND_HOST = `${SELECT_FIELDS_WITH_HOST},citta:città`;
 
 function normalizeText(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeForMatch(value: string | null | undefined): string {
+  if (!value) return "";
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
 }
 
 function parseDateOnly(value: string | null): Date | null {
@@ -88,6 +108,48 @@ function normalizeEsigenze(value: unknown): string[] {
   }
 
   return [];
+}
+
+function parseBooleanLoose(value: unknown): boolean | null {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value === 1 ? true : value === 0 ? false : null;
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (["true", "1", "yes", "y", "on"].includes(normalized)) return true;
+  if (["false", "0", "no", "n", "off", ""].includes(normalized)) return false;
+  return null;
+}
+
+function normalizePresenceDettaglio(value: unknown): PresenceDettaglioMap | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const map: PresenceDettaglioMap = {};
+  for (const [rawKey, rawValue] of Object.entries(value as Record<string, unknown>)) {
+    const key = rawKey.trim();
+    if (!key || key.toLowerCase() === "general") continue;
+    const parsed = parseBooleanLoose(rawValue);
+    if (parsed === null) continue;
+    map[key] = parsed;
+  }
+  return Object.keys(map).length > 0 ? map : null;
+}
+
+function canFallbackMissingColumn(error: { code?: string | null; message?: string | null }) {
+  const code = error.code ?? "";
+  const message = (error.message ?? "").toLowerCase();
+  return (
+    ["42703", "PGRST100", "PGRST204"].includes(code) ||
+    message.includes("column") ||
+    message.includes("parse")
+  );
+}
+
+function canManageHostCityFieldsForParticipant(
+  participant: ParticipantDbRow,
+  hostCity: string
+): boolean {
+  const city = normalizeForMatch(participant.citta);
+  const normalizedHostCity = normalizeForMatch(hostCity);
+  return Boolean(city) && city === normalizedHostCity;
 }
 
 const parseStoredDifficolta = parseStoredDifficoltaAccessibilita;
@@ -142,15 +204,35 @@ async function loadParticipantsByEmail(
   email: string
 ): Promise<{ participants: ParticipantDbRow[]; error: string | null }> {
   const supabase = createSupabaseServiceClient();
-  const { data, error } = await supabase
-    .from("partecipanti")
-    .select(
-      "id,email,nome,cognome,gruppo_id,gruppo_label,tally_submission_id,nazione,data_nascita,data_arrivo,data_partenza,alloggio,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,submitted_at_tally"
-    )
-    .ilike("email", email);
+  const executeSelect = async (selectFields: string) =>
+    supabase.from("partecipanti").select(selectFields).ilike("email", email);
+
+  let { data, error } = await executeSelect(SELECT_FIELDS_WITH_CITY_AND_HOST);
+
+  if (error && canFallbackMissingColumn(error)) {
+    const fallbackCity = await executeSelect(SELECT_FIELDS_WITH_CITY);
+    if (!fallbackCity.error) {
+      data = fallbackCity.data;
+      error = null;
+    } else if (canFallbackMissingColumn(fallbackCity.error)) {
+      const fallbackHost = await executeSelect(SELECT_FIELDS_WITH_HOST);
+      if (!fallbackHost.error) {
+        data = fallbackHost.data;
+        error = null;
+      } else if (canFallbackMissingColumn(fallbackHost.error)) {
+        const legacy = await executeSelect(SELECT_FIELDS_BASE);
+        data = legacy.data;
+        error = legacy.error;
+      } else {
+        error = fallbackHost.error;
+      }
+    } else {
+      error = fallbackCity.error;
+    }
+  }
 
   if (error) return { participants: [], error: error.message };
-  const participants = ((data ?? []) as ParticipantDbRow[]).sort((a, b) =>
+  const participants = ((data ?? []) as unknown as ParticipantDbRow[]).sort((a, b) =>
     (b.submitted_at_tally ?? "").localeCompare(a.submitted_at_tally ?? "")
   );
   return { participants, error: null };
@@ -251,17 +333,37 @@ export async function GET(req: Request) {
   const selected = await resolveParticipantSelection(auth.email, participantId);
   if ("selectionResponse" in selected) return selected.selectionResponse;
   const { participant, candidates } = selected;
+  let eventSettings;
+  try {
+    eventSettings = await loadEventRuntimeSettings();
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Unable to load event settings" },
+      { status: 500 }
+    );
+  }
+  const canManageHostCityFields = canManageHostCityFieldsForParticipant(
+    participant,
+    eventSettings.hostCity
+  );
 
   return NextResponse.json({
     requiresSelection: false,
     participants: candidates,
     selectedParticipantId: participant.id,
+    canManageHostCityFields,
+    hostCity: eventSettings.hostCity,
     participant: {
       ...participant,
       esigenze_alimentari: parseStoredEsigenze(participant.esigenze_alimentari),
       difficolta_accessibilita: parseStoredDifficolta(
         participant.difficolta_accessibilita
       ),
+      partecipa_intero_evento:
+        typeof participant.partecipa_intero_evento === "boolean"
+          ? participant.partecipa_intero_evento
+          : null,
+      presenza_dettaglio: normalizePresenceDettaglio(participant.presenza_dettaglio),
     },
   });
 }
@@ -281,6 +383,19 @@ export async function PATCH(req: Request) {
   const selected = await resolveParticipantSelection(auth.email, participantId);
   if ("selectionResponse" in selected) return selected.selectionResponse;
   const { participant } = selected;
+  let eventSettings;
+  try {
+    eventSettings = await loadEventRuntimeSettings();
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Unable to load event settings" },
+      { status: 500 }
+    );
+  }
+  const canManageHostCityFields = canManageHostCityFieldsForParticipant(
+    participant,
+    eventSettings.hostCity
+  );
 
   const nome =
     "nome" in body
@@ -321,6 +436,44 @@ export async function PATCH(req: Request) {
     typeof body.disabilita_accessibilita === "boolean"
       ? body.disabilita_accessibilita
       : Boolean(participant.disabilita_accessibilita);
+  const rawPartecipaInteroEvento = body.partecipa_intero_evento;
+  if (
+    canManageHostCityFields &&
+    "partecipa_intero_evento" in body &&
+    !(rawPartecipaInteroEvento === null || typeof rawPartecipaInteroEvento === "boolean")
+  ) {
+    return NextResponse.json(
+      { error: "partecipa_intero_evento must be a boolean or null" },
+      { status: 400 }
+    );
+  }
+  const partecipaInteroEvento = canManageHostCityFields
+    ? "partecipa_intero_evento" in body
+      ? (rawPartecipaInteroEvento as boolean | null)
+      : typeof participant.partecipa_intero_evento === "boolean"
+        ? participant.partecipa_intero_evento
+        : null
+    : null;
+  const rawPresenzaDettaglio = body.presenza_dettaglio;
+  const normalizedCurrentPresenzaDettaglio = normalizePresenceDettaglio(
+    participant.presenza_dettaglio
+  );
+  if (
+    canManageHostCityFields &&
+    "presenza_dettaglio" in body &&
+    rawPresenzaDettaglio !== null &&
+    normalizePresenceDettaglio(rawPresenzaDettaglio) === null
+  ) {
+    return NextResponse.json(
+      { error: "presenza_dettaglio must be an object map of boolean values or null" },
+      { status: 400 }
+    );
+  }
+  const presenzaDettaglio = canManageHostCityFields
+    ? "presenza_dettaglio" in body
+      ? normalizePresenceDettaglio(rawPresenzaDettaglio)
+      : normalizedCurrentPresenzaDettaglio
+    : null;
 
   if (!nome || !cognome) {
     return NextResponse.json(
@@ -388,30 +541,36 @@ export async function PATCH(req: Request) {
     dataNascita,
   });
 
+  const updatePayload: Record<string, unknown> = {
+    nome,
+    cognome,
+    nazione,
+    data_nascita: dataNascita,
+    data_arrivo: dataArrivo,
+    data_partenza: dataPartenza,
+    alloggio,
+    allergie,
+    esigenze_alimentari:
+      esigenzeAlimentari.length > 0 ? esigenzeAlimentari.join(", ") : null,
+    disabilita_accessibilita: disabilitaAccessibilita,
+    difficolta_accessibilita:
+      difficoltaAccessibilita.length > 0
+        ? difficoltaAccessibilita.join(", ")
+        : null,
+    giorni_permanenza: calculated.giorniPermanenza,
+    quota_totale: calculated.quotaTotale,
+    eta: calculated.eta,
+    is_minorenne: calculated.isMinorenne,
+  };
+  if (canManageHostCityFields) {
+    updatePayload.partecipa_intero_evento = partecipaInteroEvento;
+    updatePayload.presenza_dettaglio = presenzaDettaglio;
+  }
+
   const service = createSupabaseServiceClient();
   const { error: updateError } = await service
     .from("partecipanti")
-    .update({
-      nome,
-      cognome,
-      nazione,
-      data_nascita: dataNascita,
-      data_arrivo: dataArrivo,
-      data_partenza: dataPartenza,
-      alloggio,
-      allergie,
-      esigenze_alimentari:
-        esigenzeAlimentari.length > 0 ? esigenzeAlimentari.join(", ") : null,
-      disabilita_accessibilita: disabilitaAccessibilita,
-      difficolta_accessibilita:
-        difficoltaAccessibilita.length > 0
-          ? difficoltaAccessibilita.join(", ")
-          : null,
-      giorni_permanenza: calculated.giorniPermanenza,
-      quota_totale: calculated.quotaTotale,
-      eta: calculated.eta,
-      is_minorenne: calculated.isMinorenne,
-    })
+    .update(updatePayload)
     .eq("id", participant.id)
     .ilike("email", auth.email);
 
