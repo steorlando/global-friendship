@@ -20,9 +20,6 @@ export default function LoginPage() {
     "idle"
   );
   const [message, setMessage] = useState<string | null>(null);
-  const appBaseUrl =
-    process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/+$/, "") ||
-    (typeof window !== "undefined" ? window.location.origin : "");
 
   const preflightErrorMessageByCode = (code: string): string => {
     switch (code) {
@@ -106,7 +103,7 @@ export default function LoginPage() {
         return;
       }
 
-      const preflightResponse = await fetch("/api/auth/login/preflight", {
+      const response = await fetch("/api/auth/login/magic-link", {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -117,8 +114,8 @@ export default function LoginPage() {
         }),
       });
 
-      if (!preflightResponse.ok) {
-        const json = (await preflightResponse.json().catch(() => null)) as
+      if (!response.ok) {
+        const json = (await response.json().catch(() => null)) as
           | { code?: string }
           | null;
         setStatus("error");
@@ -128,19 +125,6 @@ export default function LoginPage() {
 
       window.localStorage.setItem("gf_requested_role", role);
       document.cookie = `gf_requested_role=${encodeURIComponent(role)}; path=/; max-age=604800; samesite=lax`;
-      const supabase = createSupabaseBrowserClient();
-      const { error } = await supabase.auth.signInWithOtp({
-        email: normalizedEmail,
-        options: {
-          emailRedirectTo: `${appBaseUrl}/auth/callback`,
-        },
-      });
-
-      if (error) {
-        setStatus("error");
-        setMessage(error.message);
-        return;
-      }
 
       setStatus("sent");
       setMessage(t("auth.login.sent"));

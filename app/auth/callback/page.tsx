@@ -11,6 +11,7 @@ import { ROLE_ROUTES, isAppRole } from "@/lib/auth/roles";
 import { useI18n } from "@/lib/i18n/provider";
 
 const OTP_TYPES: readonly EmailOtpType[] = [
+  "signup",
   "magiclink",
   "recovery",
   "invite",

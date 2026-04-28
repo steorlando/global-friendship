@@ -52,7 +52,9 @@ Main files:
 
 - `app/login/page.tsx`
 - `app/auth/callback/page.tsx`
+- `app/api/auth/login/magic-link/route.ts`
 - `app/api/auth/login/preflight/route.ts`
+- `lib/auth/login-access.ts`
 - `lib/auth/roles.ts`
 - `lib/supabase/client.ts`
 - `lib/supabase/server.ts`
@@ -61,9 +63,14 @@ Main files:
 How it works:
 
 - Login is email magic-link based via Supabase.
-- Before sending the magic link, `POST /api/auth/login/preflight` verifies the email can access the selected role.
+- Before sending the magic link, shared logic in `lib/auth/login-access.ts` verifies the email can access the selected role.
+- The login page posts to `POST /api/auth/login/magic-link`.
+- That route uses the Supabase service role to call Auth admin `generate_link`, builds an app callback URL with `token_hash`, `type`, and `role`, then sends the email through the app Gmail sender.
+- This avoids relying on the self-hosted Supabase Auth mailer/redirect configuration for user-facing login links.
+- `POST /api/auth/login/preflight` is still available for access checks and uses the same shared helper.
 - The requested role is stored in local storage / cookie as `gf_requested_role`.
 - Callback page consumes `code`, `token_hash`, or `token`, verifies the session, resolves the actual profile from `profili`, and redirects to the correct dashboard route.
+- Callback token-hash verification supports both `magiclink` and `signup` types, because Supabase Auth returns `signup` for first-time Auth users.
 - Browser auth uses PKCE flow.
 
 Known auth behavior:
@@ -119,6 +126,22 @@ Sections currently exposed:
 Important implementation detail:
 
 - `app/dashboard/admin/page.tsx` currently reuses the manager statistics page directly.
+
+### Admin Users & Profiles
+
+Main files:
+
+- `app/dashboard/admin/users-profiles/page.tsx`
+- `app/api/admin/profili/route.ts`
+- `lib/admin/profili.ts`
+- `supabase/profili_capogruppo_host_migration.sql`
+
+Current behavior:
+
+- The admin Users & Profiles table includes a `Host Group Leader` column.
+- In row edit mode, admins can set `capogruppo_host` through a checkbox.
+- The host checkbox is enabled only when role is `capogruppo`; for other roles it is forced to `false`.
+- Backend profile upsert/update logic enforces the same rule server-side.
 
 ### Manager
 
@@ -563,6 +586,9 @@ Purpose:
 - Public statistics page is intentionally obfuscated but not authenticated.
 - Event settings are designed to fail soft with defaults if the DB table is missing.
 - Manager/admin participants use the same API path.
+- Host-city attendance fields (`partecipa_intero_evento`, `presenza_dettaglio`) are gated by role-specific rules:
+  - capogruppo: visibility/edit allowed only when `profili.capogruppo_host = true`
+  - partecipante: visibility/edit allowed only when participant city (`partecipanti.città`) matches `admin_event_settings.host_city`
 - When changing statistics logic, check both manager/admin dashboards and the public stats page.
 - When changing participants table columns, update:
   - API payload
