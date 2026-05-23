@@ -10,6 +10,7 @@ import {
   DIFFICOLTA_ACCESSIBILITA_OPTIONS,
   ESIGENZE_ALIMENTARI_OPTIONS,
   OPERATOR_ACCOMMODATION_PREFERENCE_OPTIONS,
+  REGISTRATION_TYPE_OPTIONS,
   isOperatorRegistrationType,
   normalizeOperatorAccommodationPreference,
 } from "@/lib/partecipante/constants";
@@ -48,6 +49,7 @@ type Participant = {
 type FormState = {
   nome: string;
   cognome: string;
+  tipo_iscrizione: string;
   paese_residenza: string;
   citta: string;
   gruppo_roma: string;
@@ -95,6 +97,7 @@ type ParticipantsTableProps = {
 const EMPTY_FORM: FormState = {
   nome: "",
   cognome: "",
+  tipo_iscrizione: "",
   paese_residenza: "",
   citta: "",
   gruppo_roma: "",
@@ -157,6 +160,7 @@ function toFormState(participant: Participant): FormState {
   return {
     nome: participant.nome ?? "",
     cognome: participant.cognome ?? "",
+    tipo_iscrizione: participant.tipo_iscrizione ?? "",
     paese_residenza: participant.paese_residenza ?? "",
     citta,
     gruppo_roma: isRomaCity ? participant.group ?? "" : "",
@@ -332,7 +336,7 @@ export function ParticipantsTable({
   );
   const canEditHostCityFields = canManageHostCityParticipants;
   const showOperatorAccommodationPreference = isOperatorRegistrationType(
-    editingParticipant?.tipo_iscrizione
+    form.tipo_iscrizione
   );
   const presenceOptions = useMemo(() => {
     const fromParticipant = Object.keys(editingParticipant?.presenza_dettaglio ?? {});
@@ -1142,6 +1146,42 @@ export function ParticipantsTable({
                     onChange={(e) => setForm((prev) => ({ ...prev, cognome: e.target.value }))}
                     className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
                   />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-slate-700">
+                    {t("participants.table.header.registrationType")}
+                  </label>
+                  <select
+                    value={form.tipo_iscrizione}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        tipo_iscrizione: e.target.value,
+                        preferenza_alloggio_operatore: isOperatorRegistrationType(
+                          e.target.value
+                        )
+                          ? prev.preferenza_alloggio_operatore
+                          : "",
+                      }))
+                    }
+                    className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
+                  >
+                    <option value="">{t("participant.form.select")}</option>
+                    {form.tipo_iscrizione &&
+                      !REGISTRATION_TYPE_OPTIONS.includes(
+                        form.tipo_iscrizione as (typeof REGISTRATION_TYPE_OPTIONS)[number]
+                      ) && (
+                        <option value={form.tipo_iscrizione}>
+                          {form.tipo_iscrizione}
+                        </option>
+                      )}
+                    {REGISTRATION_TYPE_OPTIONS.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>

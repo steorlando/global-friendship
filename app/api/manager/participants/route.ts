@@ -414,6 +414,10 @@ export async function PATCH(req: Request) {
   const nome = "nome" in body ? normalizeText(body.nome) : normalizeText(current.nome);
   const cognome =
     "cognome" in body ? normalizeText(body.cognome) : normalizeText(current.cognome);
+  const tipoIscrizione =
+    "tipo_iscrizione" in body
+      ? normalizeText(body.tipo_iscrizione)
+      : normalizeText(current.tipo_iscrizione);
   const nazione = "nazione" in body ? normalizeText(body.nazione) : current.nazione;
   const paeseResidenza =
     "paese_residenza" in body
@@ -456,9 +460,7 @@ export async function PATCH(req: Request) {
     "preferenza_alloggio_operatore" in body
       ? normalizeText(body.preferenza_alloggio_operatore)
       : current.preferenza_alloggio_operatore;
-  const operatorAccommodationPreference = isOperatorRegistrationType(
-    current.tipo_iscrizione
-  )
+  const operatorAccommodationPreference = isOperatorRegistrationType(tipoIscrizione)
     ? normalizeOperatorAccommodationPreference(operatorAccommodationPreferenceInput)
     : null;
   const allergie = "allergie" in body ? normalizeText(body.allergie) : current.allergie;
@@ -539,7 +541,7 @@ export async function PATCH(req: Request) {
   }
 
   if (
-    isOperatorRegistrationType(current.tipo_iscrizione) &&
+    isOperatorRegistrationType(tipoIscrizione) &&
     operatorAccommodationPreferenceInput &&
     !operatorAccommodationPreference
   ) {
@@ -581,6 +583,7 @@ export async function PATCH(req: Request) {
   const updatePayload: Record<string, unknown> = {
     nome,
     cognome,
+    tipo_iscrizione: tipoIscrizione,
     nazione,
     "città": citta,
     paese_residenza: paeseResidenza,

@@ -320,6 +320,7 @@ Important behavior:
 
 - Admin and manager participant pages currently use the same manager participants API
 - Edit modal allows updating participant data
+- Edit modal includes `tipo_iscrizione`; it is editable from manager/admin and capogruppo participant views.
 - Delete is available from the edit modal with confirmation
 
 Optional columns feature:
