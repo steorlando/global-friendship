@@ -4,3 +4,5 @@ node_modules/
 global_app/
 tsconfig.tsbuildinfo
 .vercel
+.codex/config.toml
+supabase/.temp/
