@@ -9,6 +9,8 @@ import {
   DEPARTURE_DATE_MIN,
   DIFFICOLTA_ACCESSIBILITA_OPTIONS,
   ESIGENZE_ALIMENTARI_OPTIONS,
+  OPERATOR_ACCOMMODATION_PREFERENCE_OPTIONS,
+  isOperatorRegistrationType,
 } from "@/lib/partecipante/constants";
 import { useI18n } from "@/lib/i18n/provider";
 
@@ -21,6 +23,7 @@ type Participant = {
   cognome: string | null;
   eta: number | null;
   tipo_iscrizione: string | null;
+  preferenza_alloggio_operatore: string | null;
   citta: string | null;
   paese_residenza: string | null;
   nazione: string | null;
@@ -54,6 +57,7 @@ type FormState = {
   data_arrivo: string;
   data_partenza: string;
   alloggio: string;
+  preferenza_alloggio_operatore: string;
   allergie: string;
   esigenze_alimentari: string[];
   disabilita_accessibilita: boolean;
@@ -100,6 +104,7 @@ const EMPTY_FORM: FormState = {
   data_arrivo: "",
   data_partenza: "",
   alloggio: "",
+  preferenza_alloggio_operatore: "",
   allergie: "",
   esigenze_alimentari: [],
   disabilita_accessibilita: false,
@@ -161,6 +166,8 @@ function toFormState(participant: Participant): FormState {
     data_arrivo: participant.data_arrivo ?? "",
     data_partenza: participant.data_partenza ?? "",
     alloggio: participant.alloggio ?? "",
+    preferenza_alloggio_operatore:
+      participant.preferenza_alloggio_operatore ?? "",
     allergie: participant.allergie ?? "",
     esigenze_alimentari: Array.isArray(participant.esigenze_alimentari)
       ? participant.esigenze_alimentari
@@ -241,6 +248,19 @@ function accessibilityOptionLabel(option: string, t: (key: string) => string) {
   return option;
 }
 
+function operatorAccommodationPreferenceLabel(
+  option: string,
+  t: (key: string) => string
+) {
+  if (option === "Hostel with group") {
+    return t("operatorAccommodationPreference.option.hostelWithGroup");
+  }
+  if (option === "Hotel") {
+    return t("operatorAccommodationPreference.option.hotel");
+  }
+  return option;
+}
+
 function normalizeFilterText(value: string | null | undefined) {
   if (!value) return "";
   return value
@@ -309,6 +329,9 @@ export function ParticipantsTable({
     [editingId, participants]
   );
   const canEditHostCityFields = canManageHostCityParticipants;
+  const showOperatorAccommodationPreference = isOperatorRegistrationType(
+    editingParticipant?.tipo_iscrizione
+  );
   const presenceOptions = useMemo(() => {
     const fromParticipant = Object.keys(editingParticipant?.presenza_dettaglio ?? {});
     const fromForm = Object.keys(form.presenza_dettaglio ?? {});
@@ -610,6 +633,9 @@ export function ParticipantsTable({
 
     try {
       const payload: Record<string, unknown> = { id: editingId, ...form };
+      if (!showOperatorAccommodationPreference) {
+        delete payload.preferenza_alloggio_operatore;
+      }
       if (!canEditGroupAssignment) {
         delete payload.paese_residenza;
         delete payload.citta;
@@ -1297,6 +1323,31 @@ export function ParticipantsTable({
                     ))}
                   </select>
                 </div>
+
+                {showOperatorAccommodationPreference && (
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-slate-700">
+                      {t("operatorAccommodationPreference.label")}
+                    </label>
+                    <select
+                      value={form.preferenza_alloggio_operatore}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          preferenza_alloggio_operatore: e.target.value,
+                        }))
+                      }
+                      className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
+                    >
+                      <option value="">{t("participant.form.select")}</option>
+                      {OPERATOR_ACCOMMODATION_PREFERENCE_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          {operatorAccommodationPreferenceLabel(option, t)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-slate-700">{t("participant.form.allergies")}</label>

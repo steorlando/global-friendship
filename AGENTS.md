@@ -22,6 +22,8 @@ Keep it updated when major routes, data structures, or business rules change.
 - Build: `npm run build`
 - Lint: `npm run lint`
 - Default test script: `npm test`
+- Run SQL on the self-hosted production Supabase DB:
+  `scripts/selfhosted-db-query.sh supabase/<migration>.sql`
 
 Notes:
 - `npm test` currently runs only `tests/email-recipient-id-utils.test.ts`.
@@ -345,6 +347,10 @@ Special participant table logic:
 
 - There is a `Roma` quick toggle
 - If a participant is in Italy and city is Rome, group assignment behavior differs
+- Operators (`Operator - Operatore`) can store `preferenza_alloggio_operatore`, with values:
+  - `Hostel with group`
+  - `Hotel`
+- This operator accommodation preference is visible/editable only for operator registrations; non-operator updates clear/ignore it.
 - Host-city attendance fields (`partecipa_intero_evento`, `presenza_dettaglio`) are now visible/editable in capogruppo participant edit modal only when:
   - the logged-in capogruppo profile has `capogruppo_host = true`
 - Other capogruppo groups do not see these host-city specific fields.
@@ -519,6 +525,7 @@ Operational note for Codex sessions:
 
 - When needed, Codex can access Supabase directly to inspect live tables/data for database context.
 - When a DB change is required, Codex can write SQL directly (migration-style or targeted statements) to implement the necessary schema/data updates.
+- The current production database is self-hosted on Hetzner. The Supabase Cloud CLI `supabase link` flow is not applicable for this target; use `scripts/selfhosted-db-query.sh`, which reads `/Users/stefanolaptop/Documents/codex_new/migrazione-supabase/.env.global-friendship-event.local` and executes SQL through SSH into the Postgres container.
 
 High-value migrations to know:
 
@@ -540,6 +547,7 @@ High-value migrations to know:
 - `supabase/event_finance_single_plan_refactor.sql`
 - `supabase/event_finance_settings_accounts_migration.sql`
 - `supabase/accommodation_hardening_migration.sql`
+- `supabase/operator_accommodation_preference_migration.sql`
 
 Main business tables encountered frequently:
 
@@ -578,6 +586,21 @@ Purpose:
 
 - Ingest registration data from Tally into `partecipanti`
 - Additional columns such as age-related fields and accommodation short labels were added via later migrations
+
+Current Tally form:
+
+- Form: `Registration form Global 2026`
+- Public link / id: `https://tally.so/r/dWxYro`
+- Operator accommodation preference question:
+  - questionUuid: `0bce5b48-7b30-4cd6-990b-f6c21eb7dc3a`
+  - title block: `1737c513-b46e-4bd2-a50c-fa81df237ec8`
+  - options:
+    - `Hostel with the young people from my group / Ostello insieme ai giovani del mio gruppo`
+    - `Hotel`
+  - hidden by default and shown only when:
+    - `Type of registration` is `Operator - Operatore`
+    - `Where are you staying?` is organization-provided accommodation
+  - logic rule block: `387ba15d-d11c-4fce-bd78-27545b923524`
 
 ## Known Implementation Decisions / Gotchas
 

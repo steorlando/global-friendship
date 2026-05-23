@@ -7,7 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test --experimental-strip-types tests/email-recipient-id-utils.test.ts"
+    "test": "node --test --experimental-strip-types tests/email-recipient-id-utils.test.ts",
+    "supabase:tables": "node scripts/supabase-admin.mjs list-tables",
+    "supabase:select": "node scripts/supabase-admin.mjs select",
+    "supabase:insert": "node scripts/supabase-admin.mjs insert",
+    "supabase:update": "node scripts/supabase-admin.mjs update",
+    "supabase:delete": "node scripts/supabase-admin.mjs delete"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",

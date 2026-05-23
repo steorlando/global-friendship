@@ -3,3 +3,4 @@ node_modules/
 .next/
 global_app/
 tsconfig.tsbuildinfo
+.vercel

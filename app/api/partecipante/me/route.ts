@@ -12,6 +12,8 @@ import {
   DEPARTURE_DATE_MIN,
   DIFFICOLTA_ACCESSIBILITA_OPTIONS,
   ESIGENZE_ALIMENTARI_OPTIONS,
+  isOperatorRegistrationType,
+  normalizeOperatorAccommodationPreference,
   parseStoredDifficoltaAccessibilita,
 } from "@/lib/partecipante/constants";
 
@@ -22,6 +24,8 @@ type ParticipantDbRow = {
   email: string | null;
   nome: string | null;
   cognome: string | null;
+  tipo_iscrizione: string | null;
+  preferenza_alloggio_operatore: string | null;
   gruppo_id: string | null;
   gruppo_label: string | null;
   tally_submission_id: string | null;
@@ -53,6 +57,8 @@ const alloggioSet = new Set<string>(ALLOGGIO_OPTIONS);
 const esigenzeSet = new Set<string>(ESIGENZE_ALIMENTARI_OPTIONS);
 const difficoltaSet = new Set<string>(DIFFICOLTA_ACCESSIBILITA_OPTIONS);
 const SELECT_FIELDS_BASE =
+  "id,email,nome,cognome,tipo_iscrizione,preferenza_alloggio_operatore,gruppo_id,gruppo_label,tally_submission_id,nazione,data_nascita,data_arrivo,data_partenza,alloggio,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,submitted_at_tally";
+const SELECT_FIELDS_BASE_LEGACY =
   "id,email,nome,cognome,gruppo_id,gruppo_label,tally_submission_id,nazione,data_nascita,data_arrivo,data_partenza,alloggio,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,submitted_at_tally";
 const SELECT_FIELDS_WITH_HOST = `${SELECT_FIELDS_BASE},partecipa_intero_evento,presenza_dettaglio`;
 const SELECT_FIELDS_WITH_CITY = `${SELECT_FIELDS_BASE},citta:città`;
@@ -220,7 +226,7 @@ async function loadParticipantsByEmail(
         data = fallbackHost.data;
         error = null;
       } else if (canFallbackMissingColumn(fallbackHost.error)) {
-        const legacy = await executeSelect(SELECT_FIELDS_BASE);
+        const legacy = await executeSelect(SELECT_FIELDS_BASE_LEGACY);
         data = legacy.data;
         error = legacy.error;
       } else {
@@ -421,6 +427,15 @@ export async function PATCH(req: Request) {
       : participant.data_partenza;
   const alloggio =
     "alloggio" in body ? normalizeText(body.alloggio) : participant.alloggio;
+  const operatorAccommodationPreferenceInput =
+    "preferenza_alloggio_operatore" in body
+      ? normalizeText(body.preferenza_alloggio_operatore)
+      : participant.preferenza_alloggio_operatore;
+  const operatorAccommodationPreference = isOperatorRegistrationType(
+    participant.tipo_iscrizione
+  )
+    ? normalizeOperatorAccommodationPreference(operatorAccommodationPreferenceInput)
+    : null;
   const allergie =
     "allergie" in body ? normalizeText(body.allergie) : participant.allergie;
   const esigenzeAlimentari =
@@ -521,6 +536,17 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Invalid alloggio value" }, { status: 400 });
   }
 
+  if (
+    isOperatorRegistrationType(participant.tipo_iscrizione) &&
+    operatorAccommodationPreferenceInput &&
+    !operatorAccommodationPreference
+  ) {
+    return NextResponse.json(
+      { error: "Invalid preferenza_alloggio_operatore value" },
+      { status: 400 }
+    );
+  }
+
   if (esigenzeAlimentari.some((item) => !esigenzeSet.has(item))) {
     return NextResponse.json(
       { error: "Invalid esigenze_alimentari value" },
@@ -549,6 +575,7 @@ export async function PATCH(req: Request) {
     data_arrivo: dataArrivo,
     data_partenza: dataPartenza,
     alloggio,
+    preferenza_alloggio_operatore: operatorAccommodationPreference,
     allergie,
     esigenze_alimentari:
       esigenzeAlimentari.length > 0 ? esigenzeAlimentari.join(", ") : null,
@@ -568,11 +595,22 @@ export async function PATCH(req: Request) {
   }
 
   const service = createSupabaseServiceClient();
-  const { error: updateError } = await service
+  let { error: updateError } = await service
     .from("partecipanti")
     .update(updatePayload)
     .eq("id", participant.id)
     .ilike("email", auth.email);
+
+  if (updateError && canFallbackMissingColumn(updateError)) {
+    const fallbackPayload = { ...updatePayload };
+    delete fallbackPayload.preferenza_alloggio_operatore;
+    const fallback = await service
+      .from("partecipanti")
+      .update(fallbackPayload)
+      .eq("id", participant.id)
+      .ilike("email", auth.email);
+    updateError = fallback.error;
+  }
 
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });

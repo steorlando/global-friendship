@@ -13,6 +13,11 @@ export const ALLOGGIO_SHORT_OPTIONS = [
   "Atonoumous",
 ] as const;
 
+export const OPERATOR_ACCOMMODATION_PREFERENCE_OPTIONS = [
+  "Hostel with group",
+  "Hotel",
+] as const;
+
 const ALLOGGIO_SHORT_TO_LONG_MAP: Record<string, (typeof ALLOGGIO_OPTIONS)[number]> = {
   "Provided by organization": ALLOGGIO_OPTIONS[1],
   Atonoumous: ALLOGGIO_OPTIONS[0],
@@ -57,6 +62,44 @@ export function alloggioLongToShort(value: string | null | undefined): string | 
   return normalizedLong === ALLOGGIO_OPTIONS[0]
     ? ALLOGGIO_SHORT_OPTIONS[1]
     : ALLOGGIO_SHORT_OPTIONS[0];
+}
+
+export function isOperatorRegistrationType(value: string | null | undefined): boolean {
+  const normalized = (value ?? "").trim().toLowerCase();
+  return normalized.includes("operator") || normalized.includes("operatore");
+}
+
+export function normalizeOperatorAccommodationPreference(
+  value: string | null | undefined
+): (typeof OPERATOR_ACCOMMODATION_PREFERENCE_OPTIONS)[number] | null {
+  const normalized = (value ?? "").trim();
+  if (!normalized) return null;
+
+  if (
+    OPERATOR_ACCOMMODATION_PREFERENCE_OPTIONS.includes(
+      normalized as (typeof OPERATOR_ACCOMMODATION_PREFERENCE_OPTIONS)[number]
+    )
+  ) {
+    return normalized as (typeof OPERATOR_ACCOMMODATION_PREFERENCE_OPTIONS)[number];
+  }
+
+  const lowered = normalized.toLowerCase();
+  if (
+    lowered.includes("hostel") ||
+    lowered.includes("ostello") ||
+    lowered.includes("giovani") ||
+    lowered.includes("young") ||
+    lowered.includes("group") ||
+    lowered.includes("gruppo")
+  ) {
+    return "Hostel with group";
+  }
+
+  if (lowered.includes("hotel") || lowered.includes("albergo")) {
+    return "Hotel";
+  }
+
+  return null;
 }
 
 export const ESIGENZE_ALIMENTARI_OPTIONS = [

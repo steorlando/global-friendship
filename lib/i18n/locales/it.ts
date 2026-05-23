@@ -91,6 +91,10 @@ const it: TranslationDictionary = {
   "participant.form.allowedBetween": "Consentito tra {min} e {max}",
   "participant.form.accommodation": "Alloggio",
   "participant.form.select": "Seleziona...",
+  "operatorAccommodationPreference.label": "Preferenza alloggio operatore",
+  "operatorAccommodationPreference.option.hostelWithGroup":
+    "Ostello insieme ai giovani del mio gruppo",
+  "operatorAccommodationPreference.option.hotel": "Hotel",
   "participant.form.dietaryRequirements": "Esigenze alimentari",
   "participant.form.allergies": "Allergie",
   "participant.form.accessibilityNeeds": "Disabilità / accessibilità",

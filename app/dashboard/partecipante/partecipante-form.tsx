@@ -9,6 +9,8 @@ import {
   DEPARTURE_DATE_MIN,
   DIFFICOLTA_ACCESSIBILITA_OPTIONS,
   ESIGENZE_ALIMENTARI_OPTIONS,
+  OPERATOR_ACCOMMODATION_PREFERENCE_OPTIONS,
+  isOperatorRegistrationType,
 } from "@/lib/partecipante/constants";
 import { useI18n } from "@/lib/i18n/provider";
 
@@ -22,6 +24,8 @@ type ParticipantFormData = {
   data_arrivo: string;
   data_partenza: string;
   alloggio: string;
+  tipo_iscrizione: string | null;
+  preferenza_alloggio_operatore: string;
   allergie: string;
   esigenze_alimentari: string[];
   disabilita_accessibilita: boolean;
@@ -38,6 +42,8 @@ const INITIAL_DATA: ParticipantFormData = {
   data_arrivo: "",
   data_partenza: "",
   alloggio: "",
+  tipo_iscrizione: null,
+  preferenza_alloggio_operatore: "",
   allergie: "",
   esigenze_alimentari: [],
   disabilita_accessibilita: false,
@@ -104,6 +110,19 @@ function toPresenceOptionLabel(key: string) {
   return match ? match[1] : trimmed;
 }
 
+function operatorAccommodationPreferenceLabel(
+  option: string,
+  t: (key: string) => string
+) {
+  if (option === "Hostel with group") {
+    return t("operatorAccommodationPreference.option.hostelWithGroup");
+  }
+  if (option === "Hotel") {
+    return t("operatorAccommodationPreference.option.hotel");
+  }
+  return option;
+}
+
 export function PartecipanteForm() {
   const { t } = useI18n();
   const [formData, setFormData] = useState<ParticipantFormData>(INITIAL_DATA);
@@ -127,6 +146,9 @@ export function PartecipanteForm() {
   const [deleteSuccess, setDeleteSuccess] = useState<string | null>(null);
   const [canManageHostCityFields, setCanManageHostCityFields] = useState(false);
   const [hostCity, setHostCity] = useState("");
+  const showOperatorAccommodationPreference = isOperatorRegistrationType(
+    formData.tipo_iscrizione
+  );
   const presenceOptions = useMemo(() => {
     const fromForm = Object.keys(formData.presenza_dettaglio ?? {});
     const merged = [...new Set([...fromForm, ...HOST_CITY_PRESENCE_OPTIONS])];
@@ -188,6 +210,9 @@ export function PartecipanteForm() {
           data_arrivo: participant.data_arrivo ?? "",
           data_partenza: participant.data_partenza ?? "",
           alloggio: participant.alloggio ?? "",
+          tipo_iscrizione: participant.tipo_iscrizione ?? null,
+          preferenza_alloggio_operatore:
+            participant.preferenza_alloggio_operatore ?? "",
           allergie: participant.allergie ?? "",
           esigenze_alimentari: Array.isArray(participant.esigenze_alimentari)
             ? participant.esigenze_alimentari
@@ -255,6 +280,9 @@ export function PartecipanteForm() {
         data_arrivo: participant.data_arrivo ?? "",
         data_partenza: participant.data_partenza ?? "",
         alloggio: participant.alloggio ?? "",
+        tipo_iscrizione: participant.tipo_iscrizione ?? null,
+        preferenza_alloggio_operatore:
+          participant.preferenza_alloggio_operatore ?? "",
         allergie: participant.allergie ?? "",
         esigenze_alimentari: Array.isArray(participant.esigenze_alimentari)
           ? participant.esigenze_alimentari
@@ -331,6 +359,9 @@ export function PartecipanteForm() {
       if (!canManageHostCityFields) {
         delete payload.partecipa_intero_evento;
         delete payload.presenza_dettaglio;
+      }
+      if (!showOperatorAccommodationPreference) {
+        delete payload.preferenza_alloggio_operatore;
       }
       const res = await fetch("/api/partecipante/me", {
         method: "PATCH",
@@ -633,6 +664,31 @@ export function PartecipanteForm() {
             ))}
           </select>
         </div>
+
+        {showOperatorAccommodationPreference && (
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-slate-700">
+              {t("operatorAccommodationPreference.label")}
+            </label>
+            <select
+              value={formData.preferenza_alloggio_operatore}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  preferenza_alloggio_operatore: e.target.value,
+                }))
+              }
+              className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option value="">{t("participant.form.select")}</option>
+              {OPERATOR_ACCOMMODATION_PREFERENCE_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {operatorAccommodationPreferenceLabel(option, t)}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-slate-700">

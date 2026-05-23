@@ -8,7 +8,11 @@ import {
   buildParticipantRegistrationConfirmationText,
   type ParticipantRegistrationConfirmationData,
 } from "@/lib/email/participant-registration-confirmation-template";
-import { alloggioLongToShort } from "@/lib/partecipante/constants";
+import {
+  alloggioLongToShort,
+  isOperatorRegistrationType,
+  normalizeOperatorAccommodationPreference,
+} from "@/lib/partecipante/constants";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
 type TallyOption = {
@@ -34,6 +38,7 @@ type NormalizedSubmission = {
   emailSecondaria: string;
   telefono: string;
   tipoIscrizione: string;
+  preferenzaAlloggioOperatore: string;
   dataNascita: string;
   sesso: string;
   nazione: string;
@@ -106,6 +111,7 @@ type ParticipantPersistedRow = {
   paese_residenza?: string | null;
   "città"?: string | null;
   tipo_iscrizione?: string | null;
+  preferenza_alloggio_operatore?: string | null;
   sesso?: string | null;
   data_nascita?: string | null;
   data_arrivo?: string | null;
@@ -1132,6 +1138,27 @@ function normalizeSubmission(
     "Type of registration / Tipo di iscrizione / Tipo de registro / Type d'inscription",
     "Type of registration",
   ]);
+  const preferenzaAlloggioOperatore = isOperatorRegistrationType(tipoIscrizione)
+    ? normalizeOperatorAccommodationPreference(
+        pickAnswer(answers, [
+          "If you are registering as an operator, where would you prefer to sleep?",
+          "If you are registering as an operator, where would you prefer to sleep? / Se ti registri come operatore, dove preferiresti dormire?",
+          "Operator accommodation preference",
+          "Preferenza alloggio operatore",
+        ]) ||
+          pickAnswerContains(answers, [
+            "operator",
+            "operatore",
+            "prefer",
+            "preferisci",
+            "sleep",
+            "dormire",
+            "hostel",
+            "ostello",
+            "hotel",
+          ])
+      ) ?? ""
+    : "";
   const dataNascita = pickAnswer(answers, [
     "Date of birth / Data di nascita / Fecha de nacimiento / Date de naissance",
     "Date of birth",
@@ -1240,6 +1267,7 @@ function normalizeSubmission(
     emailSecondaria,
     telefono,
     tipoIscrizione,
+    preferenzaAlloggioOperatore,
     dataNascita,
     sesso,
     nazione,
@@ -1355,7 +1383,7 @@ async function handlePost(req: Request) {
   });
   const submissionIdForDedupe = normalize(normalized.tallySubmissionId || submissionId);
 
-  const fullInsert = {
+  const fullInsert: Record<string, unknown> = {
     nome: normalized.nome,
     cognome: normalized.cognome,
     email: normalized.email,
@@ -1366,6 +1394,8 @@ async function handlePost(req: Request) {
     email_secondaria: normalized.emailSecondaria || null,
     paese_residenza: normalized.paeseResidenza || null,
     tipo_iscrizione: normalized.tipoIscrizione || null,
+    preferenza_alloggio_operatore:
+      normalized.preferenzaAlloggioOperatore || null,
     sesso: normalized.sesso || null,
     data_nascita: normalized.dataNascita || null,
     data_arrivo: normalized.dataArrivo || null,
@@ -1419,27 +1449,40 @@ async function handlePost(req: Request) {
       /column .* does not exist/i.test(message);
 
     if (isMissingColumn) {
-      console.warn("Missing normalized columns, fallback to minimal insert", {
-        code,
-        message,
-      });
+      if (/preferenza_alloggio_operatore/i.test(message)) {
+        const fallbackInsert = { ...fullInsert };
+        delete fallbackInsert.preferenza_alloggio_operatore;
+        insertResult = await supabase
+          .from("partecipanti")
+          .insert(fallbackInsert)
+          .select("*")
+          .single();
+        persistedParticipant = (insertResult.data ?? null) as ParticipantPersistedRow | null;
+      }
 
-      insertResult = await supabase
-        .from("partecipanti")
-        .insert({
-          nome: normalized.nome,
-          cognome: normalized.cognome,
-          email: normalized.email,
-          nazione: normalized.nazione || null,
-          "città": normalized.citta || null,
-          gruppo_id: gruppoId,
-          tally_submission_id: normalized.tallySubmissionId || null,
-          tally_respondent_id: normalized.tallyRespondentId || null,
-          dati_tally: payload,
-        })
-        .select("*")
-        .single();
-      persistedParticipant = (insertResult.data ?? null) as ParticipantPersistedRow | null;
+      if (insertResult.error) {
+        console.warn("Missing normalized columns, fallback to minimal insert", {
+          code,
+          message,
+        });
+
+        insertResult = await supabase
+          .from("partecipanti")
+          .insert({
+            nome: normalized.nome,
+            cognome: normalized.cognome,
+            email: normalized.email,
+            nazione: normalized.nazione || null,
+            "città": normalized.citta || null,
+            gruppo_id: gruppoId,
+            tally_submission_id: normalized.tallySubmissionId || null,
+            tally_respondent_id: normalized.tallyRespondentId || null,
+            dati_tally: payload,
+          })
+          .select("*")
+          .single();
+        persistedParticipant = (insertResult.data ?? null) as ParticipantPersistedRow | null;
+      }
     }
   }
 

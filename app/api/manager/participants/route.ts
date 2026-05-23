@@ -10,6 +10,8 @@ import {
   DIFFICOLTA_ACCESSIBILITA_OPTIONS,
   ESIGENZE_ALIMENTARI_OPTIONS,
   alloggioLongToShort,
+  isOperatorRegistrationType,
+  normalizeOperatorAccommodationPreference,
   parseStoredDifficoltaAccessibilita,
   alloggioShortToLong,
 } from "@/lib/partecipante/constants";
@@ -21,6 +23,7 @@ type ParticipantRow = {
   cognome: string | null;
   eta: number | null;
   tipo_iscrizione: string | null;
+  preferenza_alloggio_operatore: string | null;
   citta: string | null;
   paese_residenza: string | null;
   nazione: string | null;
@@ -41,8 +44,11 @@ type ParticipantRow = {
 };
 
 const SELECT_FIELDS_BASE =
+  "id,created_at,nome,cognome,eta,tipo_iscrizione,preferenza_alloggio_operatore,paese_residenza,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label";
+const SELECT_FIELDS_BASE_LEGACY =
   "id,created_at,nome,cognome,eta,tipo_iscrizione,paese_residenza,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label";
 const SELECT_FIELDS_WITH_CITY = `${SELECT_FIELDS_BASE},citta:città`;
+const SELECT_FIELDS_WITH_CITY_LEGACY = `${SELECT_FIELDS_BASE_LEGACY},citta:città`;
 const GROUP_COLUMN_MISSING_CODES = new Set(["42703", "PGRST204", "PGRST116"]);
 
 const esigenzeSet = new Set<string>(ESIGENZE_ALIMENTARI_OPTIONS);
@@ -265,7 +271,13 @@ async function loadAllParticipants() {
       throw new Error(error.message);
     }
 
-    const fallback = await executeSelect(SELECT_FIELDS_BASE);
+    let fallback = await executeSelect(SELECT_FIELDS_BASE);
+    if (fallback.error && canFallbackMissingColumn(fallback.error)) {
+      fallback = await executeSelect(SELECT_FIELDS_WITH_CITY_LEGACY);
+    }
+    if (fallback.error && canFallbackMissingColumn(fallback.error)) {
+      fallback = await executeSelect(SELECT_FIELDS_BASE_LEGACY);
+    }
     data = fallback.data;
     error = fallback.error;
   }
@@ -314,7 +326,13 @@ async function loadParticipantById(
       throw new Error(error.message);
     }
 
-    const fallback = await executeSelect(SELECT_FIELDS_BASE);
+    let fallback = await executeSelect(SELECT_FIELDS_BASE);
+    if (fallback.error && canFallbackMissingColumn(fallback.error)) {
+      fallback = await executeSelect(SELECT_FIELDS_WITH_CITY_LEGACY);
+    }
+    if (fallback.error && canFallbackMissingColumn(fallback.error)) {
+      fallback = await executeSelect(SELECT_FIELDS_BASE_LEGACY);
+    }
     data = fallback.data;
     error = fallback.error;
   }
@@ -434,6 +452,15 @@ export async function PATCH(req: Request) {
   const alloggioInput =
     "alloggio" in body ? normalizeText(body.alloggio) : current.alloggio_short ?? current.alloggio;
   const normalizedAlloggio = alloggioShortToLong(alloggioInput);
+  const operatorAccommodationPreferenceInput =
+    "preferenza_alloggio_operatore" in body
+      ? normalizeText(body.preferenza_alloggio_operatore)
+      : current.preferenza_alloggio_operatore;
+  const operatorAccommodationPreference = isOperatorRegistrationType(
+    current.tipo_iscrizione
+  )
+    ? normalizeOperatorAccommodationPreference(operatorAccommodationPreferenceInput)
+    : null;
   const allergie = "allergie" in body ? normalizeText(body.allergie) : current.allergie;
   const esigenzeAlimentari =
     "esigenze_alimentari" in body
@@ -511,6 +538,17 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Invalid alloggio value" }, { status: 400 });
   }
 
+  if (
+    isOperatorRegistrationType(current.tipo_iscrizione) &&
+    operatorAccommodationPreferenceInput &&
+    !operatorAccommodationPreference
+  ) {
+    return NextResponse.json(
+      { error: "Invalid preferenza_alloggio_operatore value" },
+      { status: 400 }
+    );
+  }
+
   if (esigenzeAlimentari.some((item) => !esigenzeSet.has(item))) {
     return NextResponse.json(
       { error: "Invalid esigenze_alimentari value" },
@@ -540,35 +578,50 @@ export async function PATCH(req: Request) {
     dataNascita,
   });
 
-  const { error: updateError } = await auth.service
+  const updatePayload: Record<string, unknown> = {
+    nome,
+    cognome,
+    nazione,
+    "città": citta,
+    paese_residenza: paeseResidenza,
+    gruppo_id: gruppoId,
+    gruppo_label: gruppoLabel,
+    email,
+    telefono,
+    data_nascita: dataNascita,
+    data_arrivo: dataArrivo,
+    data_partenza: dataPartenza,
+    alloggio: normalizedAlloggio,
+    alloggio_short: alloggioLongToShort(normalizedAlloggio),
+    preferenza_alloggio_operatore: operatorAccommodationPreference,
+    allergie,
+    esigenze_alimentari:
+      esigenzeAlimentari.length > 0 ? esigenzeAlimentari.join(", ") : null,
+    disabilita_accessibilita: disabilitaAccessibilita,
+    difficolta_accessibilita:
+      normalizedDifficolta.length > 0 ? normalizedDifficolta.join(", ") : null,
+    eta: calculated.eta,
+    is_minorenne: calculated.isMinorenne,
+  };
+
+  let { error: updateError } = await auth.service
     .from("partecipanti")
-    .update({
-      nome,
-      cognome,
-      nazione,
-      "città": citta,
-      paese_residenza: paeseResidenza,
-      gruppo_id: gruppoId,
-      gruppo_label: gruppoLabel,
-      email,
-      telefono,
-      data_nascita: dataNascita,
-      data_arrivo: dataArrivo,
-      data_partenza: dataPartenza,
-      alloggio: normalizedAlloggio,
-      alloggio_short: alloggioLongToShort(normalizedAlloggio),
-      allergie,
-      esigenze_alimentari:
-        esigenzeAlimentari.length > 0 ? esigenzeAlimentari.join(", ") : null,
-      disabilita_accessibilita: disabilitaAccessibilita,
-      difficolta_accessibilita:
-        normalizedDifficolta.length > 0 ? normalizedDifficolta.join(", ") : null,
-      eta: calculated.eta,
-      is_minorenne: calculated.isMinorenne,
-    })
+    .update(updatePayload)
     .eq("id", participantId)
     .select("id")
     .single();
+
+  if (updateError && canFallbackMissingColumn(updateError)) {
+    const fallbackPayload = { ...updatePayload };
+    delete fallbackPayload.preferenza_alloggio_operatore;
+    const fallback = await auth.service
+      .from("partecipanti")
+      .update(fallbackPayload)
+      .eq("id", participantId)
+      .select("id")
+      .single();
+    updateError = fallback.error;
+  }
 
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });

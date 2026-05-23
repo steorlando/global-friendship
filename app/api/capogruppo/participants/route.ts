@@ -10,6 +10,8 @@ import {
   DIFFICOLTA_ACCESSIBILITA_OPTIONS,
   ESIGENZE_ALIMENTARI_OPTIONS,
   alloggioLongToShort,
+  isOperatorRegistrationType,
+  normalizeOperatorAccommodationPreference,
   parseStoredDifficoltaAccessibilita,
   alloggioShortToLong,
 } from "@/lib/partecipante/constants";
@@ -21,6 +23,7 @@ type ParticipantRow = {
   cognome: string | null;
   eta: number | null;
   tipo_iscrizione: string | null;
+  preferenza_alloggio_operatore: string | null;
   paese_residenza: string | null;
   citta: string | null;
   nazione: string | null;
@@ -43,7 +46,7 @@ type ParticipantRow = {
 };
 
 const SELECT_FIELDS_BASE =
-  "id,created_at,nome,cognome,eta,tipo_iscrizione,paese_residenza,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label,partecipa_intero_evento,presenza_dettaglio";
+  "id,created_at,nome,cognome,eta,tipo_iscrizione,preferenza_alloggio_operatore,paese_residenza,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label,partecipa_intero_evento,presenza_dettaglio";
 const SELECT_FIELDS_WITH_CITY = `${SELECT_FIELDS_BASE},citta:città`;
 const SELECT_FIELDS_LEGACY =
   "id,created_at,nome,cognome,eta,tipo_iscrizione,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label";
@@ -169,6 +172,8 @@ function toParticipantRow(value: unknown): ParticipantRow {
     cognome: (row.cognome as string | null | undefined) ?? null,
     eta: (row.eta as number | null | undefined) ?? null,
     tipo_iscrizione: (row.tipo_iscrizione as string | null | undefined) ?? null,
+    preferenza_alloggio_operatore:
+      (row.preferenza_alloggio_operatore as string | null | undefined) ?? null,
     paese_residenza: (row.paese_residenza as string | null | undefined) ?? null,
     citta: (row.citta as string | null | undefined) ?? null,
     nazione: (row.nazione as string | null | undefined) ?? null,
@@ -442,6 +447,15 @@ export async function PATCH(req: Request) {
   const alloggioInput =
     "alloggio" in body ? normalizeText(body.alloggio) : current.alloggio_short ?? current.alloggio;
   const normalizedAlloggio = alloggioShortToLong(alloggioInput);
+  const operatorAccommodationPreferenceInput =
+    "preferenza_alloggio_operatore" in body
+      ? normalizeText(body.preferenza_alloggio_operatore)
+      : current.preferenza_alloggio_operatore;
+  const operatorAccommodationPreference = isOperatorRegistrationType(
+    current.tipo_iscrizione
+  )
+    ? normalizeOperatorAccommodationPreference(operatorAccommodationPreferenceInput)
+    : null;
   const allergie = "allergie" in body ? normalizeText(body.allergie) : current.allergie;
   const esigenzeAlimentari =
     "esigenze_alimentari" in body
@@ -553,6 +567,17 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Invalid alloggio value" }, { status: 400 });
   }
 
+  if (
+    isOperatorRegistrationType(current.tipo_iscrizione) &&
+    operatorAccommodationPreferenceInput &&
+    !operatorAccommodationPreference
+  ) {
+    return NextResponse.json(
+      { error: "Invalid preferenza_alloggio_operatore value" },
+      { status: 400 }
+    );
+  }
+
   if (esigenzeAlimentari.some((item) => !esigenzeSet.has(item))) {
     return NextResponse.json(
       { error: "Invalid esigenze_alimentari value" },
@@ -586,6 +611,7 @@ export async function PATCH(req: Request) {
     data_partenza: dataPartenza,
     alloggio: normalizedAlloggio,
     alloggio_short: alloggioLongToShort(normalizedAlloggio),
+    preferenza_alloggio_operatore: operatorAccommodationPreference,
     allergie,
     esigenze_alimentari:
       esigenzeAlimentari.length > 0 ? esigenzeAlimentari.join(", ") : null,
@@ -603,12 +629,24 @@ export async function PATCH(req: Request) {
     updatePayload.presenza_dettaglio = presenzaDettaglio;
   }
 
-  const { error: updateError } = await auth.service
+  let { error: updateError } = await auth.service
     .from("partecipanti")
     .update(updatePayload)
     .eq("id", participantId)
     .select("id")
     .single();
+
+  if (updateError && canFallbackMissingColumn(updateError)) {
+    const fallbackPayload = { ...updatePayload };
+    delete fallbackPayload.preferenza_alloggio_operatore;
+    const fallback = await auth.service
+      .from("partecipanti")
+      .update(fallbackPayload)
+      .eq("id", participantId)
+      .select("id")
+      .single();
+    updateError = fallback.error;
+  }
 
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
