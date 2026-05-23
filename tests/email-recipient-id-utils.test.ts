@@ -119,7 +119,7 @@ test("participant registration confirmation email includes key summary and edit 
     note: "Will arrive in the morning",
   });
 
-  assert.equal(subject, "Registration received: Luca Rossi");
+  assert.equal(subject, "Global Friendship - Registration received: Luca Rossi");
   assert.ok(text.includes("We have received your registration successfully."));
   assert.ok(text.includes("- First name: Luca"));
   assert.ok(text.includes("- Last name: Rossi"));
