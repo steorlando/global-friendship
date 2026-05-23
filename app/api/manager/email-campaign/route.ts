@@ -26,6 +26,7 @@ type ParticipantRow = {
   cognome: string | null;
   email: string | null;
   telefono: string | null;
+  tipo_iscrizione: string | null;
   paese_residenza: string | null;
   nazione: string | null;
   data_nascita: string | null;
@@ -77,7 +78,7 @@ type SendLogInsertPayload = {
 };
 
 const SELECT_FIELDS =
-  "id,nome,cognome,email,telefono,paese_residenza,nazione,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label";
+  "id,nome,cognome,email,telefono,tipo_iscrizione,paese_residenza,nazione,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label";
 const GROUP_LEADER_SELECT_FIELDS = "id,email,nome,cognome,ruolo,telefono,italia,roma";
 const MAX_ATTACHMENTS = 5;
 const MAX_ATTACHMENT_BASE64_LENGTH = 10 * 1024 * 1024;
@@ -235,6 +236,7 @@ function toTemplateData(row: ParticipantRow): ParticipantTemplateData {
     cognome: row.cognome,
     email: row.email,
     telefono: row.telefono,
+    tipo_iscrizione: row.tipo_iscrizione,
     paese_residenza: row.paese_residenza,
     nazione: row.nazione,
     data_nascita: row.data_nascita,

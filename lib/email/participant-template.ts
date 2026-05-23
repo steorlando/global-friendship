@@ -4,6 +4,7 @@ export type ParticipantTemplateData = {
   cognome: string | null;
   email: string | null;
   telefono: string | null;
+  tipo_iscrizione: string | null;
   paese_residenza: string | null;
   nazione: string | null;
   data_nascita: string | null;
@@ -31,6 +32,7 @@ export const PARTICIPANT_TEMPLATE_FIELDS: TemplateField[] = [
   { key: "id", label: "Id", token: "{{id}}" },
   { key: "email", label: "Email", token: "{{email}}" },
   { key: "telefono", label: "Phone", token: "{{telefono}}" },
+  { key: "tipo_iscrizione", label: "Registration type", token: "{{tipo_iscrizione}}" },
   { key: "paese_residenza", label: "Country", token: "{{paese_residenza}}" },
   { key: "nazione", label: "Nationality", token: "{{nazione}}" },
   { key: "data_nascita", label: "Date of birth", token: "{{data_nascita}}" },
@@ -90,6 +92,7 @@ export function buildParticipantTemplateMap(
     id: participant.id ?? "",
     email: normalizeString(participant.email),
     telefono: normalizeString(participant.telefono),
+    tipo_iscrizione: normalizeString(participant.tipo_iscrizione),
     paese_residenza: normalizeString(participant.paese_residenza),
     nazione: normalizeString(participant.nazione),
     data_nascita: normalizeString(participant.data_nascita),

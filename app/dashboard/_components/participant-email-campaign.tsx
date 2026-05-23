@@ -36,6 +36,7 @@ type ParticipantSortKey =
   | "nome"
   | "cognome"
   | "email"
+  | "tipo_iscrizione"
   | "data_arrivo"
   | "data_partenza"
   | "alloggio"
@@ -241,6 +242,7 @@ export function ParticipantEmailCampaign() {
 
   const [participantSearch, setParticipantSearch] = useState("");
   const [participantGroupFilter, setParticipantGroupFilter] = useState("");
+  const [participantRegistrationTypeFilter, setParticipantRegistrationTypeFilter] = useState("");
   const [participantArrivoFilter, setParticipantArrivoFilter] = useState("");
   const [participantPartenzaFilter, setParticipantPartenzaFilter] = useState("");
   const [participantAlloggioFilter, setParticipantAlloggioFilter] = useState("");
@@ -345,6 +347,19 @@ export function ParticipantEmailCampaign() {
   );
   const excludedRecipientCount = excludedRecipientIds.size;
 
+  const participantRegistrationTypes = useMemo(() => {
+    const counts = new Map<string, number>();
+    participants.forEach((participant) => {
+      const registrationType = (participant.tipo_iscrizione ?? "").trim();
+      if (!registrationType) return;
+      counts.set(registrationType, (counts.get(registrationType) ?? 0) + 1);
+    });
+
+    return [...counts.entries()]
+      .map(([value, count]) => ({ value, count }))
+      .sort((a, b) => a.value.localeCompare(b.value));
+  }, [participants]);
+
   const filteredSortedParticipants = useMemo(() => {
     const positiveFiltered = participants.filter((participant) => {
       if (participantSearch) {
@@ -359,6 +374,12 @@ export function ParticipantEmailCampaign() {
 
       if (showGroupColumn && participantGroupFilter) {
         if (!safeIncludes(participant.group, participantGroupFilter)) return false;
+      }
+      if (
+        participantRegistrationTypeFilter &&
+        (participant.tipo_iscrizione ?? "").trim() !== participantRegistrationTypeFilter
+      ) {
+        return false;
       }
       if (participantArrivoFilter && (participant.data_arrivo ?? "") !== participantArrivoFilter) {
         return false;
@@ -399,6 +420,7 @@ export function ParticipantEmailCampaign() {
     participantAlloggioFilter,
     participantArrivoFilter,
     participantGroupFilter,
+    participantRegistrationTypeFilter,
     participantPartenzaFilter,
     participantSearch,
     participantSortDirection,
@@ -1213,7 +1235,7 @@ export function ParticipantEmailCampaign() {
         </div>
 
         {activeRecipientType === "participants" ? (
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
             <div>
               <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Search
@@ -1245,6 +1267,23 @@ export function ParticipantEmailCampaign() {
                 </datalist>
               </div>
             )}
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Registration type
+              </label>
+              <select
+                value={participantRegistrationTypeFilter}
+                onChange={(event) => setParticipantRegistrationTypeFilter(event.target.value)}
+                className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
+              >
+                <option value="">All registration types</option>
+                {participantRegistrationTypes.map((registrationType) => (
+                  <option key={registrationType.value} value={registrationType.value}>
+                    {registrationType.value} ({registrationType.count})
+                  </option>
+                ))}
+              </select>
+            </div>
             <div>
               <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Arrival
@@ -1421,6 +1460,14 @@ export function ParticipantEmailCampaign() {
                     <th className="px-4 py-3 font-semibold">
                       <button
                         type="button"
+                        onClick={() => toggleParticipantSort("tipo_iscrizione")}
+                      >
+                        Registration type
+                      </button>
+                    </th>
+                    <th className="px-4 py-3 font-semibold">
+                      <button
+                        type="button"
                         onClick={() => toggleParticipantSort("data_arrivo")}
                       >
                         Arrival
@@ -1453,7 +1500,7 @@ export function ParticipantEmailCampaign() {
                   {filteredSortedParticipants.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={showGroupColumn ? 9 : 8}
+                        colSpan={showGroupColumn ? 10 : 9}
                         className="px-3 py-3 text-slate-500"
                       >
                         No participants match current filters.
@@ -1476,6 +1523,9 @@ export function ParticipantEmailCampaign() {
                         <td className="px-4 py-3 text-slate-900">{participant.nome || "-"}</td>
                         <td className="px-4 py-3 text-slate-900">{participant.cognome || "-"}</td>
                         <td className="px-4 py-3 text-slate-700">{participant.email || "-"}</td>
+                        <td className="px-4 py-3 text-slate-700">
+                          {participant.tipo_iscrizione || "-"}
+                        </td>
                         <td className="px-4 py-3 text-slate-700">
                           {participant.data_arrivo || "-"}
                         </td>
