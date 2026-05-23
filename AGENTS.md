@@ -509,23 +509,20 @@ Recent state:
 
 ## Supabase / Database Notes
 
-There is a local schema snapshot file in repo root:
-
-- `Supabase Snippet Schema Snapshot Generator.csv`
-
-Use it as a reference snapshot only.
-
 Important:
 
-- The snapshot may lag behind recent migrations
-- Always cross-check with files in `supabase/*.sql`
-- Recent features were added through migrations and may not be reflected in old snapshots
+- Do not rely on static schema snapshots. They become stale quickly.
+- Use the live self-hosted database for current schema inspection.
+- Always cross-check structural changes with files in `supabase/*.sql`.
 
 Operational note for Codex sessions:
 
 - When needed, Codex can access Supabase directly to inspect live tables/data for database context.
 - When a DB change is required, Codex can write SQL directly (migration-style or targeted statements) to implement the necessary schema/data updates.
 - The current production database is self-hosted on Hetzner. The Supabase Cloud CLI `supabase link` flow is not applicable for this target; use `scripts/selfhosted-db-query.sh`, which reads `/Users/stefanolaptop/Documents/codex_new/migrazione-supabase/.env.global-friendship-event.local` and executes SQL through SSH into the Postgres container.
+- For schema inspection, run read-only SQL through the same self-hosted path, for example:
+  `echo "select table_name from information_schema.tables where table_schema = 'public' order by table_name;" | ssh ... docker exec -i ... psql ...`
+  or create a temporary `.sql` file and run `scripts/selfhosted-db-query.sh <file>`.
 
 High-value migrations to know:
 
