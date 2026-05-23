@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { loadEventRuntimeSettings } from "@/lib/event/settings";
@@ -7,6 +8,10 @@ import { DailyPresenceSection } from "./daily-presence-section";
 import { RegistrationsTabsSection } from "./registrations-tabs-section";
 import { StatisticsSectionsSidebar } from "./statistics-sections-sidebar";
 import { getServerTranslator } from "@/lib/i18n/server";
+import {
+  isOperatorRegistrationType,
+  normalizeOperatorAccommodationPreference,
+} from "@/lib/partecipante/constants";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +22,7 @@ type ParticipantStatRow = {
   citta: string | null;
   email: string | null;
   tipo_iscrizione: string | null;
+  preferenza_alloggio_operatore: string | null;
   paese_residenza: string | null;
   nazione: string | null;
   gruppo_label: string | null;
@@ -66,8 +72,11 @@ const ENROLLMENT_BUCKET_LABEL_KEYS: Record<EnrollmentBucket, string> = {
 };
 
 const SELECT_FIELDS_BASE =
+  "id,nome,cognome,email,tipo_iscrizione,preferenza_alloggio_operatore,paese_residenza,nazione,gruppo_label,gruppo_id,data_arrivo,data_partenza,alloggio_short,alloggio,created_at";
+const SELECT_FIELDS_BASE_LEGACY =
   "id,nome,cognome,email,tipo_iscrizione,paese_residenza,nazione,gruppo_label,gruppo_id,data_arrivo,data_partenza,alloggio_short,alloggio,created_at";
 const SELECT_FIELDS_WITH_CITY = `${SELECT_FIELDS_BASE},citta:città`;
+const SELECT_FIELDS_WITH_CITY_LEGACY = `${SELECT_FIELDS_BASE_LEGACY},citta:città`;
 const HISTORY_FILES = ["history_2023.csv", "history_2024.csv", "history_2025.csv"] as const;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -86,6 +95,12 @@ type TrendSeries = {
   historyToday: number;
   forecastFinal: number;
   latestCurrentDay: number;
+};
+
+type OperatorAccommodationPreferenceCounts = {
+  hotel: number;
+  hostel: number;
+  missing: number;
 };
 
 function mapEnrollmentBucket(rawType: string | null): EnrollmentBucket | null {
@@ -568,6 +583,33 @@ function buildUnassignedParticipants(
   });
 }
 
+function buildOperatorAccommodationPreferenceCounts(
+  participants: ParticipantStatRow[]
+): OperatorAccommodationPreferenceCounts {
+  const counts: OperatorAccommodationPreferenceCounts = {
+    hotel: 0,
+    hostel: 0,
+    missing: 0,
+  };
+
+  for (const participant of participants) {
+    if (!isOperatorRegistrationType(participant.tipo_iscrizione)) continue;
+
+    const preference = normalizeOperatorAccommodationPreference(
+      participant.preferenza_alloggio_operatore
+    );
+    if (preference === "Hotel") {
+      counts.hotel += 1;
+    } else if (preference === "Hostel with group") {
+      counts.hostel += 1;
+    } else {
+      counts.missing += 1;
+    }
+  }
+
+  return counts;
+}
+
 function DuplicateAndUnassignedSection({
   duplicateCandidates,
   unassignedParticipants,
@@ -708,6 +750,76 @@ function DuplicateAndUnassignedSection({
             </table>
           </div>
         </div>
+      </div>
+    </section>
+  );
+}
+
+function OperatorAccommodationPreferenceSection({
+  counts,
+  t,
+}: {
+  counts: OperatorAccommodationPreferenceCounts;
+  t: (key: string, values?: Record<string, string | number>) => string;
+}) {
+  const rows = [
+    {
+      key: "hotel",
+      label: t("manager.operatorAccommodation.hotel"),
+      count: counts.hotel,
+      href: "/dashboard/manager/participants?operatorAccommodation=hotel",
+    },
+    {
+      key: "hostel",
+      label: t("manager.operatorAccommodation.hostel"),
+      count: counts.hostel,
+      href: "/dashboard/manager/participants?operatorAccommodation=hostel",
+    },
+    {
+      key: "missing",
+      label: t("manager.operatorAccommodation.missing"),
+      count: counts.missing,
+      href: "/dashboard/manager/participants?operatorAccommodation=missing",
+    },
+  ];
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h3 className="text-lg font-semibold text-slate-900">
+        {t("manager.operatorAccommodation.title")}
+      </h3>
+      <p className="mt-1 text-sm text-slate-500">
+        {t("manager.operatorAccommodation.subtitle")}
+      </p>
+
+      <div className="mt-4 overflow-hidden rounded border border-slate-200">
+        <table className="w-full border-collapse text-left text-sm">
+          <thead className="bg-slate-50 text-slate-700">
+            <tr>
+              <th className="px-4 py-3">
+                {t("manager.operatorAccommodation.preference")}
+              </th>
+              <th className="px-4 py-3 text-right">
+                {t("manager.operatorAccommodation.count")}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.key} className="border-t border-slate-100">
+                <td className="px-4 py-3">{row.label}</td>
+                <td className="px-4 py-3 text-right">
+                  <Link
+                    href={row.href}
+                    className="font-semibold text-indigo-700 underline-offset-2 hover:underline"
+                  >
+                    {row.count}
+                  </Link>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </section>
   );
@@ -928,7 +1040,21 @@ export async function StatisticsDashboard({
       );
     }
 
-    const fallback = await executeSelect(SELECT_FIELDS_BASE);
+    let fallback = await executeSelect(SELECT_FIELDS_BASE);
+    if (fallback.error) {
+      const fallbackCode = fallback.error.code ?? "";
+      const fallbackMessage = (fallback.error.message ?? "").toLowerCase();
+      const canLegacyFallback =
+        ["42703", "PGRST100", "PGRST204"].includes(fallbackCode) ||
+        fallbackMessage.includes("column") ||
+        fallbackMessage.includes("parse");
+      if (canLegacyFallback) {
+        fallback = await executeSelect(SELECT_FIELDS_WITH_CITY_LEGACY);
+      }
+      if (fallback.error && canLegacyFallback) {
+        fallback = await executeSelect(SELECT_FIELDS_BASE_LEGACY);
+      }
+    }
     data = fallback.data;
     error = fallback.error;
   }
@@ -943,6 +1069,8 @@ export async function StatisticsDashboard({
   }
 
   const participants = (data ?? []) as unknown as ParticipantStatRow[];
+  const operatorAccommodationPreferenceCounts =
+    buildOperatorAccommodationPreferenceCounts(participants);
   const leaderGroupIds = new Set<string>();
   let duplicateCandidates: DuplicateCandidateRow[] = [];
   let unassignedParticipants: ParticipantStatRow[] = [];
@@ -1141,6 +1269,13 @@ export async function StatisticsDashboard({
 
             <DailyPresenceSection participants={participants} />
           </div>
+
+          {!publicView && (
+            <OperatorAccommodationPreferenceSection
+              counts={operatorAccommodationPreferenceCounts}
+              t={t}
+            />
+          )}
 
           <RegistrationTrendSection series={trendSeries} t={t} />
 

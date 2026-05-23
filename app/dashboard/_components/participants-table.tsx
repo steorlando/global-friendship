@@ -11,6 +11,7 @@ import {
   ESIGENZE_ALIMENTARI_OPTIONS,
   OPERATOR_ACCOMMODATION_PREFERENCE_OPTIONS,
   isOperatorRegistrationType,
+  normalizeOperatorAccommodationPreference,
 } from "@/lib/partecipante/constants";
 import { useI18n } from "@/lib/i18n/provider";
 
@@ -322,6 +323,7 @@ export function ParticipantsTable({
   const [alloggioFilter, setAlloggioFilter] = useState("");
   const [quotaMinFilter, setQuotaMinFilter] = useState("");
   const [quotaMaxFilter, setQuotaMaxFilter] = useState("");
+  const [operatorAccommodationFilter, setOperatorAccommodationFilter] = useState("");
   const [onlyRoma, setOnlyRoma] = useState(false);
 
   const editingParticipant = useMemo(
@@ -422,6 +424,26 @@ export function ParticipantsTable({
       if (onlyRoma && !isRomaParticipant(participant)) {
         return false;
       }
+      if (operatorAccommodationFilter) {
+        if (!isOperatorRegistrationType(participant.tipo_iscrizione)) {
+          return false;
+        }
+        const preference = normalizeOperatorAccommodationPreference(
+          participant.preferenza_alloggio_operatore
+        );
+        if (operatorAccommodationFilter === "hotel" && preference !== "Hotel") {
+          return false;
+        }
+        if (
+          operatorAccommodationFilter === "hostel" &&
+          preference !== "Hostel with group"
+        ) {
+          return false;
+        }
+        if (operatorAccommodationFilter === "missing" && preference !== null) {
+          return false;
+        }
+      }
       return true;
     });
 
@@ -461,6 +483,7 @@ export function ParticipantsTable({
     nomeFilter,
     participants,
     onlyRoma,
+    operatorAccommodationFilter,
     partenzaFilter,
     quotaMaxFilter,
     quotaMinFilter,
@@ -485,6 +508,18 @@ export function ParticipantsTable({
     1 +
     (showTotalFee ? 1 : 0) +
     1;
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const operatorAccommodation = params.get("operatorAccommodation") ?? "";
+    if (["hotel", "hostel", "missing"].includes(operatorAccommodation)) {
+      setOperatorAccommodationFilter(operatorAccommodation);
+      setTipoIscrizioneFilter("Operator");
+      setVisibleOptionalColumns((prev) =>
+        prev.includes("tipo_iscrizione") ? prev : [...prev, "tipo_iscrizione"]
+      );
+    }
+  }, []);
 
   useEffect(() => {
     async function loadParticipants() {
@@ -596,6 +631,7 @@ export function ParticipantsTable({
     setAlloggioFilter("");
     setQuotaMinFilter("");
     setQuotaMaxFilter("");
+    setOperatorAccommodationFilter("");
   }
 
   function toggleOptionalColumn(column: OptionalColumnKey) {

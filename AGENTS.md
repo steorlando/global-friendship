@@ -234,6 +234,10 @@ Important design:
 Statistics currently implemented:
 
 - Top counters by recoded registration type
+- Operator accommodation preference summary, with clickable counts that deep-link to the manager participants table filtered for:
+  - hotel preference
+  - hostel-with-group preference
+  - missing preference
 - Registrations by country
 - Registrations by group
 - Registrations by Italian city
