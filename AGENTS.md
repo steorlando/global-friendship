@@ -548,6 +548,7 @@ High-value migrations to know:
 - `supabase/email_send_logs_migration.sql`
 - `supabase/participation_fees_migration.sql`
 - `supabase/participation_fee_db_calculation_migration.sql`
+- `supabase/participation_fee_nullable_host_city_migration.sql`
 - `supabase/event_finance_migration.sql`
 - `supabase/event_finance_single_plan_refactor.sql`
 - `supabase/event_finance_settings_accounts_migration.sql`
