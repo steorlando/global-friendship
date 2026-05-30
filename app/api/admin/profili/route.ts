@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminUser } from "@/lib/admin/auth";
 import {
+  listKnownGroups,
   listProfili,
   updateProfiloById,
   upsertProfiloByEmail,
@@ -13,8 +14,11 @@ export async function GET() {
 
   try {
     const supabase = createSupabaseServiceClient();
-    const data = await listProfili(supabase);
-    return NextResponse.json({ data });
+    const [data, groups] = await Promise.all([
+      listProfili(supabase),
+      listKnownGroups(supabase),
+    ]);
+    return NextResponse.json({ data, groups });
   } catch (error) {
     return NextResponse.json(
       { error: (error as Error).message },

@@ -123,13 +123,20 @@ export default function AdminUsersProfilesPage() {
       if (!response.ok) throw new Error(json.error || "Loading error");
       const data = (json.data || []) as Profilo[];
       setProfiles(data);
-      const groups = [
-        ...new Set(
-          data.flatMap((profile) =>
-            (profile.groups || []).map((group) => group.trim()).filter(Boolean)
-          )
-        ),
-      ].sort((a, b) => a.localeCompare(b));
+      const responseGroups = Array.isArray(json.groups) ? (json.groups as unknown[]) : [];
+      const groups = responseGroups.length
+        ? [
+            ...new Set(
+              responseGroups.map((group) => String(group).trim()).filter(Boolean)
+            ),
+          ].sort((a, b) => a.localeCompare(b))
+        : [
+            ...new Set(
+              data.flatMap((profile) =>
+                (profile.groups || []).map((group) => group.trim()).filter(Boolean)
+              )
+            ),
+          ].sort((a, b) => a.localeCompare(b));
       setAllKnownGroups(groups);
     } catch (err) {
       setError((err as Error).message);

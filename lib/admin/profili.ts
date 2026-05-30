@@ -39,6 +39,16 @@ type ProfiloPersisted = {
   created_at: string;
 };
 
+type GroupOptionRow = {
+  id: string | null;
+  nome: string | null;
+};
+
+type ParticipantGroupRow = {
+  gruppo_id: string | null;
+  gruppo_label: string | null;
+};
+
 const GROUP_COLUMN_MISSING_CODES = new Set(["42703", "PGRST204", "PGRST116"]);
 
 function isMissingCapogruppoHostColumn(error: { code?: string | null; message?: string | null }) {
@@ -169,12 +179,36 @@ export async function listProfili(supabase: SupabaseClient) {
   if (linksError) throw new Error(linksError.message);
 
   const groupsByProfileId = new Map<string, string[]>();
+  const groupIds = [
+    ...new Set(
+      (links ?? [])
+        .map((link) => String(link.gruppo_id ?? "").trim())
+        .filter(Boolean)
+    ),
+  ];
+  const groupNamesById = new Map<string, string>();
+
+  if (groupIds.length > 0) {
+    const { data: groupRows, error: groupsError } = await supabase
+      .from("gruppi")
+      .select("id,nome")
+      .in("id", groupIds);
+
+    if (groupsError) throw new Error(groupsError.message);
+
+    for (const group of (groupRows ?? []) as GroupOptionRow[]) {
+      const id = normalizeText(group.id);
+      const name = normalizeText(group.nome);
+      if (id && name) groupNamesById.set(id, name);
+    }
+  }
+
   for (const link of links ?? []) {
     const profileId = link.profilo_id as string;
     const groupId = String(link.gruppo_id ?? "");
     if (!groupId) continue;
     const current = groupsByProfileId.get(profileId) ?? [];
-    current.push(groupId);
+    current.push(groupNamesById.get(groupId) ?? groupId);
     groupsByProfileId.set(profileId, current);
   }
 
@@ -183,6 +217,35 @@ export async function listProfili(supabase: SupabaseClient) {
     capogruppo_host: Boolean(row.capogruppo_host),
     groups: [...new Set(groupsByProfileId.get(row.id) ?? [])].sort(),
   }));
+}
+
+export async function listKnownGroups(supabase: SupabaseClient): Promise<string[]> {
+  const groups = new Set<string>();
+
+  const { data: groupRows, error: groupsError } = await supabase
+    .from("gruppi")
+    .select("id,nome")
+    .order("nome", { ascending: true });
+
+  if (groupsError) throw new Error(groupsError.message);
+
+  for (const group of (groupRows ?? []) as GroupOptionRow[]) {
+    const label = normalizeText(group.nome) ?? normalizeText(group.id);
+    if (label) groups.add(label);
+  }
+
+  const { data: participantRows, error: participantsError } = await supabase
+    .from("partecipanti")
+    .select("gruppo_id,gruppo_label");
+
+  if (participantsError) throw new Error(participantsError.message);
+
+  for (const participant of (participantRows ?? []) as ParticipantGroupRow[]) {
+    const label = normalizeText(participant.gruppo_label) ?? normalizeText(participant.gruppo_id);
+    if (label) groups.add(label);
+  }
+
+  return [...groups].sort((a, b) => a.localeCompare(b));
 }
 
 function normalizeGroups(input: string[] | null | undefined): string[] {
@@ -210,6 +273,45 @@ async function findGroupIdByColumn(
   }
 
   return (data?.id as string | null) ?? null;
+}
+
+async function findGroupIdByParticipantGroupLabel(
+  supabase: SupabaseClient,
+  value: string
+): Promise<string | null> {
+  const byLabel = await supabase
+    .from("partecipanti")
+    .select("gruppo_id,gruppo_label")
+    .ilike("gruppo_label", value)
+    .not("gruppo_id", "is", null)
+    .limit(1)
+    .maybeSingle();
+
+  if (byLabel.error) {
+    if (!GROUP_COLUMN_MISSING_CODES.has(byLabel.error.code ?? "")) {
+      throw new Error(byLabel.error.message);
+    }
+    return null;
+  }
+
+  const groupIdByLabel = normalizeText(byLabel.data?.gruppo_id as string | null);
+  if (groupIdByLabel) return groupIdByLabel;
+
+  const byId = await supabase
+    .from("partecipanti")
+    .select("gruppo_id")
+    .eq("gruppo_id", value)
+    .limit(1)
+    .maybeSingle();
+
+  if (byId.error) {
+    if (!GROUP_COLUMN_MISSING_CODES.has(byId.error.code ?? "")) {
+      throw new Error(byId.error.message);
+    }
+    return null;
+  }
+
+  return normalizeText(byId.data?.gruppo_id as string | null);
 }
 
 async function resolveCanonicalGroupId(
@@ -241,6 +343,9 @@ async function resolveCanonicalGroupId(
 
   const byGruppoLabel = await findGroupIdByColumn(supabase, "gruppo_label", normalized);
   if (byGruppoLabel) return byGruppoLabel;
+
+  const byParticipantGroupLabel = await findGroupIdByParticipantGroupLabel(supabase, normalized);
+  if (byParticipantGroupLabel) return byParticipantGroupLabel;
 
   return normalized;
 }
