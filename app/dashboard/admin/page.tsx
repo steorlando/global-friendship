@@ -1,5 +1,8 @@
-import ManagerStatisticsPage from "../manager/page";
+import { StatisticsDashboard } from "../manager/page";
 
-export default function AdminDashboardPage() {
-  return <ManagerStatisticsPage />;
+export default async function AdminDashboardPage() {
+  return StatisticsDashboard({
+    publicView: false,
+    participantsPath: "/dashboard/admin/participants",
+  });
 }

@@ -20,6 +20,7 @@ type ParticipantStatRow = {
   nome: string | null;
   cognome: string | null;
   citta: string | null;
+  dati_tally?: unknown;
   email: string | null;
   tipo_iscrizione: string | null;
   preferenza_alloggio_operatore: string | null;
@@ -73,7 +74,7 @@ const ENROLLMENT_BUCKET_LABEL_KEYS: Record<EnrollmentBucket, string> = {
 };
 
 const SELECT_FIELDS_BASE =
-  "id,nome,cognome,email,tipo_iscrizione,preferenza_alloggio_operatore,paese_residenza,nazione,gruppo_label,gruppo_id,data_arrivo,data_partenza,alloggio_short,alloggio,created_at,deleted_at";
+  "id,nome,cognome,email,tipo_iscrizione,preferenza_alloggio_operatore,paese_residenza,nazione,gruppo_label,gruppo_id,data_arrivo,data_partenza,alloggio_short,alloggio,created_at,deleted_at,dati_tally";
 const SELECT_FIELDS_BASE_LEGACY =
   "id,nome,cognome,email,tipo_iscrizione,paese_residenza,nazione,gruppo_label,gruppo_id,data_arrivo,data_partenza,alloggio_short,alloggio,created_at";
 const SELECT_FIELDS_WITH_CITY = `${SELECT_FIELDS_BASE},citta:città`;
@@ -136,6 +137,57 @@ function sortedLabels(values: Set<string>): string[] {
 function isItalyCountry(value: string | null | undefined): boolean {
   const normalized = (value ?? "").trim().toLowerCase();
   return normalized === "italia" || normalized === "italy";
+}
+
+function normalizeTallyValue(value: unknown): string {
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) {
+    return value.map(normalizeTallyValue).filter(Boolean).join(", ");
+  }
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return normalizeTallyValue(record.text ?? record.label ?? record.value);
+  }
+  return "";
+}
+
+function extractTallyFieldValue(
+  payload: unknown,
+  predicate: (label: string) => boolean
+): string {
+  const fields =
+    (payload as { data?: { fields?: unknown[] }; fields?: unknown[] } | null)
+      ?.data?.fields ?? (payload as { fields?: unknown[] } | null)?.fields ?? [];
+  if (!Array.isArray(fields)) return "";
+
+  for (const field of fields) {
+    if (!field || typeof field !== "object") continue;
+    const record = field as Record<string, unknown>;
+    const label = normalizeTallyValue(record.label ?? record.name ?? record.key);
+    if (!label || !predicate(label.toLowerCase())) continue;
+    const value = normalizeTallyValue(record.value);
+    if (value) return value;
+  }
+
+  return "";
+}
+
+function participantTallyDetail(participant: ParticipantStatRow): string {
+  const explicitOtherCity = extractTallyFieldValue(participant.dati_tally, (label) =>
+    (label.includes("city") || label.includes("citt")) && label.includes("other")
+  );
+  if (explicitOtherCity) return explicitOtherCity;
+
+  const city = extractTallyFieldValue(participant.dati_tally, (label) =>
+    label === "city" || label === "città" || label === "citta"
+  );
+  const leader = extractTallyFieldValue(participant.dati_tally, (label) =>
+    label.includes("group leader") || label.includes("capogruppo")
+  );
+
+  if (leader) return city ? `${city}; leader: ${leader}` : `Leader: ${leader}`;
+  return city || "-";
 }
 
 function parseDateOnly(value: string): Date | null {
@@ -614,10 +666,12 @@ function buildOperatorAccommodationPreferenceCounts(
 function DuplicateAndUnassignedSection({
   duplicateCandidates,
   unassignedParticipants,
+  participantsPath,
   t,
 }: {
   duplicateCandidates: DuplicateCandidateRow[];
   unassignedParticipants: ParticipantStatRow[];
+  participantsPath: string;
   t: (key: string, params?: Record<string, string | number>) => string;
 }) {
   return (
@@ -684,6 +738,12 @@ function DuplicateAndUnassignedSection({
                       </td>
                       <td className="px-3 py-2 text-slate-700">
                         <div className="flex flex-col gap-2">
+                          <Link
+                            href={`${participantsPath}?editParticipant=${participant.id}`}
+                            className="inline-flex w-fit rounded border border-indigo-200 px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-50"
+                          >
+                            {t("common.edit")}
+                          </Link>
                           {participant.matchedWith.map((match) => (
                             <form
                               key={`ignore-${participant.id}-${match.id}`}
@@ -727,12 +787,18 @@ function DuplicateAndUnassignedSection({
                   <th className="px-3 py-2 font-semibold text-slate-700">
                     {t("manager.duplicates.group")}
                   </th>
+                  <th className="px-3 py-2 font-semibold text-slate-700">
+                    {t("manager.unassigned.tallyDetail")}
+                  </th>
+                  <th className="px-3 py-2 font-semibold text-slate-700">
+                    {t("participants.table.header.actions")}
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {unassignedParticipants.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="px-3 py-3 text-slate-500">
+                    <td colSpan={5} className="px-3 py-3 text-slate-500">
                       {t("manager.unassigned.none")}
                     </td>
                   </tr>
@@ -744,6 +810,15 @@ function DuplicateAndUnassignedSection({
                       </td>
                       <td className="px-3 py-2 text-slate-700">{participant.email ?? "-"}</td>
                       <td className="px-3 py-2 text-slate-700">{participantGroupValue(participant)}</td>
+                      <td className="px-3 py-2 text-slate-700">{participantTallyDetail(participant)}</td>
+                      <td className="px-3 py-2 text-slate-700">
+                        <Link
+                          href={`${participantsPath}?editParticipant=${participant.id}`}
+                          className="inline-flex rounded border border-indigo-200 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50"
+                        >
+                          {t("common.edit")}
+                        </Link>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -983,8 +1058,10 @@ function RegistrationTrendSection({
 
 export async function StatisticsDashboard({
   publicView = false,
+  participantsPath = "/dashboard/manager/participants",
 }: {
   publicView?: boolean;
+  participantsPath?: string;
 } = {}) {
   const { t } = await getServerTranslator();
   const service = createSupabaseServiceClient();
@@ -1286,6 +1363,7 @@ export async function StatisticsDashboard({
             <DuplicateAndUnassignedSection
               duplicateCandidates={duplicateCandidates}
               unassignedParticipants={unassignedParticipants}
+              participantsPath={participantsPath}
               t={t}
             />
           )}
@@ -1296,5 +1374,8 @@ export async function StatisticsDashboard({
 }
 
 export default async function ManagerStatisticsPage() {
-  return StatisticsDashboard({ publicView: false });
+  return StatisticsDashboard({
+    publicView: false,
+    participantsPath: "/dashboard/manager/participants",
+  });
 }

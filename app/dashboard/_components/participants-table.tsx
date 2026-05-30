@@ -307,6 +307,7 @@ export function ParticipantsTable({
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [initialEditParticipantId, setInitialEditParticipantId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -517,6 +518,9 @@ export function ParticipantsTable({
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const editParticipant = params.get("editParticipant") ?? "";
+    if (editParticipant) setInitialEditParticipantId(editParticipant);
+
     const operatorAccommodation = params.get("operatorAccommodation") ?? "";
     if (["hotel", "hostel", "missing"].includes(operatorAccommodation)) {
       setOperatorAccommodationFilter(operatorAccommodation);
@@ -526,6 +530,14 @@ export function ParticipantsTable({
       );
     }
   }, []);
+
+  useEffect(() => {
+    if (!initialEditParticipantId || participants.length === 0 || editingId) return;
+    const participant = participants.find((row) => row.id === initialEditParticipantId);
+    if (!participant) return;
+    openEditModal(participant);
+    setInitialEditParticipantId(null);
+  }, [editingId, initialEditParticipantId, participants]);
 
   useEffect(() => {
     async function loadParticipants() {

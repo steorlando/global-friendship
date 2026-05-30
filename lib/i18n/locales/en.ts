@@ -229,6 +229,7 @@ const en: TranslationDictionary = {
   "manager.duplicates.compareWith": "Compare with",
   "manager.duplicates.none": "No potential duplicates detected.",
   "manager.unassigned.title": "Groups without group leader ({count})",
+  "manager.unassigned.tallyDetail": "Tally detail",
   "manager.unassigned.none": "No participants in groups without group leader.",
   "manager.operatorAccommodation.title": "Operator accommodation preference",
   "manager.operatorAccommodation.subtitle": "Distribution of the hotel/hostel preference among operator registrations.",

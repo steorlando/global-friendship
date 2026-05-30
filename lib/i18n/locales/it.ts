@@ -209,6 +209,7 @@ const it: TranslationDictionary = {
   "manager.duplicates.compareWith": "Confronta con",
   "manager.duplicates.none": "Nessun possibile duplicato rilevato.",
   "manager.unassigned.title": "Gruppi senza capogruppo ({count})",
+  "manager.unassigned.tallyDetail": "Dettaglio Tally",
   "manager.unassigned.none": "Nessun partecipante in gruppo privo di capogruppo.",
   "manager.operatorAccommodation.title": "Preferenza alloggio operatori",
   "manager.operatorAccommodation.subtitle":
