@@ -213,7 +213,7 @@ export async function loadAccommodationHotelOverview(
     await Promise.all([
     loadAccommodationGroups(service),
     loadAccommodationHotels(service),
-    service.from("partecipanti").select("*"),
+    service.from("partecipanti").select("*").is("deleted_at", null),
     service.from("partecipanti_stanze").select("partecipante_id,stanza_id"),
     service.from("stanze_gruppi").select("stanza_id,gruppo_id"),
     service.from("stanze").select("id,albergo_id,capienza"),

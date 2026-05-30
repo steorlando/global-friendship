@@ -15,10 +15,11 @@ type ParticipantFeeRow = {
   fee_paid: number | null;
   gruppo_id: string | null;
   gruppo_label: string | null;
+  deleted_at?: string | null;
 };
 
 const SELECT_FIELDS =
-  "id,nome,cognome,data_arrivo,data_partenza,alloggio,alloggio_short,quota_totale,fee_paid,gruppo_id,gruppo_label";
+  "id,nome,cognome,data_arrivo,data_partenza,alloggio,alloggio_short,quota_totale,fee_paid,gruppo_id,gruppo_label,deleted_at";
 
 function normalizeText(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -92,7 +93,7 @@ async function loadAllParticipants(service = createSupabaseServiceClient()) {
     throw new Error(error.message);
   }
 
-  return ((data ?? []) as ParticipantFeeRow[]).sort((a, b) => {
+  return ((data ?? []) as ParticipantFeeRow[]).filter((row) => !row.deleted_at).sort((a, b) => {
     const bySurname = (a.cognome ?? "").localeCompare(b.cognome ?? "");
     if (bySurname !== 0) return bySurname;
     return (a.nome ?? "").localeCompare(b.nome ?? "");
@@ -161,6 +162,7 @@ export async function PATCH(req: Request) {
     .from("partecipanti")
     .update({ fee_paid: feePaid })
     .eq("id", participantId)
+    .is("deleted_at", null)
     .select(SELECT_FIELDS)
     .maybeSingle();
 

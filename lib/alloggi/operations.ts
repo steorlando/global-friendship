@@ -391,7 +391,8 @@ export async function loadAccommodationOperationalRosters(
         .from("partecipanti")
         .select(
           "id,nome,cognome,email,gruppo_id,gruppo_label,alloggio,alloggio_short,sesso,data_arrivo,data_partenza"
-        ),
+        )
+        .is("deleted_at", null),
       service.from("partecipanti_stanze").select("id,partecipante_id,stanza_id"),
       service.from("stanze_gruppi").select("stanza_id,gruppo_id"),
     ]);

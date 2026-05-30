@@ -32,6 +32,7 @@ type ParticipantStatRow = {
   alloggio_short: string | null;
   alloggio: string | null;
   created_at: string | null;
+  deleted_at?: string | null;
 };
 
 type ProfileLinkRow = {
@@ -72,7 +73,7 @@ const ENROLLMENT_BUCKET_LABEL_KEYS: Record<EnrollmentBucket, string> = {
 };
 
 const SELECT_FIELDS_BASE =
-  "id,nome,cognome,email,tipo_iscrizione,preferenza_alloggio_operatore,paese_residenza,nazione,gruppo_label,gruppo_id,data_arrivo,data_partenza,alloggio_short,alloggio,created_at";
+  "id,nome,cognome,email,tipo_iscrizione,preferenza_alloggio_operatore,paese_residenza,nazione,gruppo_label,gruppo_id,data_arrivo,data_partenza,alloggio_short,alloggio,created_at,deleted_at";
 const SELECT_FIELDS_BASE_LEGACY =
   "id,nome,cognome,email,tipo_iscrizione,paese_residenza,nazione,gruppo_label,gruppo_id,data_arrivo,data_partenza,alloggio_short,alloggio,created_at";
 const SELECT_FIELDS_WITH_CITY = `${SELECT_FIELDS_BASE},citta:città`;
@@ -1068,7 +1069,9 @@ export async function StatisticsDashboard({
     );
   }
 
-  const participants = (data ?? []) as unknown as ParticipantStatRow[];
+  const participants = ((data ?? []) as unknown as ParticipantStatRow[]).filter(
+    (participant) => !participant.deleted_at
+  );
   const operatorAccommodationPreferenceCounts =
     buildOperatorAccommodationPreferenceCounts(participants);
   const leaderGroupIds = new Set<string>();

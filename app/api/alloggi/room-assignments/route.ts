@@ -147,6 +147,7 @@ export async function PATCH(req: Request) {
       "id,nome,cognome,gruppo_id,gruppo_label,alloggio,alloggio_short,data_arrivo,data_partenza,sesso"
     )
     .eq("id", participantId)
+    .is("deleted_at", null)
     .maybeSingle();
 
   if (participantError) {

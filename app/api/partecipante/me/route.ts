@@ -42,6 +42,7 @@ type ParticipantDbRow = {
   partecipa_intero_evento: boolean | null;
   presenza_dettaglio: Record<string, unknown> | null;
   submitted_at_tally: string | null;
+  deleted_at?: string | null;
 };
 
 type ParticipantCandidate = {
@@ -57,7 +58,7 @@ const alloggioSet = new Set<string>(ALLOGGIO_OPTIONS);
 const esigenzeSet = new Set<string>(ESIGENZE_ALIMENTARI_OPTIONS);
 const difficoltaSet = new Set<string>(DIFFICOLTA_ACCESSIBILITA_OPTIONS);
 const SELECT_FIELDS_BASE =
-  "id,email,nome,cognome,tipo_iscrizione,preferenza_alloggio_operatore,gruppo_id,gruppo_label,tally_submission_id,nazione,data_nascita,data_arrivo,data_partenza,alloggio,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,submitted_at_tally";
+  "id,email,nome,cognome,tipo_iscrizione,preferenza_alloggio_operatore,gruppo_id,gruppo_label,tally_submission_id,nazione,data_nascita,data_arrivo,data_partenza,alloggio,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,submitted_at_tally,deleted_at";
 const SELECT_FIELDS_BASE_LEGACY =
   "id,email,nome,cognome,gruppo_id,gruppo_label,tally_submission_id,nazione,data_nascita,data_arrivo,data_partenza,alloggio,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,submitted_at_tally";
 const SELECT_FIELDS_WITH_HOST = `${SELECT_FIELDS_BASE},partecipa_intero_evento,presenza_dettaglio`;
@@ -238,9 +239,9 @@ async function loadParticipantsByEmail(
   }
 
   if (error) return { participants: [], error: error.message };
-  const participants = ((data ?? []) as unknown as ParticipantDbRow[]).sort((a, b) =>
-    (b.submitted_at_tally ?? "").localeCompare(a.submitted_at_tally ?? "")
-  );
+  const participants = ((data ?? []) as unknown as ParticipantDbRow[])
+    .filter((row) => !row.deleted_at)
+    .sort((a, b) => (b.submitted_at_tally ?? "").localeCompare(a.submitted_at_tally ?? ""));
   return { participants, error: null };
 }
 
@@ -653,7 +654,13 @@ export async function DELETE(req: Request) {
   const service = createSupabaseServiceClient();
   const { error: deleteError } = await service
     .from("partecipanti")
-    .delete()
+    .update({
+      deleted_at: new Date().toISOString(),
+      deleted_by_email: auth.email,
+      deleted_by_role: "partecipante",
+      restored_at: null,
+      restored_by: null,
+    })
     .eq("id", participant.id)
     .ilike("email", auth.email);
 

@@ -393,12 +393,14 @@ async function loadParticipantsForGroups(
       .select(
         "id,nome,cognome,email,gruppo_id,gruppo_label,alloggio,alloggio_short,data_nascita,data_arrivo,data_partenza,sesso,eta"
       )
+      .is("deleted_at", null)
       .in("gruppo_id", groupIds),
     service
       .from("partecipanti")
       .select(
         "id,nome,cognome,email,gruppo_id,gruppo_label,alloggio,alloggio_short,data_nascita,data_arrivo,data_partenza,sesso,eta"
       )
+      .is("deleted_at", null)
       .in("gruppo_label", groupIds),
   ]);
 

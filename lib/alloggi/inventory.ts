@@ -824,6 +824,7 @@ export async function loadAccommodationRoomOccupants(
   const { data: participants, error: participantsError } = await service
     .from("partecipanti")
     .select("id,nome,cognome,gruppo_id,gruppo_label")
+    .is("deleted_at", null)
     .in("id", participantIds);
 
   if (participantsError) {

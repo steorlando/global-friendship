@@ -41,10 +41,11 @@ type ParticipantRow = {
   quota_totale: number | null;
   gruppo_id: string | null;
   gruppo_label: string | null;
+  deleted_at?: string | null;
 };
 
 const SELECT_FIELDS_BASE =
-  "id,created_at,nome,cognome,eta,tipo_iscrizione,preferenza_alloggio_operatore,paese_residenza,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label";
+  "id,created_at,nome,cognome,eta,tipo_iscrizione,preferenza_alloggio_operatore,paese_residenza,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label,deleted_at";
 const SELECT_FIELDS_BASE_LEGACY =
   "id,created_at,nome,cognome,eta,tipo_iscrizione,paese_residenza,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label";
 const SELECT_FIELDS_WITH_CITY = `${SELECT_FIELDS_BASE},citta:città`;
@@ -253,7 +254,10 @@ async function requireManagerContext() {
     };
   }
 
-  return { user, service };
+  const roles = new Set((profile ?? []).map((row) => String(row.ruolo ?? "").trim()));
+  const role = roles.has("admin") ? "admin" : "manager";
+
+  return { user, service, role };
 }
 
 async function loadAllParticipants() {
@@ -286,7 +290,7 @@ async function loadAllParticipants() {
     throw new Error(error.message);
   }
 
-  return ((data ?? []) as unknown as ParticipantRow[]).sort((a, b) => {
+  return ((data ?? []) as unknown as ParticipantRow[]).filter((row) => !row.deleted_at).sort((a, b) => {
     const bySurname = (a.cognome ?? "").localeCompare(b.cognome ?? "");
     if (bySurname !== 0) return bySurname;
     return (a.nome ?? "").localeCompare(b.nome ?? "");
@@ -341,7 +345,8 @@ async function loadParticipantById(
     throw new Error(error.message);
   }
 
-  return (data as unknown as ParticipantRow | null) ?? null;
+  const participant = (data as unknown as ParticipantRow | null) ?? null;
+  return participant?.deleted_at ? null : participant;
 }
 
 function toResponseParticipant(row: ParticipantRow) {
@@ -665,6 +670,7 @@ export async function DELETE(req: Request) {
     .from("partecipanti")
     .select("id")
     .eq("id", participantId)
+    .is("deleted_at", null)
     .maybeSingle();
 
   if (existingError) {
@@ -677,7 +683,14 @@ export async function DELETE(req: Request) {
 
   const { error: deleteError } = await auth.service
     .from("partecipanti")
-    .delete()
+    .update({
+      deleted_at: new Date().toISOString(),
+      deleted_by: auth.user.id,
+      deleted_by_email: auth.user.email ?? null,
+      deleted_by_role: auth.role,
+      restored_at: null,
+      restored_by: null,
+    })
     .eq("id", participantId);
 
   if (deleteError) {

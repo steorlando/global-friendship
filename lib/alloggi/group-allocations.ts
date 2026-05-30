@@ -443,7 +443,7 @@ export async function loadAccommodationGroups(
 ): Promise<AccommodationGroup[]> {
   const [groupsRes, participantsRes] = await Promise.all([
     service.from("gruppi").select("id,nome").order("id", { ascending: true }),
-    service.from("partecipanti").select("gruppo_id,gruppo_label"),
+    service.from("partecipanti").select("gruppo_id,gruppo_label").is("deleted_at", null),
   ]);
 
   if (groupsRes.error) {
@@ -617,7 +617,8 @@ export async function loadAccommodationGroupSummaries(
     loadAccommodationGroupRoomAllocations(service, filters),
     service
       .from("partecipanti")
-      .select("id,gruppo_id,gruppo_label,alloggio,alloggio_short,sesso,data_arrivo,data_partenza"),
+      .select("id,gruppo_id,gruppo_label,alloggio,alloggio_short,sesso,data_arrivo,data_partenza")
+      .is("deleted_at", null),
   ]);
 
   if (participantsRes.error) {

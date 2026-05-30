@@ -34,20 +34,53 @@ export async function checkLoginAccess(
   if (role === "partecipante") {
     const { data, error } = await service
       .from("partecipanti")
-      .select("id")
-      .ilike("email", email)
-      .limit(1);
+      .select("id,deleted_at")
+      .ilike("email", email);
 
     if (error) {
-      return {
-        ok: false,
-        status: 500,
-        code: "CHECK_FAILED",
-        message: error.message,
-      };
+      const code = error.code ?? "";
+      const message = (error.message ?? "").toLowerCase();
+      const canFallback =
+        ["42703", "PGRST100", "PGRST204"].includes(code) ||
+        message.includes("column") ||
+        message.includes("parse");
+
+      if (!canFallback) {
+        return {
+          ok: false,
+          status: 500,
+          code: "CHECK_FAILED",
+          message: error.message,
+        };
+      }
+
+      const fallback = await service
+        .from("partecipanti")
+        .select("id")
+        .ilike("email", email)
+        .limit(1);
+
+      if (fallback.error) {
+        return {
+          ok: false,
+          status: 500,
+          code: "CHECK_FAILED",
+          message: fallback.error.message,
+        };
+      }
+
+      if (!fallback.data || fallback.data.length === 0) {
+        return { ok: false, status: 404, code: "PARTICIPANT_NOT_FOUND" };
+      }
+
+      return { ok: true, email, role };
     }
 
-    if (!data || data.length === 0) {
+    const activeParticipants = (data ?? []).filter(
+      (row: { deleted_at?: string | null }) => !row.deleted_at
+    );
+
+    if (activeParticipants.length === 0) {
       return { ok: false, status: 404, code: "PARTICIPANT_NOT_FOUND" };
     }
 

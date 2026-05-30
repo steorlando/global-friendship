@@ -41,6 +41,7 @@ type ParticipantRow = {
   quota_totale: number | null;
   gruppo_id: string | null;
   gruppo_label: string | null;
+  deleted_at?: string | null;
 };
 
 type GroupLeaderRow = {
@@ -78,7 +79,7 @@ type SendLogInsertPayload = {
 };
 
 const SELECT_FIELDS =
-  "id,nome,cognome,email,telefono,tipo_iscrizione,paese_residenza,nazione,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label";
+  "id,nome,cognome,email,telefono,tipo_iscrizione,paese_residenza,nazione,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label,deleted_at";
 const GROUP_LEADER_SELECT_FIELDS = "id,email,nome,cognome,ruolo,telefono,italia,roma";
 const MAX_ATTACHMENTS = 5;
 const MAX_ATTACHMENT_BASE64_LENGTH = 10 * 1024 * 1024;
@@ -446,7 +447,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const rows = (data ?? []) as ParticipantRow[];
+    const rows = ((data ?? []) as ParticipantRow[]).filter((row) => !row.deleted_at);
     const byId = new Map(rows.map((row) => [row.id, row]));
     const recipients = recipientIds
       .map((id) => byId.get(id))

@@ -43,10 +43,11 @@ type ParticipantRow = {
   gruppo_label: string | null;
   partecipa_intero_evento: boolean | null;
   presenza_dettaglio: Record<string, unknown> | null;
+  deleted_at?: string | null;
 };
 
 const SELECT_FIELDS_BASE =
-  "id,created_at,nome,cognome,eta,tipo_iscrizione,preferenza_alloggio_operatore,paese_residenza,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label,partecipa_intero_evento,presenza_dettaglio";
+  "id,created_at,nome,cognome,eta,tipo_iscrizione,preferenza_alloggio_operatore,paese_residenza,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label,partecipa_intero_evento,presenza_dettaglio,deleted_at";
 const SELECT_FIELDS_WITH_CITY = `${SELECT_FIELDS_BASE},citta:città`;
 const SELECT_FIELDS_LEGACY =
   "id,created_at,nome,cognome,eta,tipo_iscrizione,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label";
@@ -317,7 +318,7 @@ async function loadParticipantsForGroups(groupIds: string[]) {
   const groupLabelRows = (byGroupLabel.data ?? []).map(toParticipantRow);
   const merged = new Map<string, ParticipantRow>();
   for (const row of [...groupIdRows, ...groupLabelRows]) {
-    if (!row.id) continue;
+    if (!row.id || row.deleted_at) continue;
     merged.set(row.id, row);
   }
 
@@ -353,7 +354,8 @@ async function loadParticipantById(
     throw new Error(error.message);
   }
 
-  return data ? toParticipantRow(data) : null;
+  const participant = data ? toParticipantRow(data) : null;
+  return participant?.deleted_at ? null : participant;
 }
 
 function toResponseParticipant(row: ParticipantRow) {
@@ -705,7 +707,14 @@ export async function DELETE(req: Request) {
 
   const { error: deleteError } = await auth.service
     .from("partecipanti")
-    .delete()
+    .update({
+      deleted_at: new Date().toISOString(),
+      deleted_by: auth.user.id,
+      deleted_by_email: auth.user.email ?? null,
+      deleted_by_role: "capogruppo",
+      restored_at: null,
+      restored_by: null,
+    })
     .eq("id", participantId);
 
   if (deleteError) {

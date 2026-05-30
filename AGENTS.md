@@ -315,6 +315,7 @@ API:
 
 - `app/api/manager/participants/route.ts`
 - `app/api/capogruppo/participants/route.ts`
+- `app/api/admin/deleted-participants/route.ts`
 
 Important behavior:
 
@@ -322,6 +323,8 @@ Important behavior:
 - Edit modal allows updating participant data
 - Edit modal includes `tipo_iscrizione`; it is editable from manager/admin and capogruppo participant views.
 - Delete is available from the edit modal with confirmation
+- Participant deletion is a soft delete: records remain in `partecipanti` with `deleted_at` / deletion metadata and are hidden from operational dashboards, login, stats, accommodation, email campaigns, and fee screens.
+- Admins can review and restore soft-deleted participants at `/dashboard/admin/deleted-participants`.
 
 Optional columns feature:
 
@@ -550,6 +553,7 @@ High-value migrations to know:
 - `supabase/event_finance_settings_accounts_migration.sql`
 - `supabase/accommodation_hardening_migration.sql`
 - `supabase/operator_accommodation_preference_migration.sql`
+- `supabase/participants_soft_delete_migration.sql`
 
 Main business tables encountered frequently:
 
