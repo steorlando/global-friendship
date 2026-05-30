@@ -359,9 +359,8 @@ Special participant table logic:
   - `Hostel with group`
   - `Hotel`
 - This operator accommodation preference is visible/editable only for operator registrations; non-operator updates clear/ignore it.
-- Host-city attendance fields (`partecipa_intero_evento`, `presenza_dettaglio`) are now visible/editable in capogruppo participant edit modal only when:
-  - the logged-in capogruppo profile has `capogruppo_host = true`
-- Other capogruppo groups do not see these host-city specific fields.
+- Host-city attendance fields (`partecipa_intero_evento`, `presenza_dettaglio`) are visible/editable in the capogruppo participant edit modal only for participants whose city (`città`) matches the configured event `host_city`.
+- Capogruppo users do not see these host-city specific fields for non-host-city participants in the same group.
 - In the participant self-service dashboard (`/dashboard/partecipante`), host-city attendance fields are visible/editable only when participant city (`città`) matches the configured event `host_city` from `admin_event_settings`.
 
 ## Admin Settings
@@ -617,7 +616,7 @@ Current Tally form:
 - Event settings are designed to fail soft with defaults if the DB table is missing.
 - Manager/admin participants use the same API path.
 - Host-city attendance fields (`partecipa_intero_evento`, `presenza_dettaglio`) are gated by role-specific rules:
-  - capogruppo: visibility/edit allowed only when `profili.capogruppo_host = true`
+  - capogruppo: visibility/edit allowed only for participants whose city (`partecipanti.città`) matches `admin_event_settings.host_city`
   - partecipante: visibility/edit allowed only when participant city (`partecipanti.città`) matches `admin_event_settings.host_city`
 - When changing statistics logic, check both manager/admin dashboards and the public stats page.
 - When changing participants table columns, update:

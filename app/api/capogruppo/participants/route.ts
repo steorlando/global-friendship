@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { loadEventRuntimeSettings } from "@/lib/event/settings";
 import { computeParticipantCalculatedFields } from "@/lib/tally/calculated-fields";
 import {
   ARRIVAL_DATE_MAX,
@@ -64,6 +65,23 @@ function normalizeText(value: unknown): string | null {
 function normalizeEmail(value: unknown): string | null {
   const normalized = normalizeText(value);
   return normalized ? normalized.toLowerCase() : null;
+}
+
+function normalizeForMatch(value: string | null | undefined): string {
+  return (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function canManageHostCityFieldsForParticipant(
+  participant: ParticipantRow,
+  hostCity: string
+): boolean {
+  const city = normalizeForMatch(participant.citta);
+  const normalizedHostCity = normalizeForMatch(hostCity);
+  return Boolean(city) && city === normalizedHostCity;
 }
 
 function parseDateOnly(value: string | null): Date | null {
@@ -358,7 +376,7 @@ async function loadParticipantById(
   return participant?.deleted_at ? null : participant;
 }
 
-function toResponseParticipant(row: ParticipantRow) {
+function toResponseParticipant(row: ParticipantRow, hostCity: string) {
   const presenzaDettaglio = normalizePresenceDettaglio(row.presenza_dettaglio);
   return {
     ...row,
@@ -369,6 +387,7 @@ function toResponseParticipant(row: ParticipantRow) {
     partecipa_intero_evento:
       typeof row.partecipa_intero_evento === "boolean" ? row.partecipa_intero_evento : null,
     presenza_dettaglio: presenzaDettaglio,
+    can_manage_host_city_fields: canManageHostCityFieldsForParticipant(row, hostCity),
   };
 }
 
@@ -377,13 +396,18 @@ export async function GET() {
   if ("errorResponse" in auth) return auth.errorResponse;
 
   try {
-    const participants = await loadParticipantsForGroups(auth.groups);
+    const [participants, eventSettings] = await Promise.all([
+      loadParticipantsForGroups(auth.groups),
+      loadEventRuntimeSettings(),
+    ]);
 
     return NextResponse.json({
       groups: auth.groups,
       showGroupColumn: auth.groups.length > 1,
-      canManageHostCityParticipants: auth.isHostGroupLeader,
-      participants: participants.map(toResponseParticipant),
+      hostCity: eventSettings.hostCity,
+      participants: participants.map((participant) =>
+        toResponseParticipant(participant, eventSettings.hostCity)
+      ),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to load participants";
@@ -425,7 +449,19 @@ export async function PATCH(req: Request) {
   }
 
   const current = participant as ParticipantRow;
-  const canManageHostCityParticipant = auth.isHostGroupLeader;
+  let eventSettings;
+  try {
+    eventSettings = await loadEventRuntimeSettings();
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Unable to load event settings" },
+      { status: 500 }
+    );
+  }
+  const canManageHostCityParticipant = canManageHostCityFieldsForParticipant(
+    current,
+    eventSettings.hostCity
+  );
 
   const nome = "nome" in body ? normalizeText(body.nome) : normalizeText(current.nome);
   const cognome =
@@ -668,7 +704,10 @@ export async function PATCH(req: Request) {
 
   return NextResponse.json({
     ok: true,
-    participant: toResponseParticipant((refreshed ?? current) as ParticipantRow),
+    participant: toResponseParticipant(
+      (refreshed ?? current) as ParticipantRow,
+      eventSettings.hostCity
+    ),
   });
 }
 

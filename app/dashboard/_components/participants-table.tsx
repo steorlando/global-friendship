@@ -44,6 +44,7 @@ type Participant = {
   gruppo_roma?: string | null;
   partecipa_intero_evento?: boolean | null;
   presenza_dettaglio?: PresenceDettaglioMap | null;
+  can_manage_host_city_fields?: boolean | null;
 };
 
 type FormState = {
@@ -303,7 +304,6 @@ export function ParticipantsTable({
   const [visibleOptionalColumns, setVisibleOptionalColumns] = useState<OptionalColumnKey[]>([]);
   const [groups, setGroups] = useState<string[]>([]);
   const [assignableGroups, setAssignableGroups] = useState<string[]>([]);
-  const [canManageHostCityParticipants, setCanManageHostCityParticipants] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -334,7 +334,9 @@ export function ParticipantsTable({
     () => participants.find((participant) => participant.id === editingId) ?? null,
     [editingId, participants]
   );
-  const canEditHostCityFields = canManageHostCityParticipants;
+  const canEditHostCityFields = Boolean(
+    editingParticipant?.can_manage_host_city_fields
+  );
   const showOperatorAccommodationPreference = isOperatorRegistrationType(
     form.tipo_iscrizione
   );
@@ -545,7 +547,6 @@ export function ParticipantsTable({
         setAssignableGroups(
           Array.isArray(json.assignableGroups) ? json.assignableGroups : []
         );
-        setCanManageHostCityParticipants(Boolean(json.canManageHostCityParticipants));
       } catch {
         setLoadError(t("participants.table.loadError"));
       } finally {
