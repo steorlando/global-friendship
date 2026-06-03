@@ -1152,64 +1152,109 @@ export function EventFinanceManager() {
                     </button>
                   </div>
                   <form onSubmit={handleSaveBudgetItem} className="grid gap-3 md:grid-cols-3">
-                    <input
-                      required
-                      value={itemForm.category_name}
-                      onChange={(e) =>
-                        setItemForm((prev) => ({ ...prev, category_name: e.target.value }))
-                      }
-                      placeholder="Category name"
-                      className="rounded border border-slate-300 px-3 py-2 text-sm"
-                    />
-                    <input
-                      required
-                      value={itemForm.macro_category}
-                      onChange={(e) =>
-                        setItemForm((prev) => ({ ...prev, macro_category: e.target.value }))
-                      }
-                      placeholder="Macro category"
-                      className="rounded border border-slate-300 px-3 py-2 text-sm"
-                    />
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={itemForm.unit_cost_original}
-                      onChange={(e) =>
-                        setItemForm((prev) => ({ ...prev, unit_cost_original: e.target.value }))
-                      }
-                      placeholder="Unit cost"
-                      className="rounded border border-slate-300 px-3 py-2 text-sm"
-                    />
-                    <select
-                      value={itemForm.currency}
-                      onChange={(e) =>
-                        setItemForm((prev) => ({ ...prev, currency: e.target.value as Currency }))
-                      }
-                      className="rounded border border-slate-300 px-3 py-2 text-sm"
-                    >
-                      <option value="EUR">EUR</option>
-                      <option value="HUF">HUF</option>
-                    </select>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      value={itemForm.quantity}
-                      onChange={(e) =>
-                        setItemForm((prev) => ({ ...prev, quantity: e.target.value }))
-                      }
-                      placeholder="Quantity"
-                      className="rounded border border-slate-300 px-3 py-2 text-sm"
-                    />
-                    <input
-                      value={itemForm.notes}
-                      onChange={(e) =>
-                        setItemForm((prev) => ({ ...prev, notes: e.target.value }))
-                      }
-                      placeholder="Notes"
-                      className="rounded border border-slate-300 px-3 py-2 text-sm"
-                    />
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Budget item name
+                      </span>
+                      <input
+                        required
+                        value={itemForm.category_name}
+                        onChange={(e) =>
+                          setItemForm((prev) => ({ ...prev, category_name: e.target.value }))
+                        }
+                        placeholder="e.g. Hotel rooms"
+                        className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                      />
+                      <span className="mt-1 block text-xs text-slate-500">
+                        The specific cost or income line shown in the budget table.
+                      </span>
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Macro category
+                      </span>
+                      <input
+                        required
+                        value={itemForm.macro_category}
+                        onChange={(e) =>
+                          setItemForm((prev) => ({ ...prev, macro_category: e.target.value }))
+                        }
+                        placeholder="e.g. Accommodation"
+                        className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                      />
+                      <span className="mt-1 block text-xs text-slate-500">
+                        A broader group used to organize related budget lines.
+                      </span>
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Unit cost
+                      </span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={itemForm.unit_cost_original}
+                        onChange={(e) =>
+                          setItemForm((prev) => ({ ...prev, unit_cost_original: e.target.value }))
+                        }
+                        placeholder="0.00"
+                        className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                      />
+                      <span className="mt-1 block text-xs text-slate-500">
+                        Cost for one unit before multiplying by quantity.
+                      </span>
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Currency
+                      </span>
+                      <select
+                        value={itemForm.currency}
+                        onChange={(e) =>
+                          setItemForm((prev) => ({
+                            ...prev,
+                            currency: e.target.value as Currency,
+                          }))
+                        }
+                        className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                      >
+                        <option value="EUR">EUR</option>
+                        <option value="HUF">HUF</option>
+                      </select>
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Quantity
+                      </span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        value={itemForm.quantity}
+                        onChange={(e) =>
+                          setItemForm((prev) => ({ ...prev, quantity: e.target.value }))
+                        }
+                        placeholder="1"
+                        className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                      />
+                      <span className="mt-1 block text-xs text-slate-500">
+                        Planned total is calculated as unit cost multiplied by quantity.
+                      </span>
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Internal notes
+                      </span>
+                      <input
+                        value={itemForm.notes}
+                        onChange={(e) =>
+                          setItemForm((prev) => ({ ...prev, notes: e.target.value }))
+                        }
+                        placeholder="Optional context for this budget line"
+                        className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                      />
+                    </label>
 
                     <div className="md:col-span-3 flex gap-2">
                       <button
@@ -1338,113 +1383,176 @@ export function EventFinanceManager() {
                     </button>
                   </div>
                   <form onSubmit={handleSaveTransaction} className="grid gap-3 md:grid-cols-4">
-                    <select
-                      value={transactionForm.transaction_type}
-                      onChange={(e) =>
-                        setTransactionForm((prev) => ({
-                          ...prev,
-                          transaction_type: e.target.value as TransactionType,
-                        }))
-                      }
-                      className="rounded border border-slate-300 px-3 py-2 text-sm"
-                    >
-                      <option value="EXPENSE">Expense</option>
-                      <option value="INCOME">Income</option>
-                    </select>
-                    <input
-                      type="date"
-                      required
-                      value={transactionForm.transaction_date}
-                      onChange={(e) =>
-                        setTransactionForm((prev) => ({ ...prev, transaction_date: e.target.value }))
-                      }
-                      className="rounded border border-slate-300 px-3 py-2 text-sm"
-                    />
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      required
-                      value={transactionForm.amount_original}
-                      onChange={(e) => {
-                        if (!isValidDecimalInput(e.target.value)) return;
-                        setTransactionForm((prev) => ({ ...prev, amount_original: e.target.value }));
-                      }}
-                      placeholder="Amount"
-                      className="rounded border border-slate-300 px-3 py-2 text-sm"
-                    />
-                    <select
-                      value={transactionForm.currency}
-                      onChange={(e) =>
-                        setTransactionForm((prev) => ({ ...prev, currency: e.target.value as Currency }))
-                      }
-                      className="rounded border border-slate-300 px-3 py-2 text-sm"
-                    >
-                      <option value="EUR">EUR</option>
-                      <option value="HUF">HUF</option>
-                    </select>
-                    <input
-                      required
-                      value={transactionForm.description}
-                      onChange={(e) =>
-                        setTransactionForm((prev) => ({ ...prev, description: e.target.value }))
-                      }
-                      placeholder="Description"
-                      className="md:col-span-2 rounded border border-slate-300 px-3 py-2 text-sm"
-                    />
-                    <input
-                      value={transactionForm.party}
-                      onChange={(e) =>
-                        setTransactionForm((prev) => ({ ...prev, party: e.target.value }))
-                      }
-                      placeholder="Party / Vendor"
-                      className="md:col-span-2 rounded border border-slate-300 px-3 py-2 text-sm"
-                    />
-                    <select
-                      value={transactionForm.payment_method}
-                      onChange={(e) =>
-                        setTransactionForm((prev) => ({
-                          ...prev,
-                          payment_method: e.target.value as PaymentMethod,
-                        }))
-                      }
-                      className="md:col-span-2 rounded border border-slate-300 px-3 py-2 text-sm"
-                    >
-                      {PAYMENT_METHOD_OPTIONS.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      value={transactionForm.account}
-                      onChange={(e) =>
-                        setTransactionForm((prev) => ({ ...prev, account: e.target.value }))
-                      }
-                      className="md:col-span-2 rounded border border-slate-300 px-3 py-2 text-sm"
-                    >
-                      <option value="">Select account</option>
-                      {accountOptions.map((account) => (
-                        <option key={account} value={account}>
-                          {account}
-                        </option>
-                      ))}
-                      {transactionForm.account &&
-                        !accountOptions.includes(transactionForm.account) && (
-                          <option value={transactionForm.account}>{transactionForm.account}</option>
-                        )}
-                    </select>
-                    <input
-                      value={transactionForm.notes}
-                      onChange={(e) =>
-                        setTransactionForm((prev) => ({ ...prev, notes: e.target.value }))
-                      }
-                      placeholder="Notes"
-                      className="md:col-span-3 rounded border border-slate-300 px-3 py-2 text-sm"
-                    />
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Transaction type
+                      </span>
+                      <select
+                        value={transactionForm.transaction_type}
+                        onChange={(e) =>
+                          setTransactionForm((prev) => ({
+                            ...prev,
+                            transaction_type: e.target.value as TransactionType,
+                          }))
+                        }
+                        className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                      >
+                        <option value="EXPENSE">Expense</option>
+                        <option value="INCOME">Income</option>
+                      </select>
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Transaction date
+                      </span>
+                      <input
+                        type="date"
+                        required
+                        value={transactionForm.transaction_date}
+                        onChange={(e) =>
+                          setTransactionForm((prev) => ({
+                            ...prev,
+                            transaction_date: e.target.value,
+                          }))
+                        }
+                        className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Transaction amount
+                      </span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        required
+                        value={transactionForm.amount_original}
+                        onChange={(e) => {
+                          if (!isValidDecimalInput(e.target.value)) return;
+                          setTransactionForm((prev) => ({
+                            ...prev,
+                            amount_original: e.target.value,
+                          }));
+                        }}
+                        placeholder="0.00"
+                        className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Amount currency
+                      </span>
+                      <select
+                        value={transactionForm.currency}
+                        onChange={(e) =>
+                          setTransactionForm((prev) => ({
+                            ...prev,
+                            currency: e.target.value as Currency,
+                          }))
+                        }
+                        className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                      >
+                        <option value="EUR">EUR</option>
+                        <option value="HUF">HUF</option>
+                      </select>
+                    </label>
+                    <label className="block md:col-span-2">
+                      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Description
+                      </span>
+                      <input
+                        required
+                        value={transactionForm.description}
+                        onChange={(e) =>
+                          setTransactionForm((prev) => ({ ...prev, description: e.target.value }))
+                        }
+                        placeholder="e.g. Hostel deposit"
+                        className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                      />
+                    </label>
+                    <label className="block md:col-span-2">
+                      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Person or organization
+                      </span>
+                      <input
+                        value={transactionForm.party}
+                        onChange={(e) =>
+                          setTransactionForm((prev) => ({ ...prev, party: e.target.value }))
+                        }
+                        placeholder="e.g. Hotel Europa or Mario Rossi"
+                        className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                      />
+                    </label>
+                    <label className="block md:col-span-2">
+                      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Payment method
+                      </span>
+                      <select
+                        value={transactionForm.payment_method}
+                        onChange={(e) =>
+                          setTransactionForm((prev) => ({
+                            ...prev,
+                            payment_method: e.target.value as PaymentMethod,
+                          }))
+                        }
+                        className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                      >
+                        {PAYMENT_METHOD_OPTIONS.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="block md:col-span-2">
+                      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Account
+                      </span>
+                      <select
+                        value={transactionForm.account}
+                        onChange={(e) =>
+                          setTransactionForm((prev) => ({ ...prev, account: e.target.value }))
+                        }
+                        className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                      >
+                        <option value="">Select account</option>
+                        {accountOptions.map((account) => (
+                          <option key={account} value={account}>
+                            {account}
+                          </option>
+                        ))}
+                        {transactionForm.account &&
+                          !accountOptions.includes(transactionForm.account) && (
+                            <option value={transactionForm.account}>
+                              {transactionForm.account}
+                            </option>
+                          )}
+                      </select>
+                    </label>
+                    <label className="block md:col-span-4">
+                      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Internal notes
+                      </span>
+                      <input
+                        value={transactionForm.notes}
+                        onChange={(e) =>
+                          setTransactionForm((prev) => ({ ...prev, notes: e.target.value }))
+                        }
+                        placeholder="Optional details for reconciliation"
+                        className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                      />
+                    </label>
 
-                    <div className="md:col-span-3 rounded border border-slate-200 p-3">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium text-slate-700">Allocations</p>
+                    <div className="md:col-span-4 rounded border border-slate-200 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-medium text-slate-700">
+                            Budget allocations
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            Split this transaction across the budget items it belongs to.
+                          </p>
+                        </div>
                         <button
                           type="button"
                           onClick={() =>
@@ -1461,48 +1569,63 @@ export function EventFinanceManager() {
 
                       <div className="mt-2 space-y-2">
                         {transactionAllocationsDraft.length === 0 ? (
-                          <p className="text-xs text-slate-500">No splits yet.</p>
+                          <p className="text-xs text-slate-500">
+                            No allocations yet. Add one if this transaction should update a budget
+                            line's spent or cash-in amount.
+                          </p>
                         ) : (
                           transactionAllocationsDraft.map((row, index) => (
                             <div
                               key={`tx-split-${index}`}
                               className="grid gap-2 md:grid-cols-[minmax(0,1fr)_120px_auto]"
                             >
-                              <select
-                                value={row.budget_item_id}
-                                onChange={(e) =>
-                                  setTransactionAllocationsDraft((prev) =>
-                                    prev.map((item, i) =>
-                                      i === index ? { ...item, budget_item_id: e.target.value } : item
+                              <label className="block">
+                                <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                                  Budget item
+                                </span>
+                                <select
+                                  value={row.budget_item_id}
+                                  onChange={(e) =>
+                                    setTransactionAllocationsDraft((prev) =>
+                                      prev.map((item, i) =>
+                                        i === index
+                                          ? { ...item, budget_item_id: e.target.value }
+                                          : item
+                                      )
                                     )
-                                  )
-                                }
-                                className="rounded border border-slate-300 px-3 py-2 text-sm"
-                              >
-                                <option value="">Select budget item</option>
-                                {budgetItems.map((item) => (
-                                  <option key={item.id} value={item.id}>
-                                    {item.category_name}
-                                  </option>
-                                ))}
-                              </select>
-                              <input
-                                type="text"
-                                inputMode="decimal"
-                                value={row.amount_original.toString()}
-                                onChange={(e) => {
-                                  if (!isValidDecimalInput(e.target.value)) return;
-                                  setTransactionAllocationsDraft((prev) =>
-                                    prev.map((item, i) =>
-                                      i === index
-                                        ? { ...item, amount_original: toNumber(e.target.value) }
-                                        : item
-                                    )
-                                  );
-                                }}
-                                placeholder="0.00"
-                                className="rounded border border-slate-300 px-3 py-2 text-sm"
-                              />
+                                  }
+                                  className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                                >
+                                  <option value="">Select budget item</option>
+                                  {budgetItems.map((item) => (
+                                    <option key={item.id} value={item.id}>
+                                      {item.category_name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              <label className="block">
+                                <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                                  Allocated amount
+                                </span>
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  value={row.amount_original.toString()}
+                                  onChange={(e) => {
+                                    if (!isValidDecimalInput(e.target.value)) return;
+                                    setTransactionAllocationsDraft((prev) =>
+                                      prev.map((item, i) =>
+                                        i === index
+                                          ? { ...item, amount_original: toNumber(e.target.value) }
+                                          : item
+                                      )
+                                    );
+                                  }}
+                                  placeholder="0.00"
+                                  className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                                />
+                              </label>
                               <button
                                 type="button"
                                 onClick={() =>
@@ -1526,7 +1649,7 @@ export function EventFinanceManager() {
                       )}
                     </div>
 
-                    <div className="md:col-span-3 flex gap-2">
+                    <div className="md:col-span-4 flex gap-2">
                       <button
                         type="submit"
                         disabled={busy}
@@ -1665,138 +1788,213 @@ export function EventFinanceManager() {
                     </button>
                   </div>
                   <form onSubmit={handleSaveSponsorship} className="grid gap-3 md:grid-cols-3">
-              <input
-                required
-                value={sponsorshipForm.sponsor_name}
-                onChange={(e) =>
-                  setSponsorshipForm((prev) => ({ ...prev, sponsor_name: e.target.value }))
-                }
-                placeholder="Sponsor name"
-                className="rounded border border-slate-300 px-3 py-2 text-sm"
-              />
-              <input
-                value={sponsorshipForm.description}
-                onChange={(e) =>
-                  setSponsorshipForm((prev) => ({ ...prev, description: e.target.value }))
-                }
-                placeholder="Description"
-                className="rounded border border-slate-300 px-3 py-2 text-sm"
-              />
-              <input
-                type="text"
-                inputMode="decimal"
-                value={sponsorshipForm.pledged_amount_original}
-                onChange={(e) => {
-                  if (!isValidDecimalInput(e.target.value)) return;
-                  setSponsorshipForm((prev) => ({
-                    ...prev,
-                    pledged_amount_original: e.target.value,
-                  }));
-                }}
-                placeholder="Pledged amount"
-                className="rounded border border-slate-300 px-3 py-2 text-sm"
-              />
-              <input
-                type="text"
-                inputMode="decimal"
-                value={sponsorshipForm.paid_amount_original}
-                onChange={(e) => {
-                  if (!isValidDecimalInput(e.target.value)) return;
-                  setSponsorshipForm((prev) => ({
-                    ...prev,
-                    paid_amount_original: e.target.value,
-                  }));
-                }}
-                placeholder="Paid amount"
-                className="rounded border border-slate-300 px-3 py-2 text-sm"
-              />
-              <select
-                value={sponsorshipForm.currency}
-                onChange={(e) =>
-                  setSponsorshipForm((prev) => ({ ...prev, currency: e.target.value as Currency }))
-                }
-                className="rounded border border-slate-300 px-3 py-2 text-sm"
-              >
-                <option value="EUR">EUR</option>
-                <option value="HUF">HUF</option>
-              </select>
-              <select
-                value={sponsorshipForm.status}
-                onChange={(e) =>
-                  setSponsorshipForm((prev) => ({
-                    ...prev,
-                    status: e.target.value as SponsorshipStatus,
-                  }))
-                }
-                className="rounded border border-slate-300 px-3 py-2 text-sm"
-              >
-                {SPONSORSHIP_STATUS_OPTIONS.map((status) => (
-                  <option key={status} value={status}>
-                    {status}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="date"
-                value={sponsorshipForm.expected_date}
-                onChange={(e) =>
-                  setSponsorshipForm((prev) => ({ ...prev, expected_date: e.target.value }))
-                }
-                className="rounded border border-slate-300 px-3 py-2 text-sm"
-              />
-              <input
-                type="date"
-                value={sponsorshipForm.received_date}
-                onChange={(e) =>
-                  setSponsorshipForm((prev) => ({ ...prev, received_date: e.target.value }))
-                }
-                className="rounded border border-slate-300 px-3 py-2 text-sm"
-              />
-              <select
-                value={sponsorshipForm.payment_method}
-                onChange={(e) =>
-                  setSponsorshipForm((prev) => ({
-                    ...prev,
-                    payment_method: e.target.value as PaymentMethod,
-                  }))
-                }
-                className="rounded border border-slate-300 px-3 py-2 text-sm"
-              >
-                {PAYMENT_METHOD_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={sponsorshipForm.account}
-                onChange={(e) =>
-                  setSponsorshipForm((prev) => ({ ...prev, account: e.target.value }))
-                }
-                className="rounded border border-slate-300 px-3 py-2 text-sm"
-              >
-                <option value="">Select account</option>
-                {accountOptions.map((account) => (
-                  <option key={account} value={account}>
-                    {account}
-                  </option>
-                ))}
-                {sponsorshipForm.account && !accountOptions.includes(sponsorshipForm.account) && (
-                  <option value={sponsorshipForm.account}>{sponsorshipForm.account}</option>
-                )}
-              </select>
-              <input
-                value={sponsorshipForm.notes}
-                onChange={(e) =>
-                  setSponsorshipForm((prev) => ({ ...prev, notes: e.target.value }))
-                }
-                placeholder="Notes"
-                className="md:col-span-3 rounded border border-slate-300 px-3 py-2 text-sm"
-              />
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Sponsor name
+                      </span>
+                      <input
+                        required
+                        value={sponsorshipForm.sponsor_name}
+                        onChange={(e) =>
+                          setSponsorshipForm((prev) => ({
+                            ...prev,
+                            sponsor_name: e.target.value,
+                          }))
+                        }
+                        placeholder="e.g. Fondazione Rossi"
+                        className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Sponsorship purpose
+                      </span>
+                      <input
+                        value={sponsorshipForm.description}
+                        onChange={(e) =>
+                          setSponsorshipForm((prev) => ({ ...prev, description: e.target.value }))
+                        }
+                        placeholder="e.g. Support for accommodation costs"
+                        className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Promised amount
+                      </span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={sponsorshipForm.pledged_amount_original}
+                        onChange={(e) => {
+                          if (!isValidDecimalInput(e.target.value)) return;
+                          setSponsorshipForm((prev) => ({
+                            ...prev,
+                            pledged_amount_original: e.target.value,
+                          }));
+                        }}
+                        placeholder="0.00"
+                        className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                      />
+                      <span className="mt-1 block text-xs text-slate-500">
+                        Total amount the sponsor committed to give.
+                      </span>
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Amount already received
+                      </span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={sponsorshipForm.paid_amount_original}
+                        onChange={(e) => {
+                          if (!isValidDecimalInput(e.target.value)) return;
+                          setSponsorshipForm((prev) => ({
+                            ...prev,
+                            paid_amount_original: e.target.value,
+                          }));
+                        }}
+                        placeholder="0.00"
+                        className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                      />
+                      <span className="mt-1 block text-xs text-slate-500">
+                        Use 0 if the money has not arrived yet.
+                      </span>
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Amount currency
+                      </span>
+                      <select
+                        value={sponsorshipForm.currency}
+                        onChange={(e) =>
+                          setSponsorshipForm((prev) => ({
+                            ...prev,
+                            currency: e.target.value as Currency,
+                          }))
+                        }
+                        className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                      >
+                        <option value="EUR">EUR</option>
+                        <option value="HUF">HUF</option>
+                      </select>
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Payment status
+                      </span>
+                      <select
+                        value={sponsorshipForm.status}
+                        onChange={(e) =>
+                          setSponsorshipForm((prev) => ({
+                            ...prev,
+                            status: e.target.value as SponsorshipStatus,
+                          }))
+                        }
+                        className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                      >
+                        {SPONSORSHIP_STATUS_OPTIONS.map((status) => (
+                          <option key={status} value={status}>
+                            {status.replace("_", " ")}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Expected payment date
+                      </span>
+                      <input
+                        type="date"
+                        value={sponsorshipForm.expected_date}
+                        onChange={(e) =>
+                          setSponsorshipForm((prev) => ({ ...prev, expected_date: e.target.value }))
+                        }
+                        className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Date money was received
+                      </span>
+                      <input
+                        type="date"
+                        value={sponsorshipForm.received_date}
+                        onChange={(e) =>
+                          setSponsorshipForm((prev) => ({ ...prev, received_date: e.target.value }))
+                        }
+                        className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Payment method
+                      </span>
+                      <select
+                        value={sponsorshipForm.payment_method}
+                        onChange={(e) =>
+                          setSponsorshipForm((prev) => ({
+                            ...prev,
+                            payment_method: e.target.value as PaymentMethod,
+                          }))
+                        }
+                        className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                      >
+                        {PAYMENT_METHOD_OPTIONS.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Receiving account
+                      </span>
+                      <select
+                        value={sponsorshipForm.account}
+                        onChange={(e) =>
+                          setSponsorshipForm((prev) => ({ ...prev, account: e.target.value }))
+                        }
+                        className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                      >
+                        <option value="">Select account</option>
+                        {accountOptions.map((account) => (
+                          <option key={account} value={account}>
+                            {account}
+                          </option>
+                        ))}
+                        {sponsorshipForm.account &&
+                          !accountOptions.includes(sponsorshipForm.account) && (
+                            <option value={sponsorshipForm.account}>
+                              {sponsorshipForm.account}
+                            </option>
+                          )}
+                      </select>
+                    </label>
+                    <label className="block md:col-span-3">
+                      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Internal notes
+                      </span>
+                      <input
+                        value={sponsorshipForm.notes}
+                        onChange={(e) =>
+                          setSponsorshipForm((prev) => ({ ...prev, notes: e.target.value }))
+                        }
+                        placeholder="Optional details for the finance team"
+                        className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                      />
+                    </label>
 
               <div className="md:col-span-3 rounded border border-slate-200 p-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-slate-700">Allocations</p>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-slate-700">Budget allocations</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Split the promised amount across the budget items it should cover.
+                    </p>
+                  </div>
                   <button
                     type="button"
                     onClick={() =>
@@ -1813,48 +2011,61 @@ export function EventFinanceManager() {
 
                 <div className="mt-2 space-y-2">
                   {sponsorshipAllocationsDraft.length === 0 ? (
-                    <p className="text-xs text-slate-500">No splits yet.</p>
+                    <p className="text-xs text-slate-500">
+                      No allocations yet. Add one only if this sponsorship should cover specific
+                      budget items.
+                    </p>
                   ) : (
                     sponsorshipAllocationsDraft.map((row, index) => (
                       <div
                         key={`sp-split-${index}`}
                         className="grid gap-2 md:grid-cols-[minmax(0,1fr)_120px_auto]"
                       >
-                        <select
-                          value={row.budget_item_id}
-                          onChange={(e) =>
-                            setSponsorshipAllocationsDraft((prev) =>
-                              prev.map((item, i) =>
-                                i === index ? { ...item, budget_item_id: e.target.value } : item
+                        <label className="block">
+                          <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                            Budget item covered
+                          </span>
+                          <select
+                            value={row.budget_item_id}
+                            onChange={(e) =>
+                              setSponsorshipAllocationsDraft((prev) =>
+                                prev.map((item, i) =>
+                                  i === index ? { ...item, budget_item_id: e.target.value } : item
+                                )
                               )
-                            )
-                          }
-                          className="rounded border border-slate-300 px-3 py-2 text-sm"
-                        >
-                          <option value="">Select budget item</option>
-                          {budgetItems.map((item) => (
-                            <option key={item.id} value={item.id}>
-                              {item.category_name}
-                            </option>
-                          ))}
-                        </select>
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={row.amount_original.toString()}
-                          onChange={(e) => {
-                            if (!isValidDecimalInput(e.target.value)) return;
-                            setSponsorshipAllocationsDraft((prev) =>
-                              prev.map((item, i) =>
-                                i === index
-                                  ? { ...item, amount_original: toNumber(e.target.value) }
-                                  : item
-                              )
-                            );
-                          }}
-                          placeholder="0.00"
-                          className="rounded border border-slate-300 px-3 py-2 text-sm"
-                        />
+                            }
+                            className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                          >
+                            <option value="">Select budget item</option>
+                            {budgetItems.map((item) => (
+                              <option key={item.id} value={item.id}>
+                                {item.category_name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="block">
+                          <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                            Covered amount
+                          </span>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={row.amount_original.toString()}
+                            onChange={(e) => {
+                              if (!isValidDecimalInput(e.target.value)) return;
+                              setSponsorshipAllocationsDraft((prev) =>
+                                prev.map((item, i) =>
+                                  i === index
+                                    ? { ...item, amount_original: toNumber(e.target.value) }
+                                    : item
+                                )
+                              );
+                            }}
+                            placeholder="0.00"
+                            className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                          />
+                        </label>
                         <button
                           type="button"
                           onClick={() =>
@@ -1980,20 +2191,27 @@ export function EventFinanceManager() {
             <p className="mt-1 text-xs text-slate-500">
               Exchange rate is stored as 1 EUR = X HUF. Internal conversions remain consistent.
             </p>
-            <div className="mt-3 grid gap-2 md:max-w-md md:grid-cols-[120px_1fr_80px] md:items-center">
-              <span className="text-sm font-medium text-slate-700">1 EUR =</span>
-              <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                value={settingsForm.eur_to_huf_rate}
-                onChange={(e) =>
-                  setSettingsForm((prev) => ({ ...prev, eur_to_huf_rate: e.target.value }))
-                }
-                placeholder="0.00"
-                className="rounded border border-slate-300 px-3 py-2 text-sm"
-              />
-              <span className="text-sm font-medium text-slate-700">HUF</span>
+            <div className="mt-3 max-w-md">
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                  EUR to HUF exchange rate
+                </span>
+                <div className="grid gap-2 md:grid-cols-[120px_1fr_80px] md:items-center">
+                  <span className="text-sm font-medium text-slate-700">1 EUR =</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={settingsForm.eur_to_huf_rate}
+                    onChange={(e) =>
+                      setSettingsForm((prev) => ({ ...prev, eur_to_huf_rate: e.target.value }))
+                    }
+                    placeholder="0.00"
+                    className="rounded border border-slate-300 px-3 py-2 text-sm"
+                  />
+                  <span className="text-sm font-medium text-slate-700">HUF</span>
+                </div>
+              </label>
             </div>
             <div className="mt-3">
               <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
