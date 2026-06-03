@@ -101,6 +101,7 @@ const en: TranslationDictionary = {
   "participant.form.selectParticipant": "Select participant...",
   "participant.form.unnamedParticipant": "Unnamed participant",
   "participant.form.group": "Group",
+  "participant.form.groupLeader": "Indicated group leader",
   "participant.form.name": "Name",
   "participant.form.surname": "Surname",
   "participant.form.nationality": "Nationality",

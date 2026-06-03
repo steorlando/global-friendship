@@ -83,6 +83,7 @@ const it: TranslationDictionary = {
   "participant.form.selectParticipant": "Seleziona partecipante...",
   "participant.form.unnamedParticipant": "Partecipante senza nome",
   "participant.form.group": "Gruppo",
+  "participant.form.groupLeader": "Capogruppo indicato",
   "participant.form.name": "Nome",
   "participant.form.surname": "Cognome",
   "participant.form.nationality": "Nazionalità",

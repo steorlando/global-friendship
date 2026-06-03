@@ -26,6 +26,7 @@ type ParticipantDbRow = {
   cognome: string | null;
   tipo_iscrizione: string | null;
   preferenza_alloggio_operatore: string | null;
+  gruppo_leader: string | null;
   gruppo_id: string | null;
   gruppo_label: string | null;
   tally_submission_id: string | null;
@@ -58,7 +59,7 @@ const alloggioSet = new Set<string>(ALLOGGIO_OPTIONS);
 const esigenzeSet = new Set<string>(ESIGENZE_ALIMENTARI_OPTIONS);
 const difficoltaSet = new Set<string>(DIFFICOLTA_ACCESSIBILITA_OPTIONS);
 const SELECT_FIELDS_BASE =
-  "id,email,nome,cognome,tipo_iscrizione,preferenza_alloggio_operatore,gruppo_id,gruppo_label,tally_submission_id,nazione,data_nascita,data_arrivo,data_partenza,alloggio,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,submitted_at_tally,deleted_at";
+  "id,email,nome,cognome,tipo_iscrizione,preferenza_alloggio_operatore,gruppo_leader,gruppo_id,gruppo_label,tally_submission_id,nazione,data_nascita,data_arrivo,data_partenza,alloggio,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,submitted_at_tally,deleted_at";
 const SELECT_FIELDS_BASE_LEGACY =
   "id,email,nome,cognome,gruppo_id,gruppo_label,tally_submission_id,nazione,data_nascita,data_arrivo,data_partenza,alloggio,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,submitted_at_tally";
 const SELECT_FIELDS_WITH_HOST = `${SELECT_FIELDS_BASE},partecipa_intero_evento,presenza_dettaglio`;

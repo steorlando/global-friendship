@@ -26,6 +26,7 @@ type Participant = {
   eta: number | null;
   tipo_iscrizione: string | null;
   preferenza_alloggio_operatore: string | null;
+  gruppo_leader?: string | null;
   citta: string | null;
   paese_residenza: string | null;
   nazione: string | null;
@@ -1195,6 +1196,15 @@ export function ParticipantsTable({
                       </option>
                     ))}
                   </select>
+                </div>
+
+                <div className="md:col-span-2 rounded border border-slate-200 bg-slate-50 px-4 py-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                    {t("participant.form.groupLeader")}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-900">
+                    {editingParticipant.gruppo_leader?.trim() || "-"}
+                  </p>
                 </div>
 
                 <div>

@@ -25,6 +25,7 @@ type ParticipantRow = {
   eta: number | null;
   tipo_iscrizione: string | null;
   preferenza_alloggio_operatore: string | null;
+  gruppo_leader: string | null;
   paese_residenza: string | null;
   citta: string | null;
   nazione: string | null;
@@ -48,7 +49,7 @@ type ParticipantRow = {
 };
 
 const SELECT_FIELDS_BASE =
-  "id,created_at,nome,cognome,eta,tipo_iscrizione,preferenza_alloggio_operatore,paese_residenza,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label,partecipa_intero_evento,presenza_dettaglio,deleted_at";
+  "id,created_at,nome,cognome,eta,tipo_iscrizione,preferenza_alloggio_operatore,gruppo_leader,paese_residenza,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label,partecipa_intero_evento,presenza_dettaglio,deleted_at";
 const SELECT_FIELDS_WITH_CITY = `${SELECT_FIELDS_BASE},citta:città`;
 const SELECT_FIELDS_LEGACY =
   "id,created_at,nome,cognome,eta,tipo_iscrizione,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label";
@@ -193,6 +194,7 @@ function toParticipantRow(value: unknown): ParticipantRow {
     tipo_iscrizione: (row.tipo_iscrizione as string | null | undefined) ?? null,
     preferenza_alloggio_operatore:
       (row.preferenza_alloggio_operatore as string | null | undefined) ?? null,
+    gruppo_leader: (row.gruppo_leader as string | null | undefined) ?? null,
     paese_residenza: (row.paese_residenza as string | null | undefined) ?? null,
     citta: (row.citta as string | null | undefined) ?? null,
     nazione: (row.nazione as string | null | undefined) ?? null,

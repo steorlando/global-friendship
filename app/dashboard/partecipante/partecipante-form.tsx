@@ -26,6 +26,7 @@ type ParticipantFormData = {
   alloggio: string;
   tipo_iscrizione: string | null;
   preferenza_alloggio_operatore: string;
+  gruppo_leader: string | null;
   allergie: string;
   esigenze_alimentari: string[];
   disabilita_accessibilita: boolean;
@@ -44,6 +45,7 @@ const INITIAL_DATA: ParticipantFormData = {
   alloggio: "",
   tipo_iscrizione: null,
   preferenza_alloggio_operatore: "",
+  gruppo_leader: null,
   allergie: "",
   esigenze_alimentari: [],
   disabilita_accessibilita: false,
@@ -213,6 +215,7 @@ export function PartecipanteForm() {
           tipo_iscrizione: participant.tipo_iscrizione ?? null,
           preferenza_alloggio_operatore:
             participant.preferenza_alloggio_operatore ?? "",
+          gruppo_leader: participant.gruppo_leader ?? null,
           allergie: participant.allergie ?? "",
           esigenze_alimentari: Array.isArray(participant.esigenze_alimentari)
             ? participant.esigenze_alimentari
@@ -283,6 +286,7 @@ export function PartecipanteForm() {
         tipo_iscrizione: participant.tipo_iscrizione ?? null,
         preferenza_alloggio_operatore:
           participant.preferenza_alloggio_operatore ?? "",
+        gruppo_leader: participant.gruppo_leader ?? null,
         allergie: participant.allergie ?? "",
         esigenze_alimentari: Array.isArray(participant.esigenze_alimentari)
           ? participant.esigenze_alimentari
@@ -689,6 +693,15 @@ export function PartecipanteForm() {
             </select>
           </div>
         )}
+
+        <div className="md:col-span-2 rounded border border-slate-200 bg-slate-50 px-4 py-3">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+            {t("participant.form.groupLeader")}
+          </p>
+          <p className="mt-1 text-sm text-slate-900">
+            {formData.gruppo_leader?.trim() || "-"}
+          </p>
+        </div>
 
         <div>
           <label className="block text-sm font-medium text-slate-700">
