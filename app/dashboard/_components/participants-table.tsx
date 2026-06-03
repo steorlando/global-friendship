@@ -87,6 +87,7 @@ type SortKey =
 type OptionalColumnKey = "tipo_iscrizione" | "citta" | "eta";
 
 type SortDirection = "asc" | "desc";
+type EnrollmentBucket = "Higher students" | "University-Worker" | "Operator";
 
 type ParticipantsTableProps = {
   apiBasePath: string;
@@ -280,6 +281,32 @@ function normalizeFilterText(value: string | null | undefined) {
     .toLowerCase();
 }
 
+function mapEnrollmentBucket(rawType: string | null): EnrollmentBucket | null {
+  if (!rawType) return null;
+  const value = rawType.toLowerCase().trim();
+
+  if (value.includes("driver - autista")) return null;
+  if (value.includes("higher student")) return "Higher students";
+  if (value.includes("undergraduate")) return "University-Worker";
+  if (value.includes("worker - lavoratore")) return "University-Worker";
+  if (value.includes("operator - operatore")) return "Operator";
+
+  return null;
+}
+
+function isItalyCountry(value: string | null | undefined): boolean {
+  const normalized = normalizeFilterText(value);
+  return normalized === "italia" || normalized === "italy";
+}
+
+function participantStatsCountryValue(participant: Participant): string {
+  return (participant.paese_residenza ?? participant.nazione ?? "").trim() || "-";
+}
+
+function participantStatsGroupValue(participant: Participant): string {
+  return (participant.group ?? "").trim() || "-";
+}
+
 function isRomaParticipant(participant: Participant) {
   const candidates = [
     normalizeFilterText(participant.citta),
@@ -336,6 +363,11 @@ export function ParticipantsTable({
   const [quotaMinFilter, setQuotaMinFilter] = useState("");
   const [quotaMaxFilter, setQuotaMaxFilter] = useState("");
   const [operatorAccommodationFilter, setOperatorAccommodationFilter] = useState("");
+  const [statCountryFilter, setStatCountryFilter] = useState("");
+  const [statGroupFilter, setStatGroupFilter] = useState("");
+  const [statCityFilter, setStatCityFilter] = useState("");
+  const [statItalyOnlyFilter, setStatItalyOnlyFilter] = useState(false);
+  const [enrollmentBucketFilter, setEnrollmentBucketFilter] = useState<EnrollmentBucket | "">("");
   const [onlyRoma, setOnlyRoma] = useState(false);
 
   const editingParticipant = useMemo(
@@ -393,6 +425,35 @@ export function ParticipantsTable({
         showCityColumn &&
         cittaFilter &&
         !(participant.citta ?? "").toLowerCase().includes(cittaFilter.toLowerCase())
+      ) {
+        return false;
+      }
+      if (
+        statCountryFilter &&
+        normalizeFilterText(participantStatsCountryValue(participant)) !==
+          normalizeFilterText(statCountryFilter)
+      ) {
+        return false;
+      }
+      if (
+        statGroupFilter &&
+        normalizeFilterText(participantStatsGroupValue(participant)) !==
+          normalizeFilterText(statGroupFilter)
+      ) {
+        return false;
+      }
+      if (
+        statCityFilter &&
+        normalizeFilterText(participant.citta) !== normalizeFilterText(statCityFilter)
+      ) {
+        return false;
+      }
+      if (statItalyOnlyFilter && !isItalyCountry(participant.paese_residenza)) {
+        return false;
+      }
+      if (
+        enrollmentBucketFilter &&
+        mapEnrollmentBucket(participant.tipo_iscrizione) !== enrollmentBucketFilter
       ) {
         return false;
       }
@@ -491,6 +552,7 @@ export function ParticipantsTable({
     arrivoFilter,
     cognomeFilter,
     cittaFilter,
+    enrollmentBucketFilter,
     etaMaxFilter,
     etaMinFilter,
     groupFilter,
@@ -509,6 +571,10 @@ export function ParticipantsTable({
     showRegistrationTypeColumn,
     sortDirection,
     sortKey,
+    statCityFilter,
+    statCountryFilter,
+    statGroupFilter,
+    statItalyOnlyFilter,
     tipoIscrizioneFilter,
     showTotalFee,
   ]);
@@ -538,6 +604,41 @@ export function ParticipantsTable({
     if (["hotel", "hostel", "missing"].includes(operatorAccommodation)) {
       setOperatorAccommodationFilter(operatorAccommodation);
       setTipoIscrizioneFilter("Operator");
+      setVisibleOptionalColumns((prev) =>
+        prev.includes("tipo_iscrizione") ? prev : [...prev, "tipo_iscrizione"]
+      );
+    }
+
+    const statCountry = params.get("statCountry") ?? "";
+    if (statCountry) setStatCountryFilter(statCountry);
+
+    const statGroup = params.get("statGroup") ?? "";
+    if (statGroup) {
+      setStatGroupFilter(statGroup);
+      setGroupFilter(statGroup);
+    }
+
+    const statCity = params.get("statCity") ?? "";
+    if (statCity) {
+      setStatCityFilter(statCity);
+      setCittaFilter(statCity);
+      setVisibleOptionalColumns((prev) =>
+        prev.includes("citta") ? prev : [...prev, "citta"]
+      );
+    }
+
+    if (params.get("statItalyOnly") === "1") {
+      setStatItalyOnlyFilter(true);
+    }
+
+    const enrollmentBucket = params.get("enrollmentBucket") ?? "";
+    if (
+      enrollmentBucket === "Higher students" ||
+      enrollmentBucket === "University-Worker" ||
+      enrollmentBucket === "Operator"
+    ) {
+      setEnrollmentBucketFilter(enrollmentBucket);
+      if (enrollmentBucket === "Operator") setTipoIscrizioneFilter("Operator");
       setVisibleOptionalColumns((prev) =>
         prev.includes("tipo_iscrizione") ? prev : [...prev, "tipo_iscrizione"]
       );

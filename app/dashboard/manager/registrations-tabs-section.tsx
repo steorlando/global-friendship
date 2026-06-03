@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useI18n } from "@/lib/i18n/provider";
 
@@ -23,6 +24,34 @@ const ENROLLMENT_BUCKET_LABEL_KEYS: Record<EnrollmentBucket, string> = {
   "University-Worker": "enrollment.bucket.universityWorker",
   Operator: "enrollment.bucket.operator",
 };
+
+function participantsHref(
+  filters: Record<string, string | null | undefined>
+): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    const normalized = (value ?? "").trim();
+    if (normalized) params.set(key, normalized);
+  }
+  return `/dashboard/manager/participants?${params.toString()}`;
+}
+
+function CountLink({
+  href,
+  count,
+}: {
+  href: string;
+  count: number;
+}) {
+  return (
+    <Link
+      href={href}
+      className="font-semibold text-indigo-700 underline-offset-2 hover:underline"
+    >
+      {count}
+    </Link>
+  );
+}
 
 export function RegistrationsTabsSection({
   buckets,
@@ -102,10 +131,25 @@ export function RegistrationsTabsSection({
                     <td className="px-4 py-3 text-slate-900">{row.label}</td>
                     {buckets.map((bucket) => (
                       <td key={`${row.label}-${bucket}`} className="px-4 py-3 text-slate-700">
-                        {row.counts[bucket]}
+                        <CountLink
+                          count={row.counts[bucket]}
+                          href={participantsHref({
+                            statCity: row.label,
+                            statItalyOnly: "1",
+                            enrollmentBucket: bucket,
+                          })}
+                        />
                       </td>
                     ))}
-                    <td className="px-4 py-3 font-medium text-slate-900">{row.total}</td>
+                    <td className="px-4 py-3 font-medium text-slate-900">
+                      <CountLink
+                        count={row.total}
+                        href={participantsHref({
+                          statCity: row.label,
+                          statItalyOnly: "1",
+                        })}
+                      />
+                    </td>
                   </tr>
                 ))
               )}
@@ -141,10 +185,23 @@ export function RegistrationsTabsSection({
                     <td className="px-4 py-3 text-slate-900">{row.label}</td>
                     {buckets.map((bucket) => (
                       <td key={`${row.label}-${bucket}`} className="px-4 py-3 text-slate-700">
-                        {row.counts[bucket]}
+                        <CountLink
+                          count={row.counts[bucket]}
+                          href={participantsHref({
+                            [activeTab === "country" ? "statCountry" : "statGroup"]: row.label,
+                            enrollmentBucket: bucket,
+                          })}
+                        />
                       </td>
                     ))}
-                    <td className="px-4 py-3 font-medium text-slate-900">{row.total}</td>
+                    <td className="px-4 py-3 font-medium text-slate-900">
+                      <CountLink
+                        count={row.total}
+                        href={participantsHref({
+                          [activeTab === "country" ? "statCountry" : "statGroup"]: row.label,
+                        })}
+                      />
+                    </td>
                   </tr>
                 ))
               )}
