@@ -94,6 +94,9 @@ type ParticipantsTableProps = {
   showRegistrationDate?: boolean;
   showTotalFee?: boolean;
   canEditGroupAssignment?: boolean;
+  initialEditParticipantId?: string | null;
+  modalOnly?: boolean;
+  onCloseEditModal?: () => void;
 };
 
 const EMPTY_FORM: FormState = {
@@ -298,6 +301,9 @@ export function ParticipantsTable({
   showRegistrationDate = false,
   showTotalFee = true,
   canEditGroupAssignment = false,
+  initialEditParticipantId: initialEditParticipantIdProp = null,
+  modalOnly = false,
+  onCloseEditModal,
 }: ParticipantsTableProps) {
   const { t } = useI18n();
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -518,6 +524,12 @@ export function ParticipantsTable({
     1;
 
   useEffect(() => {
+    if (initialEditParticipantIdProp) {
+      setInitialEditParticipantId(initialEditParticipantIdProp);
+      return;
+    }
+    if (modalOnly) return;
+
     const params = new URLSearchParams(window.location.search);
     const editParticipant = params.get("editParticipant") ?? "";
     if (editParticipant) setInitialEditParticipantId(editParticipant);
@@ -530,7 +542,7 @@ export function ParticipantsTable({
         prev.includes("tipo_iscrizione") ? prev : [...prev, "tipo_iscrizione"]
       );
     }
-  }, []);
+  }, [initialEditParticipantIdProp, modalOnly]);
 
   useEffect(() => {
     if (!initialEditParticipantId || participants.length === 0 || editingId) return;
@@ -582,6 +594,7 @@ export function ParticipantsTable({
     setForm(EMPTY_FORM);
     setDeleting(false);
     setError(null);
+    onCloseEditModal?.();
   }
 
   function toggleDifficolta(option: string) {
@@ -762,7 +775,16 @@ export function ParticipantsTable({
   }
 
   if (loading) {
-  return (
+    if (modalOnly) {
+      return (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-4 py-8">
+          <div className="w-full max-w-3xl rounded-lg border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500 shadow-xl">
+            {t("common.loadingParticipants")}
+          </div>
+        </div>
+      );
+    }
+    return (
       <div className="rounded border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
         {t("common.loadingParticipants")}
       </div>
@@ -777,8 +799,9 @@ export function ParticipantsTable({
     );
   }
 
-    return (
+  return (
     <>
+      {!modalOnly && (
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <p className="text-sm text-slate-500">
           {groupSummaryLabel}: {groups.length > 0 ? groups.join(", ") : t("participants.table.noGroup")}
@@ -1120,6 +1143,7 @@ export function ParticipantsTable({
           </table>
         </div>
       </div>
+      )}
 
       {editingParticipant && (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-4 py-8">

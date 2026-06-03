@@ -7,6 +7,7 @@ import { loadEventRuntimeSettings } from "@/lib/event/settings";
 import { DailyPresenceSection } from "./daily-presence-section";
 import { RegistrationsTabsSection } from "./registrations-tabs-section";
 import { StatisticsSectionsSidebar } from "./statistics-sections-sidebar";
+import { StatisticsParticipantEditModal } from "./statistics-participant-edit-modal";
 import { getServerTranslator } from "@/lib/i18n/server";
 import {
   isOperatorRegistrationType,
@@ -666,12 +667,10 @@ function buildOperatorAccommodationPreferenceCounts(
 function DuplicateAndUnassignedSection({
   duplicateCandidates,
   unassignedParticipants,
-  participantsPath,
   t,
 }: {
   duplicateCandidates: DuplicateCandidateRow[];
   unassignedParticipants: ParticipantStatRow[];
-  participantsPath: string;
   t: (key: string, params?: Record<string, string | number>) => string;
 }) {
   return (
@@ -739,7 +738,7 @@ function DuplicateAndUnassignedSection({
                       <td className="px-3 py-2 text-slate-700">
                         <div className="flex flex-col gap-2">
                           <Link
-                            href={`${participantsPath}?editParticipant=${participant.id}`}
+                            href={`?editParticipant=${participant.id}#duplicates-non-associated`}
                             className="inline-flex w-fit rounded border border-indigo-200 px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-50"
                           >
                             {t("common.edit")}
@@ -813,7 +812,7 @@ function DuplicateAndUnassignedSection({
                       <td className="px-3 py-2 text-slate-700">{participantTallyDetail(participant)}</td>
                       <td className="px-3 py-2 text-slate-700">
                         <Link
-                          href={`${participantsPath}?editParticipant=${participant.id}`}
+                          href={`?editParticipant=${participant.id}#duplicates-non-associated`}
                           className="inline-flex rounded border border-indigo-200 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50"
                         >
                           {t("common.edit")}
@@ -1058,10 +1057,8 @@ function RegistrationTrendSection({
 
 export async function StatisticsDashboard({
   publicView = false,
-  participantsPath = "/dashboard/manager/participants",
 }: {
   publicView?: boolean;
-  participantsPath?: string;
 } = {}) {
   const { t } = await getServerTranslator();
   const service = createSupabaseServiceClient();
@@ -1363,12 +1360,12 @@ export async function StatisticsDashboard({
             <DuplicateAndUnassignedSection
               duplicateCandidates={duplicateCandidates}
               unassignedParticipants={unassignedParticipants}
-              participantsPath={participantsPath}
               t={t}
             />
           )}
         </div>
       </div>
+      {!publicView && <StatisticsParticipantEditModal />}
     </section>
   );
 }
@@ -1376,6 +1373,5 @@ export async function StatisticsDashboard({
 export default async function ManagerStatisticsPage() {
   return StatisticsDashboard({
     publicView: false,
-    participantsPath: "/dashboard/manager/participants",
   });
 }
