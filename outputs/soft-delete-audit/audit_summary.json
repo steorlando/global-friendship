@@ -1,0 +1,29 @@
+{
+  "csvRows": 253,
+  "dbRows": 240,
+  "missingSubmissionRows": 13,
+  "stronglyMissingRows": 7,
+  "suspiciousRows": 6,
+  "kramekoszMissingRows": [
+    {
+      "submissionId": "dbNjl2r",
+      "submittedAt": "2026-04-16 09:13:45",
+      "firstName": "Márk",
+      "lastName": "Szőke",
+      "email": "kramekosz@gmail.com",
+      "secondaryEmail": "kramekosz@gmail.com",
+      "registrationType": "Operator - Operatore",
+      "country": "Hungary",
+      "city": "Budapest",
+      "groupLeader": "Bálint Gyarmati",
+      "arrival": "",
+      "departure": "",
+      "accommodation": "",
+      "foundBySubmissionId": false,
+      "foundByEmail": false,
+      "missingReason": "Submission ID ed email non trovati nel DB"
+    }
+  ],
+  "dbKramekoszRows": [],
+  "errorScan": "{\"kind\":\"notice\",\"message\":\"Cell search matched 0 entries.\"}"
+}

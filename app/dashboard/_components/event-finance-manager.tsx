@@ -1570,8 +1570,8 @@ export function EventFinanceManager() {
                       <div className="mt-2 space-y-2">
                         {transactionAllocationsDraft.length === 0 ? (
                           <p className="text-xs text-slate-500">
-                            No allocations yet. Add one if this transaction should update a budget
-                            line's spent or cash-in amount.
+                            No allocations yet. Add one if this transaction should update spent or
+                            cash-in for a budget line.
                           </p>
                         ) : (
                           transactionAllocationsDraft.map((row, index) => (

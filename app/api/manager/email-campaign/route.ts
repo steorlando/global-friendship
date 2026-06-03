@@ -502,6 +502,24 @@ export async function POST(req: Request) {
     }
   }
 
+  if (sentTo.length === 0 && failed.length > 0) {
+    return NextResponse.json(
+      {
+        error: "No emails were sent.",
+        recipientType,
+        requested: recipientIds.length,
+        resolved: sentTo.length + skipped.length + failed.length,
+        sent: sentTo.length,
+        sentIds: sentTo,
+        skipped,
+        failed,
+        logSaved,
+        logError,
+      },
+      { status: 502 }
+    );
+  }
+
   return NextResponse.json({
     recipientType,
     requested: recipientIds.length,
