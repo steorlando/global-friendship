@@ -193,6 +193,19 @@ function toEur(value: number, currency: Currency, hufToEurRate: number) {
   return value * hufToEurRate;
 }
 
+function convertCurrency(
+  value: number,
+  fromCurrency: Currency,
+  toCurrency: Currency,
+  hufToEurRate: number
+) {
+  if (fromCurrency === toCurrency) return value;
+  const valueEur = toEur(value, fromCurrency, hufToEurRate);
+  if (toCurrency === "EUR") return valueEur;
+  if (!Number.isFinite(hufToEurRate) || hufToEurRate <= 0) return 0;
+  return valueEur / hufToEurRate;
+}
+
 function toEurToHufRate(hufToEurRate: number): number {
   if (!Number.isFinite(hufToEurRate) || hufToEurRate <= 0) return 400;
   return Number((1 / hufToEurRate).toFixed(2));
@@ -416,26 +429,57 @@ export function EventFinanceManager() {
         if (alloc.budget_item_id !== item.id) return sum;
         const tx = txById.get(alloc.transaction_id);
         if (!tx || tx.transaction_type !== "EXPENSE") return sum;
-        return sum + alloc.amount_original;
+        return (
+          sum +
+          convertCurrency(
+            alloc.amount_original,
+            tx.currency,
+            item.currency,
+            settings.huf_to_eur_rate
+          )
+        );
       }, 0);
 
       const income = transactionAllocations.reduce((sum, alloc) => {
         if (alloc.budget_item_id !== item.id) return sum;
         const tx = txById.get(alloc.transaction_id);
         if (!tx || tx.transaction_type !== "INCOME") return sum;
-        return sum + alloc.amount_original;
+        return (
+          sum +
+          convertCurrency(
+            alloc.amount_original,
+            tx.currency,
+            item.currency,
+            settings.huf_to_eur_rate
+          )
+        );
       }, 0);
 
       const sponsored = sponsorshipAllocations.reduce((sum, alloc) => {
         if (alloc.budget_item_id !== item.id) return sum;
         const sp = sponsorshipById.get(alloc.sponsorship_id);
         if (!sp || sp.status === "cancelled") return sum;
-        return sum + alloc.amount_original;
+        return (
+          sum +
+          convertCurrency(
+            alloc.amount_original,
+            sp.currency,
+            item.currency,
+            settings.huf_to_eur_rate
+          )
+        );
       }, 0);
 
       return { item, planned, spent, income, sponsored };
     });
-  }, [budgetItems, sponsorshipAllocations, sponsorships, transactionAllocations, transactions]);
+  }, [
+    budgetItems,
+    settings.huf_to_eur_rate,
+    sponsorshipAllocations,
+    sponsorships,
+    transactionAllocations,
+    transactions,
+  ]);
 
   const overview = useMemo(() => {
     const plannedEur = budgetPlanRows.reduce(
@@ -837,15 +881,23 @@ export function EventFinanceManager() {
   function downloadOverviewExcel() {
     const budgetPlanSheet: ExportSheet = {
       name: "Budget Plan",
-      headers: ["Category", "Macro", "Currency", "Planned", "Spent", "Cash In", "Sponsored"],
+      headers: [
+        "Category",
+        "Macro",
+        "Original Currency",
+        "Planned EUR",
+        "Spent EUR",
+        "Cash In EUR",
+        "Sponsored EUR",
+      ],
       rows: budgetPlanRows.map((row) => [
         row.item.category_name,
         row.item.macro_category,
         row.item.currency,
-        Number(row.planned.toFixed(2)),
-        Number(row.spent.toFixed(2)),
-        Number(row.income.toFixed(2)),
-        Number(row.sponsored.toFixed(2)),
+        Number(toEur(row.planned, row.item.currency, settings.huf_to_eur_rate).toFixed(2)),
+        Number(toEur(row.spent, row.item.currency, settings.huf_to_eur_rate).toFixed(2)),
+        Number(toEur(row.income, row.item.currency, settings.huf_to_eur_rate).toFixed(2)),
+        Number(toEur(row.sponsored, row.item.currency, settings.huf_to_eur_rate).toFixed(2)),
       ]),
     };
 
@@ -1283,10 +1335,10 @@ export function EventFinanceManager() {
                   <tr>
                     <th className="px-4 py-3">Category</th>
                     <th className="px-4 py-3">Macro</th>
-                    <th className="px-4 py-3">Planned</th>
-                    <th className="px-4 py-3">Spent</th>
-                    <th className="px-4 py-3">Cash In</th>
-                    <th className="px-4 py-3">Sponsored</th>
+                    <th className="px-4 py-3">Planned (EUR)</th>
+                    <th className="px-4 py-3">Spent (EUR)</th>
+                    <th className="px-4 py-3">Cash In (EUR)</th>
+                    <th className="px-4 py-3">Sponsored (EUR)</th>
                     <th className="px-4 py-3">Actions</th>
                   </tr>
                 </thead>
@@ -1302,10 +1354,30 @@ export function EventFinanceManager() {
                       <tr key={row.item.id} className="border-t border-slate-100">
                         <td className="px-4 py-3">{row.item.category_name}</td>
                         <td className="px-4 py-3">{row.item.macro_category}</td>
-                        <td className="px-4 py-3">{formatCurrency(row.planned, row.item.currency)}</td>
-                        <td className="px-4 py-3">{formatCurrency(row.spent, row.item.currency)}</td>
-                        <td className="px-4 py-3">{formatCurrency(row.income, row.item.currency)}</td>
-                        <td className="px-4 py-3">{formatCurrency(row.sponsored, row.item.currency)}</td>
+                        <td className="px-4 py-3">
+                          {formatCurrency(
+                            toEur(row.planned, row.item.currency, settings.huf_to_eur_rate),
+                            "EUR"
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          {formatCurrency(
+                            toEur(row.spent, row.item.currency, settings.huf_to_eur_rate),
+                            "EUR"
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          {formatCurrency(
+                            toEur(row.income, row.item.currency, settings.huf_to_eur_rate),
+                            "EUR"
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          {formatCurrency(
+                            toEur(row.sponsored, row.item.currency, settings.huf_to_eur_rate),
+                            "EUR"
+                          )}
+                        </td>
                         <td className="px-4 py-3 space-x-2">
                           <button
                             type="button"
@@ -1606,7 +1678,7 @@ export function EventFinanceManager() {
                               </label>
                               <label className="block">
                                 <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
-                                  Allocated amount
+                                  Allocated amount ({transactionForm.currency})
                                 </span>
                                 <input
                                   type="text"
@@ -2046,7 +2118,7 @@ export function EventFinanceManager() {
                         </label>
                         <label className="block">
                           <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
-                            Covered amount
+                            Covered amount ({sponsorshipForm.currency})
                           </span>
                           <input
                             type="text"
