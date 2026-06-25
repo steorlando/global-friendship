@@ -1155,7 +1155,7 @@ export async function StatisticsDashboard({
     const { data: leaderProfiles, error: leaderProfilesError } = await service
       .from("profili")
       .select("id")
-      .eq("ruolo", "capogruppo");
+      .in("ruolo", ["capogruppo", "manager"]);
 
     if (leaderProfilesError) {
       return (
