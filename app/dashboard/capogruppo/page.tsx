@@ -17,6 +17,7 @@ export default async function CapogruppoPage() {
           groupSummaryLabel={t("dashboard.groupLeader.groupSummary")}
           showRegistrationDate
           showTotalFee
+          showPaymentSummary
         />
       </div>
     </>

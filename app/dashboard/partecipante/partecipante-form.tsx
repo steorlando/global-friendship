@@ -58,6 +58,7 @@ type ApiParticipant = ParticipantFormData & {
   id: string;
   email: string | null;
   citta: string | null;
+  quota_totale: number | null;
 };
 
 type ParticipantCandidate = {
@@ -126,7 +127,7 @@ function operatorAccommodationPreferenceLabel(
 }
 
 export function PartecipanteForm() {
-  const { t } = useI18n();
+  const { t, formatNumber } = useI18n();
   const [formData, setFormData] = useState<ParticipantFormData>(INITIAL_DATA);
   const [email, setEmail] = useState<string>("");
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(
@@ -148,6 +149,7 @@ export function PartecipanteForm() {
   const [deleteSuccess, setDeleteSuccess] = useState<string | null>(null);
   const [canManageHostCityFields, setCanManageHostCityFields] = useState(false);
   const [hostCity, setHostCity] = useState("");
+  const [quotaTotale, setQuotaTotale] = useState<number | null>(null);
   const showOperatorAccommodationPreference = isOperatorRegistrationType(
     formData.tipo_iscrizione
   );
@@ -204,6 +206,9 @@ export function PartecipanteForm() {
           );
         }
         setEmail(participant.email ?? "");
+        setQuotaTotale(
+          typeof participant.quota_totale === "number" ? participant.quota_totale : null
+        );
         setFormData({
           nome: participant.nome ?? "",
           cognome: participant.cognome ?? "",
@@ -379,6 +384,9 @@ export function PartecipanteForm() {
         return;
       }
 
+      setQuotaTotale(
+        typeof json.quota_totale === "number" ? json.quota_totale : null
+      );
       setSuccess(t("participant.form.saveSuccess"));
     } catch {
       setError(t("participant.form.saveError"));
@@ -486,6 +494,23 @@ export function PartecipanteForm() {
           </select>
         </div>
       ) : null}
+
+      <section className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-4" aria-labelledby="participant-total-fee-title">
+        <p
+          id="participant-total-fee-title"
+          className="text-xs font-medium uppercase tracking-wide text-indigo-700"
+        >
+          {t("participant.form.totalFee")}
+        </p>
+        <p className="mt-1 text-2xl font-semibold text-indigo-950">
+          {quotaTotale === null
+            ? "-"
+            : formatNumber(quotaTotale, { style: "currency", currency: "EUR" })}
+        </p>
+        <p className="mt-1 text-xs text-indigo-700">
+          {t("participant.form.totalFeeHint")}
+        </p>
+      </section>
 
       <div className="grid gap-4 md:grid-cols-2">
         <div>

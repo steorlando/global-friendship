@@ -41,6 +41,7 @@ type Participant = {
   disabilita_accessibilita: boolean | null;
   difficolta_accessibilita: string[];
   quota_totale: number | null;
+  fee_paid?: number | null;
   group: string;
   gruppo_roma?: string | null;
   partecipa_intero_evento?: boolean | null;
@@ -94,6 +95,7 @@ type ParticipantsTableProps = {
   groupSummaryLabel: string;
   showRegistrationDate?: boolean;
   showTotalFee?: boolean;
+  showPaymentSummary?: boolean;
   canEditGroupAssignment?: boolean;
   initialEditParticipantId?: string | null;
   modalOnly?: boolean;
@@ -327,12 +329,13 @@ export function ParticipantsTable({
   groupSummaryLabel,
   showRegistrationDate = false,
   showTotalFee = true,
+  showPaymentSummary = false,
   canEditGroupAssignment = false,
   initialEditParticipantId: initialEditParticipantIdProp = null,
   modalOnly = false,
   onCloseEditModal,
 }: ParticipantsTableProps) {
-  const { t } = useI18n();
+  const { t, formatNumber } = useI18n();
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [showGroupColumn, setShowGroupColumn] = useState(false);
   const [visibleOptionalColumns, setVisibleOptionalColumns] = useState<OptionalColumnKey[]>([]);
@@ -390,6 +393,24 @@ export function ParticipantsTable({
   const showRegistrationTypeColumn = visibleOptionalColumns.includes("tipo_iscrizione");
   const showCityColumn = visibleOptionalColumns.includes("citta");
   const showAgeColumn = visibleOptionalColumns.includes("eta");
+  const paymentSummary = useMemo(() => {
+    let totalExpected = 0;
+    let totalPaid = 0;
+
+    for (const participant of participants) {
+      totalExpected += participant.quota_totale ?? 0;
+      totalPaid += participant.fee_paid ?? 0;
+    }
+
+    return {
+      totalExpected,
+      totalPaid,
+      outstanding: totalExpected - totalPaid,
+    };
+  }, [participants]);
+
+  const formatCurrency = (value: number) =>
+    formatNumber(value, { style: "currency", currency: "EUR" });
 
   const filteredSortedParticipants = useMemo(() => {
     const filtered = participants.filter((participant) => {
@@ -907,6 +928,44 @@ export function ParticipantsTable({
         <p className="text-sm text-slate-500">
           {groupSummaryLabel}: {groups.length > 0 ? groups.join(", ") : t("participants.table.noGroup")}
         </p>
+        {showPaymentSummary ? (
+          <section className="mt-5" aria-labelledby="group-payment-summary-title">
+            <div>
+              <h2 id="group-payment-summary-title" className="text-base font-semibold text-slate-900">
+                {t("dashboard.groupLeader.paymentSummary.title")}
+              </h2>
+              <p className="mt-1 text-xs text-slate-500">
+                {t("dashboard.groupLeader.paymentSummary.subtitle")}
+              </p>
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                  {t("fees.totalExpected")}
+                </p>
+                <p className="mt-1 text-xl font-semibold text-slate-900">
+                  {formatCurrency(paymentSummary.totalExpected)}
+                </p>
+              </div>
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">
+                  {t("fees.totalPaid")}
+                </p>
+                <p className="mt-1 text-xl font-semibold text-emerald-900">
+                  {formatCurrency(paymentSummary.totalPaid)}
+                </p>
+              </div>
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-amber-700">
+                  {t("fees.outstanding")}
+                </p>
+                <p className="mt-1 text-xl font-semibold text-amber-900">
+                  {formatCurrency(paymentSummary.outstanding)}
+                </p>
+              </div>
+            </div>
+          </section>
+        ) : null}
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-medium uppercase tracking-wide text-slate-500">

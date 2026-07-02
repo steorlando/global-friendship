@@ -41,6 +41,7 @@ type ParticipantRow = {
   difficolta_accessibilita: string | null;
   alloggio_short: string | null;
   quota_totale: number | null;
+  fee_paid: number | null;
   gruppo_id: string | null;
   gruppo_label: string | null;
   partecipa_intero_evento: boolean | null;
@@ -49,10 +50,10 @@ type ParticipantRow = {
 };
 
 const SELECT_FIELDS_BASE =
-  "id,created_at,nome,cognome,eta,tipo_iscrizione,preferenza_alloggio_operatore,gruppo_leader,paese_residenza,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label,partecipa_intero_evento,presenza_dettaglio,deleted_at";
+  "id,created_at,nome,cognome,eta,tipo_iscrizione,preferenza_alloggio_operatore,gruppo_leader,paese_residenza,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,fee_paid,gruppo_id,gruppo_label,partecipa_intero_evento,presenza_dettaglio,deleted_at";
 const SELECT_FIELDS_WITH_CITY = `${SELECT_FIELDS_BASE},citta:città`;
 const SELECT_FIELDS_LEGACY =
-  "id,created_at,nome,cognome,eta,tipo_iscrizione,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label";
+  "id,created_at,nome,cognome,eta,tipo_iscrizione,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,fee_paid,gruppo_id,gruppo_label";
 
 const esigenzeSet = new Set<string>(ESIGENZE_ALIMENTARI_OPTIONS);
 const difficoltaSet = new Set<string>(DIFFICOLTA_ACCESSIBILITA_OPTIONS);
@@ -212,6 +213,7 @@ function toParticipantRow(value: unknown): ParticipantRow {
       (row.difficolta_accessibilita as string | null | undefined) ?? null,
     alloggio_short: (row.alloggio_short as string | null | undefined) ?? null,
     quota_totale: (row.quota_totale as number | null | undefined) ?? null,
+    fee_paid: (row.fee_paid as number | null | undefined) ?? null,
     gruppo_id: (row.gruppo_id as string | null | undefined) ?? null,
     gruppo_label: (row.gruppo_label as string | null | undefined) ?? null,
     partecipa_intero_evento:

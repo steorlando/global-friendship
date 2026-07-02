@@ -43,6 +43,7 @@ type ParticipantDbRow = {
   partecipa_intero_evento: boolean | null;
   presenza_dettaglio: Record<string, unknown> | null;
   submitted_at_tally: string | null;
+  quota_totale: number | null;
   deleted_at?: string | null;
 };
 
@@ -59,9 +60,9 @@ const alloggioSet = new Set<string>(ALLOGGIO_OPTIONS);
 const esigenzeSet = new Set<string>(ESIGENZE_ALIMENTARI_OPTIONS);
 const difficoltaSet = new Set<string>(DIFFICOLTA_ACCESSIBILITA_OPTIONS);
 const SELECT_FIELDS_BASE =
-  "id,email,nome,cognome,tipo_iscrizione,preferenza_alloggio_operatore,gruppo_leader,gruppo_id,gruppo_label,tally_submission_id,nazione,data_nascita,data_arrivo,data_partenza,alloggio,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,submitted_at_tally,deleted_at";
+  "id,email,nome,cognome,tipo_iscrizione,preferenza_alloggio_operatore,gruppo_leader,gruppo_id,gruppo_label,tally_submission_id,nazione,data_nascita,data_arrivo,data_partenza,alloggio,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,submitted_at_tally,quota_totale,deleted_at";
 const SELECT_FIELDS_BASE_LEGACY =
-  "id,email,nome,cognome,gruppo_id,gruppo_label,tally_submission_id,nazione,data_nascita,data_arrivo,data_partenza,alloggio,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,submitted_at_tally";
+  "id,email,nome,cognome,gruppo_id,gruppo_label,tally_submission_id,nazione,data_nascita,data_arrivo,data_partenza,alloggio,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,submitted_at_tally,quota_totale";
 const SELECT_FIELDS_WITH_HOST = `${SELECT_FIELDS_BASE},partecipa_intero_evento,presenza_dettaglio`;
 const SELECT_FIELDS_WITH_CITY = `${SELECT_FIELDS_BASE},citta:città`;
 const SELECT_FIELDS_WITH_CITY_AND_HOST = `${SELECT_FIELDS_WITH_HOST},citta:città`;
@@ -597,11 +598,13 @@ export async function PATCH(req: Request) {
   }
 
   const service = createSupabaseServiceClient();
-  let { error: updateError } = await service
+  let { data: updatedParticipant, error: updateError } = await service
     .from("partecipanti")
     .update(updatePayload)
     .eq("id", participant.id)
-    .ilike("email", auth.email);
+    .ilike("email", auth.email)
+    .select("quota_totale")
+    .maybeSingle();
 
   if (updateError && canFallbackMissingColumn(updateError)) {
     const fallbackPayload = { ...updatePayload };
@@ -610,7 +613,10 @@ export async function PATCH(req: Request) {
       .from("partecipanti")
       .update(fallbackPayload)
       .eq("id", participant.id)
-      .ilike("email", auth.email);
+      .ilike("email", auth.email)
+      .select("quota_totale")
+      .maybeSingle();
+    updatedParticipant = fallback.data;
     updateError = fallback.error;
   }
 
@@ -618,7 +624,11 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({
+    ok: true,
+    quota_totale:
+      (updatedParticipant as { quota_totale?: number | null } | null)?.quota_totale ?? null,
+  });
 }
 
 export async function DELETE(req: Request) {

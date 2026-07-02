@@ -186,6 +186,12 @@ Sections:
 - Participants
 - Room assignment
 
+The participants page shows a payment summary across all groups assigned to the group leader:
+
+- total participation fees due (`quota_totale`)
+- total already paid (`fee_paid`)
+- outstanding balance (due minus paid)
+
 ### Partecipante
 
 Main files:
@@ -193,6 +199,10 @@ Main files:
 - `app/dashboard/partecipante/page.tsx`
 - `app/dashboard/partecipante/partecipante-form.tsx`
 - `app/dashboard/partecipante/organizers-contact-card.tsx`
+
+The participant profile displays the participant's read-only `quota_totale`. After the
+participant updates accommodation or stay details, the saved value returned by the
+database trigger is shown immediately.
 
 ## Internationalization
 
@@ -548,6 +558,7 @@ High-value migrations to know:
 - `supabase/participation_fees_migration.sql`
 - `supabase/participation_fee_db_calculation_migration.sql`
 - `supabase/participation_fee_nullable_host_city_migration.sql`
+- `supabase/participation_fee_business_rules_migration.sql`
 - `supabase/event_finance_migration.sql`
 - `supabase/event_finance_single_plan_refactor.sql`
 - `supabase/event_finance_settings_accounts_migration.sql`
@@ -618,6 +629,11 @@ Current Tally form:
 - Host-city attendance fields (`partecipa_intero_evento`, `presenza_dettaglio`) are gated by role-specific rules:
   - capogruppo: visibility/edit allowed only for participants whose city (`partecipanti.città`) matches `admin_event_settings.host_city`
   - partecipante: visibility/edit allowed only when participant city (`partecipanti.città`) matches `admin_event_settings.host_city`
+- `quota_totale` is derived automatically in PostgreSQL by `partecipanti_set_stay_and_fee`:
+  - `100` for autonomous accommodation or participants whose city matches `admin_event_settings.host_city`
+  - `235` for non-host/non-autonomous participants staying from `2026-08-27` through `2026-08-31`
+  - `200` for every other participant
+  - changing participant accommodation, city, arrival, or departure recalculates the fee; changing `host_city` recalculates all participant fees
 - When changing statistics logic, check both manager/admin dashboards and the public stats page.
 - When changing participants table columns, update:
   - API payload
