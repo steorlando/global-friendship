@@ -27,7 +27,7 @@ import {
 
 type RecipientType = "participants" | "group_leaders";
 
-type Participant = ParticipantTemplateData;
+type Participant = ParticipantTemplateData & { citta: string | null };
 
 type GroupLeader = GroupLeaderTemplateData;
 
@@ -37,6 +37,7 @@ type ParticipantSortKey =
   | "cognome"
   | "email"
   | "tipo_iscrizione"
+  | "citta"
   | "data_arrivo"
   | "data_partenza"
   | "alloggio"
@@ -243,6 +244,7 @@ export function ParticipantEmailCampaign() {
   const [participantSearch, setParticipantSearch] = useState("");
   const [participantGroupFilter, setParticipantGroupFilter] = useState("");
   const [participantRegistrationTypeFilter, setParticipantRegistrationTypeFilter] = useState("");
+  const [participantCityFilter, setParticipantCityFilter] = useState("");
   const [participantArrivoFilter, setParticipantArrivoFilter] = useState("");
   const [participantPartenzaFilter, setParticipantPartenzaFilter] = useState("");
   const [participantAlloggioFilter, setParticipantAlloggioFilter] = useState("");
@@ -360,6 +362,14 @@ export function ParticipantEmailCampaign() {
       .sort((a, b) => a.value.localeCompare(b.value));
   }, [participants]);
 
+  const participantCities = useMemo(
+    () =>
+      [...new Set(participants.map((participant) => (participant.citta ?? "").trim()))]
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b)),
+    [participants]
+  );
+
   const filteredSortedParticipants = useMemo(() => {
     const positiveFiltered = participants.filter((participant) => {
       if (participantSearch) {
@@ -368,6 +378,7 @@ export function ParticipantEmailCampaign() {
           safeIncludes(participant.nome, s) ||
           safeIncludes(participant.cognome, s) ||
           safeIncludes(participant.email, s) ||
+          safeIncludes(participant.citta, s) ||
           safeIncludes(participant.group, s);
         if (!matches) return false;
       }
@@ -379,6 +390,9 @@ export function ParticipantEmailCampaign() {
         participantRegistrationTypeFilter &&
         (participant.tipo_iscrizione ?? "").trim() !== participantRegistrationTypeFilter
       ) {
+        return false;
+      }
+      if (participantCityFilter && !safeIncludes(participant.citta, participantCityFilter)) {
         return false;
       }
       if (participantArrivoFilter && (participant.data_arrivo ?? "") !== participantArrivoFilter) {
@@ -419,6 +433,7 @@ export function ParticipantEmailCampaign() {
   }, [
     participantAlloggioFilter,
     participantArrivoFilter,
+    participantCityFilter,
     participantGroupFilter,
     participantRegistrationTypeFilter,
     participantPartenzaFilter,
@@ -1235,7 +1250,7 @@ export function ParticipantEmailCampaign() {
         </div>
 
         {activeRecipientType === "participants" ? (
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-7">
             <div>
               <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Search
@@ -1244,7 +1259,7 @@ export function ParticipantEmailCampaign() {
                 type="text"
                 value={participantSearch}
                 onChange={(event) => setParticipantSearch(event.target.value)}
-                placeholder="Name, surname, email, group"
+                placeholder="Name, surname, email, city, group"
                 className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
               />
             </div>
@@ -1283,6 +1298,24 @@ export function ParticipantEmailCampaign() {
                   </option>
                 ))}
               </select>
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                City
+              </label>
+              <input
+                type="text"
+                value={participantCityFilter}
+                onChange={(event) => setParticipantCityFilter(event.target.value)}
+                list="participant-city-options"
+                placeholder="All cities"
+                className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
+              />
+              <datalist id="participant-city-options">
+                {participantCities.map((city) => (
+                  <option key={city} value={city} />
+                ))}
+              </datalist>
             </div>
             <div>
               <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -1466,6 +1499,11 @@ export function ParticipantEmailCampaign() {
                       </button>
                     </th>
                     <th className="px-4 py-3 font-semibold">
+                      <button type="button" onClick={() => toggleParticipantSort("citta")}>
+                        City
+                      </button>
+                    </th>
+                    <th className="px-4 py-3 font-semibold">
                       <button
                         type="button"
                         onClick={() => toggleParticipantSort("data_arrivo")}
@@ -1500,7 +1538,7 @@ export function ParticipantEmailCampaign() {
                   {filteredSortedParticipants.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={showGroupColumn ? 10 : 9}
+                        colSpan={showGroupColumn ? 11 : 10}
                         className="px-3 py-3 text-slate-500"
                       >
                         No participants match current filters.
@@ -1526,6 +1564,7 @@ export function ParticipantEmailCampaign() {
                         <td className="px-4 py-3 text-slate-700">
                           {participant.tipo_iscrizione || "-"}
                         </td>
+                        <td className="px-4 py-3 text-slate-700">{participant.citta || "-"}</td>
                         <td className="px-4 py-3 text-slate-700">
                           {participant.data_arrivo || "-"}
                         </td>
