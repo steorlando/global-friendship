@@ -98,6 +98,7 @@ type ParticipantsTableProps = {
   showRegistrationDate?: boolean;
   showTotalFee?: boolean;
   showPaymentSummary?: boolean;
+  allowExcelExport?: boolean;
   canEditGroupAssignment?: boolean;
   initialEditParticipantId?: string | null;
   modalOnly?: boolean;
@@ -332,6 +333,7 @@ export function ParticipantsTable({
   showRegistrationDate = false,
   showTotalFee = true,
   showPaymentSummary = false,
+  allowExcelExport = false,
   canEditGroupAssignment = false,
   initialEditParticipantId: initialEditParticipantIdProp = null,
   modalOnly = false,
@@ -345,6 +347,8 @@ export function ParticipantsTable({
   const [assignableGroups, setAssignableGroups] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [exportingExcel, setExportingExcel] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [initialEditParticipantId, setInitialEditParticipantId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -824,6 +828,68 @@ export function ParticipantsTable({
     });
   }
 
+  async function downloadParticipantsExcel() {
+    if (exportingExcel || participants.length === 0) return;
+
+    setExportingExcel(true);
+    setExportError(null);
+
+    try {
+      const XLSX = await import("xlsx");
+      const columns = [
+        { label: t("participants.export.personalCode"), value: (p: Participant) => {
+          const code = (p.personal_code ?? "").trim();
+          return /^\d{1,4}$/.test(code) ? code.padStart(4, "0") : code;
+        } },
+        { label: t("participants.table.header.firstName"), value: (p: Participant) => p.nome ?? "" },
+        { label: t("participants.table.header.lastName"), value: (p: Participant) => p.cognome ?? "" },
+        { label: t("participants.table.header.group"), value: (p: Participant) => p.group ?? "" },
+        { label: t("participants.table.header.registrationType"), value: (p: Participant) => p.tipo_iscrizione ?? "" },
+        { label: t("participants.export.email"), value: (p: Participant) => p.email ?? "" },
+        { label: t("participants.export.phone"), value: (p: Participant) => p.telefono ?? "" },
+        { label: t("participants.export.birthDate"), value: (p: Participant) => p.data_nascita ?? "" },
+        { label: t("participants.table.header.age"), value: (p: Participant) => p.eta ?? "" },
+        { label: t("participants.export.country"), value: (p: Participant) => p.paese_residenza ?? p.nazione ?? "" },
+        { label: t("participants.table.header.city"), value: (p: Participant) => p.citta ?? "" },
+        { label: t("participants.table.header.arrivalDate"), value: (p: Participant) => p.data_arrivo ?? "" },
+        { label: t("participants.table.header.departureDate"), value: (p: Participant) => p.data_partenza ?? "" },
+        { label: t("participants.table.header.accommodation"), value: (p: Participant) => p.alloggio ?? "" },
+        { label: t("participants.export.operatorAccommodation"), value: (p: Participant) => p.preferenza_alloggio_operatore ?? "" },
+        { label: t("participants.export.dietaryNeeds"), value: (p: Participant) => p.esigenze_alimentari.join(", ") },
+        { label: t("participants.export.allergies"), value: (p: Participant) => p.allergie ?? "" },
+        { label: t("participants.export.accessibilityNeeds"), value: (p: Participant) => p.difficolta_accessibilita.join(", ") },
+        { label: t("participants.export.totalFee"), value: (p: Participant) => p.quota_totale ?? "" },
+        { label: t("participants.export.paidFee"), value: (p: Participant) => p.fee_paid ?? 0 },
+        { label: t("participants.export.balance"), value: (p: Participant) => (p.quota_totale ?? 0) - (p.fee_paid ?? 0) },
+      ];
+      const matrix = [
+        columns.map((column) => column.label),
+        ...participants.map((participant) => columns.map((column) => column.value(participant))),
+      ];
+      const worksheet = XLSX.utils.aoa_to_sheet(matrix);
+      worksheet["!autofilter"] = { ref: worksheet["!ref"] ?? "A1:U1" };
+      worksheet["!cols"] = columns.map((column, columnIndex) => ({
+        wch: Math.min(
+          42,
+          Math.max(
+            10,
+            column.label.length + 2,
+            ...matrix.slice(1).map((row) => String(row[columnIndex] ?? "").length + 2)
+          )
+        ),
+      }));
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, t("participants.export.sheetName"));
+      const dateStamp = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(workbook, `partecipanti-gruppo-${dateStamp}.xlsx`);
+    } catch {
+      setExportError(t("participants.export.error"));
+    } finally {
+      setExportingExcel(false);
+    }
+  }
+
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!editingId) return;
@@ -937,9 +1003,29 @@ export function ParticipantsTable({
     <>
       {!modalOnly && (
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <p className="text-sm text-slate-500">
-          {groupSummaryLabel}: {groups.length > 0 ? groups.join(", ") : t("participants.table.noGroup")}
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <p className="text-sm text-slate-500">
+            {groupSummaryLabel}: {groups.length > 0 ? groups.join(", ") : t("participants.table.noGroup")}
+          </p>
+          {allowExcelExport ? (
+            <button
+              type="button"
+              onClick={downloadParticipantsExcel}
+              disabled={exportingExcel || participants.length === 0}
+              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4M5 19h14" />
+              </svg>
+              {exportingExcel
+                ? t("participants.export.preparing")
+                : t("participants.export.button")}
+            </button>
+          ) : null}
+        </div>
+        {exportError ? (
+          <p className="mt-3 text-sm text-red-700" role="alert">{exportError}</p>
+        ) : null}
         {showPaymentSummary ? (
           <section className="mt-5" aria-labelledby="group-payment-summary-title">
             <div>
