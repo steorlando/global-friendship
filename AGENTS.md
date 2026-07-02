@@ -25,6 +25,11 @@ Keep it updated when major routes, data structures, or business rules change.
 - Run SQL on the self-hosted production Supabase DB:
   `scripts/selfhosted-db-query.sh supabase/<migration>.sql`
 
+## Git Workflow
+
+- Always push repository changes directly to `main`.
+- Never create or switch to a different branch for Codex changes in this repository.
+
 Notes:
 - `npm test` currently runs only `tests/email-recipient-id-utils.test.ts`.
 - There are many additional `tests/*.test.ts` files in the repo; run them explicitly with `node --test --experimental-strip-types <file>` if needed.
