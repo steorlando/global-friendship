@@ -336,6 +336,7 @@ Important behavior:
 
 - Admin and manager participant pages currently use the same manager participants API
 - Edit modal allows updating participant data
+- The edit modal shows the read-only four-digit `personal_code` as a badge beside the participant name.
 - Edit modal includes `tipo_iscrizione`; it is editable from manager/admin and capogruppo participant views.
 - Delete is available from the edit modal with confirmation
 - Participant deletion is a soft delete: records remain in `partecipanti` with `deleted_at` / deletion metadata and are hidden from operational dashboards, login, stats, accommodation, email campaigns, and fee screens.
@@ -570,6 +571,7 @@ High-value migrations to know:
 - `supabase/event_finance_settings_accounts_migration.sql`
 - `supabase/accommodation_hardening_migration.sql`
 - `supabase/operator_accommodation_preference_migration.sql`
+- `supabase/operator_hotel_fee_surcharge_migration.sql`
 - `supabase/participants_soft_delete_migration.sql`
 - `supabase/participant_personal_code_migration.sql`
 
@@ -648,6 +650,7 @@ Current Tally form:
   - `100` for autonomous accommodation or participants whose city matches `admin_event_settings.host_city`
   - `235` for non-host/non-autonomous participants staying from `2026-08-27` through `2026-08-31`
   - `200` for every other participant
+  - operators with `preferenza_alloggio_operatore = 'Hotel'` pay an additional `100`
   - changing participant accommodation, city, arrival, or departure recalculates the fee; changing `host_city` recalculates all participant fees
 - When changing statistics logic, check both manager/admin dashboards and the public stats page.
 - When changing participants table columns, update:

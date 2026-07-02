@@ -20,6 +20,7 @@ import {
 
 type ParticipantRow = {
   id: string;
+  personal_code: string | null;
   created_at: string | null;
   nome: string | null;
   cognome: string | null;
@@ -51,7 +52,7 @@ type ParticipantRow = {
 };
 
 const SELECT_FIELDS_BASE =
-  "id,created_at,nome,cognome,eta,tipo_iscrizione,preferenza_alloggio_operatore,gruppo_leader,paese_residenza,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,fee_paid,gruppo_id,gruppo_label,partecipa_intero_evento,presenza_dettaglio,deleted_at";
+  "id,personal_code,created_at,nome,cognome,eta,tipo_iscrizione,preferenza_alloggio_operatore,gruppo_leader,paese_residenza,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,fee_paid,gruppo_id,gruppo_label,partecipa_intero_evento,presenza_dettaglio,deleted_at";
 const SELECT_FIELDS_WITH_CITY = `${SELECT_FIELDS_BASE},citta:città`;
 const SELECT_FIELDS_LEGACY =
   "id,created_at,nome,cognome,eta,tipo_iscrizione,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,fee_paid,gruppo_id,gruppo_label";
@@ -189,6 +190,7 @@ function toParticipantRow(value: unknown): ParticipantRow {
   const row = (value ?? {}) as Record<string, unknown>;
   return {
     id: typeof row.id === "string" ? row.id : "",
+    personal_code: (row.personal_code as string | null | undefined) ?? null,
     created_at: (row.created_at as string | null | undefined) ?? null,
     nome: (row.nome as string | null | undefined) ?? null,
     cognome: (row.cognome as string | null | undefined) ?? null,

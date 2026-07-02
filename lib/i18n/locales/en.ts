@@ -202,6 +202,7 @@ const en: TranslationDictionary = {
   "participants.table.filter.max": "Max",
   "participants.table.noResults": "No participants found with the current filters.",
   "participants.table.modal.editTitle": "Edit participant",
+  "participants.table.modal.personalCode": "Personal code",
   "participants.table.modal.close": "Close",
   "participants.table.modal.select": "Select...",
   "participants.table.modal.accessibility": "Disability / accessibility",

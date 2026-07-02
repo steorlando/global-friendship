@@ -21,6 +21,7 @@ type PresenceDettaglioMap = Record<string, boolean>;
 
 type Participant = {
   id: string;
+  personal_code?: string | null;
   created_at: string | null;
   nome: string | null;
   cognome: string | null;
@@ -1322,8 +1323,18 @@ export function ParticipantsTable({
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">{t("participants.table.modal.editTitle")}</h2>
-                <p className="text-sm text-slate-500">
-                  {editingParticipant.nome} {editingParticipant.cognome}
+                <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-slate-500">
+                  <span>
+                    {editingParticipant.nome} {editingParticipant.cognome}
+                  </span>
+                  {editingParticipant.personal_code ? (
+                    <span
+                      className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 font-mono text-xs font-semibold tracking-wider text-indigo-700"
+                      title={t("participants.table.modal.personalCode")}
+                    >
+                      #{editingParticipant.personal_code}
+                    </span>
+                  ) : null}
                 </p>
               </div>
               <button

@@ -184,6 +184,7 @@ const it: TranslationDictionary = {
   "participants.table.filter.max": "Max",
   "participants.table.noResults": "Nessun partecipante trovato con i filtri correnti.",
   "participants.table.modal.editTitle": "Modifica partecipante",
+  "participants.table.modal.personalCode": "Codice personale",
   "participants.table.modal.close": "Chiudi",
   "participants.table.modal.accessibility": "Disabilità / accessibilità",
   "participants.table.modal.cancel": "Annulla",
