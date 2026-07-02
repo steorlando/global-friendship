@@ -565,6 +565,7 @@ High-value migrations to know:
 - `supabase/accommodation_hardening_migration.sql`
 - `supabase/operator_accommodation_preference_migration.sql`
 - `supabase/participants_soft_delete_migration.sql`
+- `supabase/participant_personal_code_migration.sql`
 
 Main business tables encountered frequently:
 
@@ -588,6 +589,14 @@ Main business tables encountered frequently:
 - `stanze`
 - `stanze_gruppi`
 - `partecipanti_stanze`
+
+Participant identifiers:
+
+- `partecipanti.id` remains the internal UUID primary key.
+- `partecipanti.personal_code` is an automatically generated unique four-digit code used
+  for human-facing communications.
+- The participant email-campaign token `{{id}}` renders `personal_code`; it must not be
+  treated as an authentication secret.
 
 ## Tally Webhook / Data Ingestion
 

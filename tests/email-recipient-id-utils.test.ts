@@ -17,10 +17,10 @@ const ID_1 = "6f40f01e-8d63-4fcb-95f6-7b0f6bf4960d";
 const ID_2 = "f2e81b7f-e26f-47cc-a1f2-3692305bca18";
 const ID_3 = "4bc7fbb2-68f2-4a5f-91de-f2bb0f9c8acc";
 
-test("participant campaign id token renders the short Tally submission id", () => {
+test("participant campaign id token renders the four-digit personal code", () => {
   const rendered = renderParticipantTemplateText("Code: {{id}}", {
     id: ID_1,
-    tally_submission_id: "ABC1234",
+    personal_code: "1234",
     nome: "Ada",
     cognome: "Lovelace",
     email: null,
@@ -40,7 +40,7 @@ test("participant campaign id token renders the short Tally submission id", () =
     group: "",
   });
 
-  assert.equal(rendered, "Code: ABC1234");
+  assert.equal(rendered, "Code: 1234");
 });
 
 test("parseRecipientIdsFromText parses comma-separated IDs", () => {
