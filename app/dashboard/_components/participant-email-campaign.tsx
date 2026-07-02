@@ -937,16 +937,36 @@ export function ParticipantEmailCampaign() {
           })),
         }),
       });
-      const json = (await res.json()) as {
+      const responseText = await res.text();
+      let json: {
         error?: string;
         sent?: number;
         failed?: Array<{ id: string; reason: string }>;
         skipped?: Array<{ id: string; reason: string }>;
         logSaved?: boolean;
         logError?: string | null;
-      };
+      } = {};
+
+      if (responseText) {
+        try {
+          json = JSON.parse(responseText) as typeof json;
+        } catch {
+          // Vercel may return a plain-text or HTML error for infrastructure failures.
+        }
+      }
+
       if (!res.ok) {
-        setSendError(json.error ?? "Unable to send email campaign.");
+        const failureReasons = [
+          ...new Set(
+            (json.failed ?? [])
+              .map((failure) => failure.reason.trim())
+              .filter(Boolean)
+          ),
+        ];
+        const detail = failureReasons.length > 0 ? ` ${failureReasons.join("; ")}` : "";
+        setSendError(
+          `${json.error ?? `Unable to send email campaign (HTTP ${res.status}).`}${detail}`
+        );
         return;
       }
 
@@ -960,8 +980,9 @@ export function ParticipantEmailCampaign() {
 
       setSendResult(`Sent ${sent} email(s). Failed: ${failed}. Skipped: ${skipped}.${logWarning}`);
       setShowPreview(false);
-    } catch {
-      setSendError("Unable to send email campaign.");
+    } catch (error) {
+      const detail = error instanceof Error ? ` ${error.message}` : "";
+      setSendError(`Unable to send email campaign.${detail}`);
     } finally {
       setSending(false);
     }
@@ -1682,6 +1703,15 @@ export function ParticipantEmailCampaign() {
                 dangerouslySetInnerHTML={{ __html: sanitizedPreviewHtml }}
               />
             </div>
+
+            {sendError ? (
+              <div
+                role="alert"
+                className="mt-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+              >
+                {sendError}
+              </div>
+            ) : null}
 
             <div className="mt-5 flex justify-end gap-2">
               <button
