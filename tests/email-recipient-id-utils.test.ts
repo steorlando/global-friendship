@@ -11,10 +11,37 @@ import {
   buildParticipantRegistrationConfirmationSubject,
   buildParticipantRegistrationConfirmationText,
 } from "../lib/email/participant-registration-confirmation-template.ts";
+import { renderParticipantTemplateText } from "../lib/email/participant-template.ts";
 
 const ID_1 = "6f40f01e-8d63-4fcb-95f6-7b0f6bf4960d";
 const ID_2 = "f2e81b7f-e26f-47cc-a1f2-3692305bca18";
 const ID_3 = "4bc7fbb2-68f2-4a5f-91de-f2bb0f9c8acc";
+
+test("participant campaign id token renders the short Tally submission id", () => {
+  const rendered = renderParticipantTemplateText("Code: {{id}}", {
+    id: ID_1,
+    tally_submission_id: "ABC1234",
+    nome: "Ada",
+    cognome: "Lovelace",
+    email: null,
+    telefono: null,
+    tipo_iscrizione: null,
+    paese_residenza: null,
+    nazione: null,
+    data_nascita: null,
+    data_arrivo: null,
+    data_partenza: null,
+    alloggio: null,
+    allergie: null,
+    esigenze_alimentari: [],
+    disabilita_accessibilita: null,
+    difficolta_accessibilita: [],
+    quota_totale: null,
+    group: "",
+  });
+
+  assert.equal(rendered, "Code: ABC1234");
+});
 
 test("parseRecipientIdsFromText parses comma-separated IDs", () => {
   const parsed = parseRecipientIdsFromText(`${ID_1},${ID_2},`);

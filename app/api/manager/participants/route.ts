@@ -18,6 +18,7 @@ import {
 
 type ParticipantRow = {
   id: string;
+  tally_submission_id: string | null;
   created_at: string | null;
   nome: string | null;
   cognome: string | null;
@@ -46,7 +47,7 @@ type ParticipantRow = {
 };
 
 const SELECT_FIELDS_BASE =
-  "id,created_at,nome,cognome,eta,tipo_iscrizione,preferenza_alloggio_operatore,gruppo_leader,paese_residenza,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label,deleted_at";
+  "id,tally_submission_id,created_at,nome,cognome,eta,tipo_iscrizione,preferenza_alloggio_operatore,gruppo_leader,paese_residenza,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label,deleted_at";
 const SELECT_FIELDS_BASE_LEGACY =
   "id,created_at,nome,cognome,eta,tipo_iscrizione,paese_residenza,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label";
 const SELECT_FIELDS_WITH_CITY = `${SELECT_FIELDS_BASE},citta:città`;

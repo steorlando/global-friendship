@@ -22,6 +22,7 @@ import {
 
 type ParticipantRow = {
   id: string;
+  tally_submission_id: string | null;
   nome: string | null;
   cognome: string | null;
   email: string | null;
@@ -79,7 +80,7 @@ type SendLogInsertPayload = {
 };
 
 const SELECT_FIELDS =
-  "id,nome,cognome,email,telefono,tipo_iscrizione,paese_residenza,nazione,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label,deleted_at";
+  "id,tally_submission_id,nome,cognome,email,telefono,tipo_iscrizione,paese_residenza,nazione,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label,deleted_at";
 const GROUP_LEADER_SELECT_FIELDS = "id,email,nome,cognome,ruolo,telefono,italia,roma";
 const MAX_ATTACHMENTS = 5;
 const MAX_ATTACHMENT_BASE64_LENGTH = 10 * 1024 * 1024;
@@ -233,6 +234,7 @@ async function runWithConcurrency<T>(
 function toTemplateData(row: ParticipantRow): ParticipantTemplateData {
   return {
     id: row.id,
+    tally_submission_id: row.tally_submission_id,
     nome: row.nome,
     cognome: row.cognome,
     email: row.email,

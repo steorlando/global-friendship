@@ -1,5 +1,6 @@
 export type ParticipantTemplateData = {
   id: string;
+  tally_submission_id: string | null;
   nome: string | null;
   cognome: string | null;
   email: string | null;
@@ -89,7 +90,7 @@ export function buildParticipantTemplateMap(
     full_name: fullName,
     nome,
     cognome,
-    id: participant.id ?? "",
+    id: normalizeString(participant.tally_submission_id),
     email: normalizeString(participant.email),
     telefono: normalizeString(participant.telefono),
     tipo_iscrizione: normalizeString(participant.tipo_iscrizione),
