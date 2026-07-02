@@ -10,6 +10,7 @@ import {
 } from "@/lib/email/participant-registration-confirmation-template";
 import {
   alloggioLongToShort,
+  isAutonomousAccommodation,
   isOperatorRegistrationType,
   normalizeOperatorAccommodationPreference,
 } from "@/lib/partecipante/constants";
@@ -1267,7 +1268,9 @@ function normalizeSubmission(
     emailSecondaria,
     telefono,
     tipoIscrizione,
-    preferenzaAlloggioOperatore,
+    preferenzaAlloggioOperatore: isAutonomousAccommodation(alloggio)
+      ? ""
+      : preferenzaAlloggioOperatore,
     dataNascita,
     sesso,
     nazione,

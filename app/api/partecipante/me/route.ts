@@ -12,6 +12,7 @@ import {
   DEPARTURE_DATE_MIN,
   DIFFICOLTA_ACCESSIBILITA_OPTIONS,
   ESIGENZE_ALIMENTARI_OPTIONS,
+  isAutonomousAccommodation,
   isOperatorRegistrationType,
   normalizeOperatorAccommodationPreference,
   parseStoredDifficoltaAccessibilita,
@@ -436,7 +437,7 @@ export async function PATCH(req: Request) {
       : participant.preferenza_alloggio_operatore;
   const operatorAccommodationPreference = isOperatorRegistrationType(
     participant.tipo_iscrizione
-  )
+  ) && !isAutonomousAccommodation(alloggio)
     ? normalizeOperatorAccommodationPreference(operatorAccommodationPreferenceInput)
     : null;
   const allergie =
@@ -541,6 +542,7 @@ export async function PATCH(req: Request) {
 
   if (
     isOperatorRegistrationType(participant.tipo_iscrizione) &&
+    !isAutonomousAccommodation(alloggio) &&
     operatorAccommodationPreferenceInput &&
     !operatorAccommodationPreference
   ) {

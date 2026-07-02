@@ -11,6 +11,7 @@ import { StatisticsParticipantEditModal } from "./statistics-participant-edit-mo
 import { getServerTranslator } from "@/lib/i18n/server";
 import {
   isOperatorRegistrationType,
+  isAutonomousAccommodation,
   normalizeOperatorAccommodationPreference,
 } from "@/lib/partecipante/constants";
 
@@ -104,6 +105,7 @@ type OperatorAccommodationPreferenceCounts = {
   hotel: number;
   hostel: number;
   missing: number;
+  notApplicable: number;
 };
 
 function mapEnrollmentBucket(rawType: string | null): EnrollmentBucket | null {
@@ -644,10 +646,19 @@ function buildOperatorAccommodationPreferenceCounts(
     hotel: 0,
     hostel: 0,
     missing: 0,
+    notApplicable: 0,
   };
 
   for (const participant of participants) {
     if (!isOperatorRegistrationType(participant.tipo_iscrizione)) continue;
+
+    if (
+      isAutonomousAccommodation(participant.alloggio_short) ||
+      isAutonomousAccommodation(participant.alloggio)
+    ) {
+      counts.notApplicable += 1;
+      continue;
+    }
 
     const preference = normalizeOperatorAccommodationPreference(
       participant.preferenza_alloggio_operatore
@@ -855,6 +866,12 @@ function OperatorAccommodationPreferenceSection({
       label: t("manager.operatorAccommodation.missing"),
       count: counts.missing,
       href: "/dashboard/manager/participants?operatorAccommodation=missing",
+    },
+    {
+      key: "not-applicable",
+      label: t("manager.operatorAccommodation.notApplicable"),
+      count: counts.notApplicable,
+      href: "/dashboard/manager/participants?operatorAccommodation=not-applicable",
     },
   ];
 

@@ -11,6 +11,7 @@ import {
   DIFFICOLTA_ACCESSIBILITA_OPTIONS,
   ESIGENZE_ALIMENTARI_OPTIONS,
   alloggioLongToShort,
+  isAutonomousAccommodation,
   isOperatorRegistrationType,
   normalizeOperatorAccommodationPreference,
   parseStoredDifficoltaAccessibilita,
@@ -497,7 +498,9 @@ export async function PATCH(req: Request) {
     "preferenza_alloggio_operatore" in body
       ? normalizeText(body.preferenza_alloggio_operatore)
       : current.preferenza_alloggio_operatore;
-  const operatorAccommodationPreference = isOperatorRegistrationType(tipoIscrizione)
+  const operatorAccommodationPreference =
+    isOperatorRegistrationType(tipoIscrizione) &&
+    !isAutonomousAccommodation(normalizedAlloggio)
     ? normalizeOperatorAccommodationPreference(operatorAccommodationPreferenceInput)
     : null;
   const allergie = "allergie" in body ? normalizeText(body.allergie) : current.allergie;
@@ -613,6 +616,7 @@ export async function PATCH(req: Request) {
 
   if (
     isOperatorRegistrationType(tipoIscrizione) &&
+    !isAutonomousAccommodation(normalizedAlloggio) &&
     operatorAccommodationPreferenceInput &&
     !operatorAccommodationPreference
   ) {

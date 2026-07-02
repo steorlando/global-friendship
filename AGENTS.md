@@ -368,6 +368,7 @@ Special participant table logic:
 - Operators (`Operator - Operatore`) can store `preferenza_alloggio_operatore`, with values:
   - `Hostel with group`
   - `Hotel`
+- The operator accommodation preference applies only to organization-provided accommodation. Operators with autonomous accommodation are classified as `Not applicable` in statistics, and any stored preference is cleared on update.
 - This operator accommodation preference is visible/editable only for operator registrations; non-operator updates clear/ignore it.
 - Host-city attendance fields (`partecipa_intero_evento`, `presenza_dettaglio`) are visible/editable in the capogruppo participant edit modal only for participants whose city (`città`) matches the configured event `host_city`.
 - Capogruppo users do not see these host-city specific fields for non-host-city participants in the same group.

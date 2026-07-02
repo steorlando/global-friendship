@@ -45,7 +45,9 @@ export function alloggioShortToLong(
   const lowered = trimmed.toLowerCase();
   if (
     lowered.includes("arranged my own accommodation") ||
-    lowered.includes("alloggio autonomamente")
+    lowered.includes("alloggio autonomamente") ||
+    lowered === "autonomous" ||
+    lowered === "autonomo"
   ) {
     return ALLOGGIO_OPTIONS[0];
   }
@@ -70,6 +72,12 @@ export function alloggioLongToShort(value: string | null | undefined): string | 
   return normalizedLong === ALLOGGIO_OPTIONS[0]
     ? ALLOGGIO_SHORT_OPTIONS[1]
     : ALLOGGIO_SHORT_OPTIONS[0];
+}
+
+export function isAutonomousAccommodation(
+  value: string | null | undefined
+): boolean {
+  return alloggioShortToLong(value) === ALLOGGIO_OPTIONS[0];
 }
 
 export function isOperatorRegistrationType(value: string | null | undefined): boolean {

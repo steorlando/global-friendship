@@ -243,6 +243,7 @@ const en: TranslationDictionary = {
   "manager.operatorAccommodation.hotel": "Hotel",
   "manager.operatorAccommodation.hostel": "Hostel with group",
   "manager.operatorAccommodation.missing": "No preference selected",
+  "manager.operatorAccommodation.notApplicable": "Not applicable (autonomous accommodation)",
   "manager.statistics.topCounters": "Top counters",
   "manager.statistics.totalRegistrations": "Total registrations",
   "manager.statistics.title": "Statistics",

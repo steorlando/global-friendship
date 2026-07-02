@@ -10,6 +10,7 @@ import {
   DIFFICOLTA_ACCESSIBILITA_OPTIONS,
   ESIGENZE_ALIMENTARI_OPTIONS,
   OPERATOR_ACCOMMODATION_PREFERENCE_OPTIONS,
+  isAutonomousAccommodation,
   isOperatorRegistrationType,
 } from "@/lib/partecipante/constants";
 import { useI18n } from "@/lib/i18n/provider";
@@ -152,7 +153,7 @@ export function PartecipanteForm() {
   const [quotaTotale, setQuotaTotale] = useState<number | null>(null);
   const showOperatorAccommodationPreference = isOperatorRegistrationType(
     formData.tipo_iscrizione
-  );
+  ) && !isAutonomousAccommodation(formData.alloggio);
   const presenceOptions = useMemo(() => {
     const fromForm = Object.keys(formData.presenza_dettaglio ?? {});
     const merged = [...new Set([...fromForm, ...HOST_CITY_PRESENCE_OPTIONS])];

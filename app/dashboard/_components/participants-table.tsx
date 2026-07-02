@@ -12,6 +12,7 @@ import {
   OPERATOR_ACCOMMODATION_PREFERENCE_OPTIONS,
   REGISTRATION_TYPE_OPTIONS,
   isOperatorRegistrationType,
+  isAutonomousAccommodation,
   normalizeOperatorAccommodationPreference,
 } from "@/lib/partecipante/constants";
 import { useI18n } from "@/lib/i18n/provider";
@@ -382,7 +383,7 @@ export function ParticipantsTable({
   );
   const showOperatorAccommodationPreference = isOperatorRegistrationType(
     form.tipo_iscrizione
-  );
+  ) && !isAutonomousAccommodation(form.alloggio);
   const presenceOptions = useMemo(() => {
     const fromParticipant = Object.keys(editingParticipant?.presenza_dettaglio ?? {});
     const fromForm = Object.keys(form.presenza_dettaglio ?? {});
@@ -527,6 +528,16 @@ export function ParticipantsTable({
         const preference = normalizeOperatorAccommodationPreference(
           participant.preferenza_alloggio_operatore
         );
+        const isAutonomous = isAutonomousAccommodation(participant.alloggio);
+        if (operatorAccommodationFilter === "not-applicable" && !isAutonomous) {
+          return false;
+        }
+        if (
+          operatorAccommodationFilter !== "not-applicable" &&
+          isAutonomous
+        ) {
+          return false;
+        }
         if (operatorAccommodationFilter === "hotel" && preference !== "Hotel") {
           return false;
         }
@@ -622,7 +633,7 @@ export function ParticipantsTable({
     if (editParticipant) setInitialEditParticipantId(editParticipant);
 
     const operatorAccommodation = params.get("operatorAccommodation") ?? "";
-    if (["hotel", "hostel", "missing"].includes(operatorAccommodation)) {
+    if (["hotel", "hostel", "missing", "not-applicable"].includes(operatorAccommodation)) {
       setOperatorAccommodationFilter(operatorAccommodation);
       setTipoIscrizioneFilter("Operator");
       setVisibleOptionalColumns((prev) =>
