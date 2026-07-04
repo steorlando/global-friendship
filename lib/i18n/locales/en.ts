@@ -596,6 +596,14 @@ const en: TranslationDictionary = {
   "fees.feePaid": "Fee paid",
   "fees.searchNameGroup": "Search name/group",
   "fees.amountPlaceholder": "0.00",
+  "fees.bankImport.title": "Import fees from a bank statement",
+  "fees.bankImport.subtitle": "Upload the bank Excel file. Only incoming payments containing “global” or “budapest” in the description are considered. The Excel report highlights imported fees, duplicates, and entries requiring manual review.",
+  "fees.bankImport.chooseFile": "Choose bank statement",
+  "fees.bankImport.selectedFile": "Selected file: {file}",
+  "fees.bankImport.importAndDownload": "Import and download report",
+  "fees.bankImport.importing": "Importing...",
+  "fees.bankImport.error": "Unable to import the bank statement.",
+  "fees.bankImport.success": "Import completed: {imported} fees imported, {duplicates} already present, {unmatched} to review. The report was downloaded.",
 };
 
 export default en;

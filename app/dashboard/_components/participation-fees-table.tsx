@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ALLOGGIO_SHORT_OPTIONS,
   ARRIVAL_DATE_MAX,
@@ -72,6 +72,7 @@ function formatCurrency(value: number) {
 
 export function ParticipationFeesTable() {
   const { t } = useI18n();
+  const bankStatementInputRef = useRef<HTMLInputElement>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [groups, setGroups] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -89,12 +90,14 @@ export function ParticipationFeesTable() {
   const [feeDrafts, setFeeDrafts] = useState<DraftFees>({});
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
   const [bulkSaving, setBulkSaving] = useState(false);
+  const [bankStatementFile, setBankStatementFile] = useState<File | null>(null);
+  const [importingBankStatement, setImportingBankStatement] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function loadParticipants() {
-      setLoading(true);
+  const loadParticipants = useCallback(
+    async (showLoading = true) => {
+      if (showLoading) setLoading(true);
       setLoadError(null);
 
       try {
@@ -111,12 +114,15 @@ export function ParticipationFeesTable() {
       } catch {
         setLoadError(t("fees.loadError"));
       } finally {
-        setLoading(false);
+        if (showLoading) setLoading(false);
       }
-    }
+    },
+    [t]
+  );
 
-    loadParticipants();
-  }, [t]);
+  useEffect(() => {
+    void loadParticipants();
+  }, [loadParticipants]);
 
   const visibleParticipants = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -361,6 +367,56 @@ export function ParticipationFeesTable() {
     }
   }
 
+  async function importBankStatement() {
+    if (!bankStatementFile || importingBankStatement) return;
+
+    setImportingBankStatement(true);
+    setActionError(null);
+    setActionSuccess(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", bankStatementFile);
+      const response = await fetch("/api/manager/participation-fees/import-bank-statement", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const json = await response.json().catch(() => null);
+        setActionError(json?.error ?? t("fees.bankImport.error"));
+        return;
+      }
+
+      const report = await response.blob();
+      const disposition = response.headers.get("Content-Disposition") ?? "";
+      const reportName =
+        disposition.match(/filename="([^"]+)"/i)?.[1] ?? "report-importazione-quote.xlsx";
+      const reportUrl = URL.createObjectURL(report);
+      const link = document.createElement("a");
+      link.href = reportUrl;
+      link.download = reportName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(reportUrl);
+
+      const imported = response.headers.get("X-Import-Imported") ?? "0";
+      const duplicates = response.headers.get("X-Import-Duplicates") ?? "0";
+      const unmatched = response.headers.get("X-Import-Unmatched") ?? "0";
+      setActionSuccess(
+        t("fees.bankImport.success", { imported, duplicates, unmatched })
+      );
+      setBankStatementFile(null);
+      if (bankStatementInputRef.current) bankStatementInputRef.current.value = "";
+      await loadParticipants(false);
+    } catch {
+      setActionError(t("fees.bankImport.error"));
+    } finally {
+      setImportingBankStatement(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="rounded border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
@@ -379,6 +435,56 @@ export function ParticipationFeesTable() {
 
   return (
     <div className="space-y-4">
+      <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-5 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="text-base font-semibold text-slate-900">
+              {t("fees.bankImport.title")}
+            </h2>
+            <p className="mt-1 max-w-3xl text-sm text-slate-600">
+              {t("fees.bankImport.subtitle")}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              ref={bankStatementInputRef}
+              type="file"
+              accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+              className="sr-only"
+              onChange={(event) => {
+                setBankStatementFile(event.target.files?.[0] ?? null);
+                setActionError(null);
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => bankStatementInputRef.current?.click()}
+              disabled={importingBankStatement}
+              className="rounded border border-indigo-600 bg-white px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {t("fees.bankImport.chooseFile")}
+            </button>
+            {bankStatementFile ? (
+              <button
+                type="button"
+                onClick={() => void importBankStatement()}
+                disabled={importingBankStatement}
+                className="rounded border border-indigo-600 bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {importingBankStatement
+                  ? t("fees.bankImport.importing")
+                  : t("fees.bankImport.importAndDownload")}
+              </button>
+            ) : null}
+          </div>
+        </div>
+        {bankStatementFile ? (
+          <p className="mt-3 text-xs text-slate-600">
+            {t("fees.bankImport.selectedFile", { file: bankStatementFile.name })}
+          </p>
+        ) : null}
+      </div>
+
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-base font-semibold text-slate-900">{t("fees.groupSummary")}</h3>

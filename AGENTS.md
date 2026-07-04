@@ -31,7 +31,7 @@ Keep it updated when major routes, data structures, or business rules change.
 - Never create or switch to a different branch for Codex changes in this repository.
 
 Notes:
-- `npm test` currently runs only `tests/email-recipient-id-utils.test.ts`.
+- `npm test` runs `tests/email-recipient-id-utils.test.ts` and `tests/bank-statement-import.test.ts`.
 - There are many additional `tests/*.test.ts` files in the repo; run them explicitly with `node --test --experimental-strip-types <file>` if needed.
 
 ## Environment Variables
@@ -213,6 +213,26 @@ Main files:
 The participant profile displays the participant's read-only `quota_totale`. After the
 participant updates accommodation or stay details, the saved value returned by the
 database trigger is shown immediately.
+
+### Participation Fee Bank Import
+
+Main files:
+
+- `app/api/manager/participation-fees/import-bank-statement/route.ts`
+- `lib/participation-fees/bank-statement.ts`
+- `supabase/participation_fee_bank_import_migration.sql`
+
+From the manager Participation Fees tab, an operator can upload an `.xlsx`/`.xls` bank
+statement. Incoming entries are considered when the extended description contains
+`global` or `budapest` (case-insensitive). The participant is matched through the
+four-digit `personal_code`; `ID 16` is normalized to `0016`, and a bare code is accepted
+when it uniquely matches an active participant. Imported amounts are added to `fee_paid`.
+
+Imported bank payments are recorded in `participation_fee_bank_payments`. Duplicate
+protection uses both the bank movement reference/source key and the combination of
+participant, payment date, and amount. The import returns an Excel report with a full
+result sheet and a `Da verificare` sheet for keyword-matching entries that could not be
+associated automatically.
 
 ## Internationalization
 
@@ -579,6 +599,7 @@ High-value migrations to know:
 - `supabase/operator_hotel_fee_surcharge_migration.sql`
 - `supabase/participants_soft_delete_migration.sql`
 - `supabase/participant_personal_code_migration.sql`
+- `supabase/participation_fee_bank_import_migration.sql`
 
 Main business tables encountered frequently:
 
@@ -602,6 +623,7 @@ Main business tables encountered frequently:
 - `stanze`
 - `stanze_gruppi`
 - `partecipanti_stanze`
+- `participation_fee_bank_payments`
 
 Participant identifiers:
 

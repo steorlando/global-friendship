@@ -568,6 +568,15 @@ const it: TranslationDictionary = {
   "fees.calculatedFee": "Quota calcolata",
   "fees.feePaid": "Quota pagata",
   "fees.searchNameGroup": "Cerca nome/gruppo",
+  "fees.amountPlaceholder": "0,00",
+  "fees.bankImport.title": "Importa quote dall'estratto conto",
+  "fees.bankImport.subtitle": "Carica l'Excel della banca: saranno considerate solo le entrate con “global” o “budapest” nella causale. Il report Excel evidenzierà quote importate, duplicati e movimenti da verificare a mano.",
+  "fees.bankImport.chooseFile": "Scegli estratto conto",
+  "fees.bankImport.selectedFile": "File selezionato: {file}",
+  "fees.bankImport.importAndDownload": "Importa e scarica report",
+  "fees.bankImport.importing": "Importazione...",
+  "fees.bankImport.error": "Impossibile importare l'estratto conto.",
+  "fees.bankImport.success": "Importazione completata: {imported} quote importate, {duplicates} già presenti, {unmatched} da verificare. Il report è stato scaricato.",
 };
 
 export default it;
