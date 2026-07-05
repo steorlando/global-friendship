@@ -625,8 +625,7 @@ export function ParticipantsTable({
     (showRegistrationDate ? 1 : 0) +
     2 +
     1 +
-    (showTotalFee ? 1 : 0) +
-    1;
+    (showTotalFee ? 1 : 0);
 
   useEffect(() => {
     if (initialEditParticipantIdProp) {
@@ -1106,17 +1105,26 @@ export function ParticipantsTable({
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setOnlyRoma((prev) => !prev)}
-            className={`rounded border px-3 py-1.5 text-xs font-medium transition ${
-              onlyRoma
-                ? "border-indigo-600 bg-indigo-600 text-white"
-                : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
-            }`}
-          >
-            Roma
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-100"
+            >
+              {t("common.reset")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setOnlyRoma((prev) => !prev)}
+              className={`rounded border px-3 py-1.5 text-xs font-medium transition ${
+                onlyRoma
+                  ? "border-indigo-600 bg-indigo-600 text-white"
+                  : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
+              }`}
+            >
+              Roma
+            </button>
+          </div>
         </div>
 
         <div className="mt-4 overflow-x-auto rounded border border-slate-200">
@@ -1191,7 +1199,6 @@ export function ParticipantsTable({
                     </button>
                   </th>
                 )}
-                <th className="px-4 py-3">{t("participants.table.header.actions")}</th>
               </tr>
               <tr>
                 {showGroupColumn && (
@@ -1320,15 +1327,6 @@ export function ParticipantsTable({
                     />
                   </th>
                 )}
-                <th className="px-2 pb-3">
-                  <button
-                    type="button"
-                    onClick={resetFilters}
-                    className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100"
-                  >
-                    {t("common.reset")}
-                  </button>
-                </th>
               </tr>
             </thead>
             <tbody>
@@ -1356,7 +1354,16 @@ export function ParticipantsTable({
                     {showGroupColumn && (
                       <td className="px-4 py-3">{participant.group || "-"}</td>
                     )}
-                    <td className="px-4 py-3">{participant.nome || "-"}</td>
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={() => openEditModal(participant)}
+                        aria-label={`${t("common.edit")} ${participant.nome ?? ""} ${participant.cognome ?? ""}`.trim()}
+                        className="rounded-sm text-left font-medium text-indigo-700 underline decoration-indigo-300 underline-offset-2 transition hover:text-indigo-900 hover:decoration-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+                      >
+                        {participant.nome || "-"}
+                      </button>
+                    </td>
                     <td className="px-4 py-3">{participant.cognome || "-"}</td>
                     {showRegistrationTypeColumn && (
                       <td className="px-4 py-3">{participant.tipo_iscrizione || "-"}</td>
@@ -1396,15 +1403,6 @@ export function ParticipantsTable({
                         {displayRegistrationDate(participant.created_at)}
                       </td>
                     )}
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => openEditModal(participant)}
-                        className="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
-                      >
-                        {t("common.edit")}
-                      </button>
-                    </td>
                   </tr>
                 ))
               )}

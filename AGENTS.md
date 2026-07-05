@@ -364,6 +364,7 @@ Important behavior:
 - The edit modal shows the read-only four-digit `personal_code` as a badge beside the participant name.
 - Edit modal includes `tipo_iscrizione`; it is editable from manager/admin and capogruppo participant views.
 - The participant table shows participation fees as paid/expected (for example `€ 200/235`) for manager, admin, and capogruppo views. Fully paid rows receive a light green background.
+- Participant names are clickable and open the edit modal; the separate Actions column is intentionally omitted to keep the table compact.
 - Delete is available from the edit modal with confirmation
 - Participant deletion is a soft delete: records remain in `partecipanti` with `deleted_at` / deletion metadata and are hidden from operational dashboards, login, stats, accommodation, email campaigns, and fee screens.
 - Admins can review and restore soft-deleted participants at `/dashboard/admin/deleted-participants`.
