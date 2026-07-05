@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import {
+  groupDisplayName,
+  loadGroupDisplayNamesById,
+} from "@/lib/groups/display-names";
 import { sendGmailEmail } from "@/lib/email/gmail";
 import { loadEmailSenderRuntimeSettings } from "@/lib/email/settings";
 import {
@@ -396,13 +400,20 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: groupsError.message }, { status: 500 });
       }
 
+      const groupNamesById = await loadGroupDisplayNamesById(
+        auth.service,
+        (profileGroups ?? []).map((row) => row.gruppo_id)
+      );
+
       for (const row of (profileGroups ?? []) as ProfileGroupRow[]) {
         const profileId = (row.profilo_id ?? "").trim();
         const groupId = (row.gruppo_id ?? "").trim();
         if (!profileId || !groupId) continue;
+        const groupName = groupDisplayName(groupId, groupNamesById);
+        if (!groupName) continue;
         const existing = groupsByLeader.get(profileId) ?? [];
-        if (!existing.includes(groupId)) {
-          existing.push(groupId);
+        if (!existing.includes(groupName)) {
+          existing.push(groupName);
           existing.sort((a, b) => a.localeCompare(b));
           groupsByLeader.set(profileId, existing);
         }

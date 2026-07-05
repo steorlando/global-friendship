@@ -1,5 +1,6 @@
 import { type SupabaseClient } from "@supabase/supabase-js";
 import { isAppRole } from "@/lib/auth/roles";
+import { groupDisplayName, loadGroupDisplayNamesById } from "@/lib/groups/display-names";
 
 export type ProfiloInput = {
   email: string;
@@ -186,29 +187,15 @@ export async function listProfili(supabase: SupabaseClient) {
         .filter(Boolean)
     ),
   ];
-  const groupNamesById = new Map<string, string>();
-
-  if (groupIds.length > 0) {
-    const { data: groupRows, error: groupsError } = await supabase
-      .from("gruppi")
-      .select("id,nome")
-      .in("id", groupIds);
-
-    if (groupsError) throw new Error(groupsError.message);
-
-    for (const group of (groupRows ?? []) as GroupOptionRow[]) {
-      const id = normalizeText(group.id);
-      const name = normalizeText(group.nome);
-      if (id && name) groupNamesById.set(id, name);
-    }
-  }
+  const groupNamesById = await loadGroupDisplayNamesById(supabase, groupIds);
 
   for (const link of links ?? []) {
     const profileId = link.profilo_id as string;
     const groupId = String(link.gruppo_id ?? "");
     if (!groupId) continue;
     const current = groupsByProfileId.get(profileId) ?? [];
-    current.push(groupNamesById.get(groupId) ?? groupId);
+    const groupName = groupDisplayName(groupId, groupNamesById);
+    if (groupName) current.push(groupName);
     groupsByProfileId.set(profileId, current);
   }
 

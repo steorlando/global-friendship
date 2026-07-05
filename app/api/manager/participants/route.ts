@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import {
+  groupDisplayNames,
+  loadGroupDisplayNamesById,
+} from "@/lib/groups/display-names";
 import { computeParticipantCalculatedFields } from "@/lib/tally/calculated-fields";
 import {
   ARRIVAL_DATE_MAX,
@@ -312,9 +316,9 @@ async function loadAssignableGroups(
     throw new Error(error.message);
   }
 
-  return [...new Set((data ?? []).map((row) => String(row.gruppo_id ?? "").trim()))]
-    .filter(Boolean)
-    .sort((a, b) => a.localeCompare(b));
+  const groupIds = (data ?? []).map((row) => String(row.gruppo_id ?? "").trim());
+  const namesById = await loadGroupDisplayNamesById(service, groupIds);
+  return groupDisplayNames(groupIds, namesById);
 }
 
 async function loadParticipantById(
