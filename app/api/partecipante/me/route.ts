@@ -45,6 +45,7 @@ type ParticipantDbRow = {
   presenza_dettaglio: Record<string, unknown> | null;
   submitted_at_tally: string | null;
   quota_totale: number | null;
+  fee_paid: number | null;
   deleted_at?: string | null;
 };
 
@@ -61,9 +62,9 @@ const alloggioSet = new Set<string>(ALLOGGIO_OPTIONS);
 const esigenzeSet = new Set<string>(ESIGENZE_ALIMENTARI_OPTIONS);
 const difficoltaSet = new Set<string>(DIFFICOLTA_ACCESSIBILITA_OPTIONS);
 const SELECT_FIELDS_BASE =
-  "id,email,nome,cognome,tipo_iscrizione,preferenza_alloggio_operatore,gruppo_leader,gruppo_id,gruppo_label,tally_submission_id,nazione,data_nascita,data_arrivo,data_partenza,alloggio,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,submitted_at_tally,quota_totale,deleted_at";
+  "id,email,nome,cognome,tipo_iscrizione,preferenza_alloggio_operatore,gruppo_leader,gruppo_id,gruppo_label,tally_submission_id,nazione,data_nascita,data_arrivo,data_partenza,alloggio,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,submitted_at_tally,quota_totale,fee_paid,deleted_at";
 const SELECT_FIELDS_BASE_LEGACY =
-  "id,email,nome,cognome,gruppo_id,gruppo_label,tally_submission_id,nazione,data_nascita,data_arrivo,data_partenza,alloggio,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,submitted_at_tally,quota_totale";
+  "id,email,nome,cognome,gruppo_id,gruppo_label,tally_submission_id,nazione,data_nascita,data_arrivo,data_partenza,alloggio,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,submitted_at_tally,quota_totale,fee_paid";
 const SELECT_FIELDS_WITH_HOST = `${SELECT_FIELDS_BASE},partecipa_intero_evento,presenza_dettaglio`;
 const SELECT_FIELDS_WITH_CITY = `${SELECT_FIELDS_BASE},citta:città`;
 const SELECT_FIELDS_WITH_CITY_AND_HOST = `${SELECT_FIELDS_WITH_HOST},citta:città`;
@@ -605,7 +606,7 @@ export async function PATCH(req: Request) {
     .update(updatePayload)
     .eq("id", participant.id)
     .ilike("email", auth.email)
-    .select("quota_totale")
+    .select("quota_totale,fee_paid")
     .maybeSingle();
 
   if (updateError && canFallbackMissingColumn(updateError)) {
@@ -616,7 +617,7 @@ export async function PATCH(req: Request) {
       .update(fallbackPayload)
       .eq("id", participant.id)
       .ilike("email", auth.email)
-      .select("quota_totale")
+      .select("quota_totale,fee_paid")
       .maybeSingle();
     updatedParticipant = fallback.data;
     updateError = fallback.error;
@@ -630,6 +631,8 @@ export async function PATCH(req: Request) {
     ok: true,
     quota_totale:
       (updatedParticipant as { quota_totale?: number | null } | null)?.quota_totale ?? null,
+    fee_paid:
+      (updatedParticipant as { fee_paid?: number | null } | null)?.fee_paid ?? null,
   });
 }
 

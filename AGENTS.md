@@ -210,9 +210,10 @@ Main files:
 - `app/dashboard/partecipante/partecipante-form.tsx`
 - `app/dashboard/partecipante/organizers-contact-card.tsx`
 
-The participant profile displays the participant's read-only `quota_totale`. After the
-participant updates accommodation or stay details, the saved value returned by the
-database trigger is shown immediately.
+The participant profile displays read-only expected (`quota_totale`) and paid (`fee_paid`)
+participation fee amounts. The same two values are visible in the participant edit modal
+used by capogruppo, manager, and admin. After the participant updates accommodation or
+stay details, the saved expected value returned by the database trigger is shown immediately.
 
 ### Participation Fee Bank Import
 

@@ -121,6 +121,7 @@ const en: TranslationDictionary = {
   "participant.form.group": "Group",
   "participant.form.groupLeader": "Indicated group leader",
   "participant.form.totalFee": "Your participation fee",
+  "participant.form.paymentSummary": "Participation fee payment summary",
   "participant.form.totalFeeHint": "This amount is calculated automatically from your registration details.",
   "participant.form.name": "Name",
   "participant.form.surname": "Surname",

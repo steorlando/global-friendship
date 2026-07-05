@@ -103,6 +103,7 @@ const it: TranslationDictionary = {
   "participant.form.group": "Gruppo",
   "participant.form.groupLeader": "Capogruppo indicato",
   "participant.form.totalFee": "La tua quota di partecipazione",
+  "participant.form.paymentSummary": "Riepilogo pagamento quota di partecipazione",
   "participant.form.totalFeeHint": "Questo importo viene calcolato automaticamente dai dati della tua iscrizione.",
   "participant.form.name": "Nome",
   "participant.form.surname": "Cognome",

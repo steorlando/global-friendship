@@ -1442,6 +1442,30 @@ export function ParticipantsTable({
             </div>
 
             <form onSubmit={handleSave} className="space-y-5">
+              <section
+                className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2"
+                aria-label={t("participant.form.paymentSummary")}
+              >
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                    {t("fees.totalExpected")}
+                  </p>
+                  <p className="mt-1 text-lg font-semibold text-slate-900">
+                    {editingParticipant.quota_totale === null
+                      ? "-"
+                      : formatCurrency(editingParticipant.quota_totale)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">
+                    {t("fees.totalPaid")}
+                  </p>
+                  <p className="mt-1 text-lg font-semibold text-emerald-900">
+                    {formatCurrency(editingParticipant.fee_paid ?? 0)}
+                  </p>
+                </div>
+              </section>
+
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label className="block text-sm font-medium text-slate-700">{t("participant.form.name")}</label>

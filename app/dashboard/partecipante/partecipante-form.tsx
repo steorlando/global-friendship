@@ -60,6 +60,7 @@ type ApiParticipant = ParticipantFormData & {
   email: string | null;
   citta: string | null;
   quota_totale: number | null;
+  fee_paid: number | null;
 };
 
 type ParticipantCandidate = {
@@ -151,6 +152,7 @@ export function PartecipanteForm() {
   const [canManageHostCityFields, setCanManageHostCityFields] = useState(false);
   const [hostCity, setHostCity] = useState("");
   const [quotaTotale, setQuotaTotale] = useState<number | null>(null);
+  const [feePaid, setFeePaid] = useState<number | null>(null);
   const showOperatorAccommodationPreference = isOperatorRegistrationType(
     formData.tipo_iscrizione
   ) && !isAutonomousAccommodation(formData.alloggio);
@@ -210,6 +212,7 @@ export function PartecipanteForm() {
         setQuotaTotale(
           typeof participant.quota_totale === "number" ? participant.quota_totale : null
         );
+        setFeePaid(typeof participant.fee_paid === "number" ? participant.fee_paid : null);
         setFormData({
           nome: participant.nome ?? "",
           cognome: participant.cognome ?? "",
@@ -388,6 +391,7 @@ export function PartecipanteForm() {
       setQuotaTotale(
         typeof json.quota_totale === "number" ? json.quota_totale : null
       );
+      setFeePaid(typeof json.fee_paid === "number" ? json.fee_paid : null);
       setSuccess(t("participant.form.saveSuccess"));
     } catch {
       setError(t("participant.form.saveError"));
@@ -501,13 +505,28 @@ export function PartecipanteForm() {
           id="participant-total-fee-title"
           className="text-xs font-medium uppercase tracking-wide text-indigo-700"
         >
-          {t("participant.form.totalFee")}
+          {t("participant.form.paymentSummary")}
         </p>
-        <p className="mt-1 text-2xl font-semibold text-indigo-950">
-          {quotaTotale === null
-            ? "-"
-            : formatNumber(quotaTotale, { style: "currency", currency: "EUR" })}
-        </p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-md border border-indigo-200 bg-white/70 px-3 py-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-indigo-700">
+              {t("fees.totalExpected")}
+            </p>
+            <p className="mt-1 text-xl font-semibold text-indigo-950">
+              {quotaTotale === null
+                ? "-"
+                : formatNumber(quotaTotale, { style: "currency", currency: "EUR" })}
+            </p>
+          </div>
+          <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">
+              {t("fees.totalPaid")}
+            </p>
+            <p className="mt-1 text-xl font-semibold text-emerald-950">
+              {formatNumber(feePaid ?? 0, { style: "currency", currency: "EUR" })}
+            </p>
+          </div>
+        </div>
         <p className="mt-1 text-xs text-indigo-700">
           {t("participant.form.totalFeeHint")}
         </p>
