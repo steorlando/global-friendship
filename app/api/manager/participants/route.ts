@@ -42,15 +42,16 @@ type ParticipantRow = {
   difficolta_accessibilita: string | null;
   alloggio_short: string | null;
   quota_totale: number | null;
+  fee_paid: number | null;
   gruppo_id: string | null;
   gruppo_label: string | null;
   deleted_at?: string | null;
 };
 
 const SELECT_FIELDS_BASE =
-  "id,personal_code,created_at,nome,cognome,eta,tipo_iscrizione,preferenza_alloggio_operatore,gruppo_leader,paese_residenza,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label,deleted_at";
+  "id,personal_code,created_at,nome,cognome,eta,tipo_iscrizione,preferenza_alloggio_operatore,gruppo_leader,paese_residenza,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,fee_paid,gruppo_id,gruppo_label,deleted_at";
 const SELECT_FIELDS_BASE_LEGACY =
-  "id,created_at,nome,cognome,eta,tipo_iscrizione,paese_residenza,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label";
+  "id,created_at,nome,cognome,eta,tipo_iscrizione,paese_residenza,nazione,email,telefono,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,fee_paid,gruppo_id,gruppo_label";
 const SELECT_FIELDS_WITH_CITY = `${SELECT_FIELDS_BASE},citta:città`;
 const SELECT_FIELDS_WITH_CITY_LEGACY = `${SELECT_FIELDS_BASE_LEGACY},citta:città`;
 const GROUP_COLUMN_MISSING_CODES = new Set(["42703", "PGRST204", "PGRST116"]);

@@ -417,6 +417,8 @@ export function ParticipantsTable({
 
   const formatCurrency = (value: number) =>
     formatNumber(value, { style: "currency", currency: "EUR" });
+  const formatFeeProgressValue = (value: number) =>
+    formatNumber(value, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
   const filteredSortedParticipants = useMemo(() => {
     const filtered = participants.filter((participant) => {
@@ -1341,7 +1343,16 @@ export function ParticipantsTable({
                 </tr>
               ) : (
                 filteredSortedParticipants.map((participant) => (
-                  <tr key={participant.id} className="border-t border-slate-100">
+                  <tr
+                    key={participant.id}
+                    className={`border-t border-slate-100 ${
+                      showTotalFee &&
+                      participant.quota_totale !== null &&
+                      (participant.fee_paid ?? 0) >= participant.quota_totale
+                        ? "bg-emerald-50/70"
+                        : ""
+                    }`}
+                  >
                     {showGroupColumn && (
                       <td className="px-4 py-3">{participant.group || "-"}</td>
                     )}
@@ -1377,7 +1388,7 @@ export function ParticipantsTable({
                       <td className="px-4 py-3">
                         {participant.quota_totale === null
                           ? "-"
-                          : `EUR ${participant.quota_totale}`}
+                          : `€ ${formatFeeProgressValue(participant.fee_paid ?? 0)}/${formatFeeProgressValue(participant.quota_totale)}`}
                       </td>
                     )}
                     {showRegistrationDate && (
