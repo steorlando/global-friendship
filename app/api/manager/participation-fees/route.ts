@@ -7,6 +7,7 @@ type ParticipantFeeRow = {
   id: string;
   nome: string | null;
   cognome: string | null;
+  citta: string | null;
   data_arrivo: string | null;
   data_partenza: string | null;
   alloggio: string | null;
@@ -18,8 +19,8 @@ type ParticipantFeeRow = {
   deleted_at?: string | null;
 };
 
-const SELECT_FIELDS =
-  "id,nome,cognome,data_arrivo,data_partenza,alloggio,alloggio_short,quota_totale,fee_paid,gruppo_id,gruppo_label,deleted_at";
+const SELECT_FIELDS: string =
+  "id,nome,cognome,citta:città,data_arrivo,data_partenza,alloggio,alloggio_short,quota_totale,fee_paid,gruppo_id,gruppo_label,deleted_at";
 
 function normalizeText(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -93,7 +94,7 @@ async function loadAllParticipants(service = createSupabaseServiceClient()) {
     throw new Error(error.message);
   }
 
-  return ((data ?? []) as ParticipantFeeRow[]).filter((row) => !row.deleted_at).sort((a, b) => {
+  return ((data ?? []) as unknown as ParticipantFeeRow[]).filter((row) => !row.deleted_at).sort((a, b) => {
     const bySurname = (a.cognome ?? "").localeCompare(b.cognome ?? "");
     if (bySurname !== 0) return bySurname;
     return (a.nome ?? "").localeCompare(b.nome ?? "");
@@ -176,7 +177,7 @@ export async function PATCH(req: Request) {
 
   return NextResponse.json({
     ok: true,
-    participant: toResponseParticipant(updated as ParticipantFeeRow),
+    participant: toResponseParticipant(updated as unknown as ParticipantFeeRow),
   });
 }
 
@@ -228,6 +229,6 @@ export async function POST(req: Request) {
 
   return NextResponse.json({
     ok: true,
-    participants: ((refreshed ?? []) as ParticipantFeeRow[]).map(toResponseParticipant),
+    participants: ((refreshed ?? []) as unknown as ParticipantFeeRow[]).map(toResponseParticipant),
   });
 }

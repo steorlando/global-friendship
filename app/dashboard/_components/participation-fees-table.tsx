@@ -14,6 +14,7 @@ type Participant = {
   id: string;
   nome: string | null;
   cognome: string | null;
+  citta: string | null;
   data_arrivo: string | null;
   data_partenza: string | null;
   alloggio: string | null;
@@ -26,6 +27,7 @@ type SortKey =
   | "group"
   | "nome"
   | "cognome"
+  | "citta"
   | "data_arrivo"
   | "data_partenza"
   | "alloggio"
@@ -80,6 +82,7 @@ export function ParticipationFeesTable() {
 
   const [search, setSearch] = useState("");
   const [groupFilter, setGroupFilter] = useState("");
+  const [cityFilter, setCityFilter] = useState("");
   const [arrivoFilter, setArrivoFilter] = useState("");
   const [partenzaFilter, setPartenzaFilter] = useState("");
   const [alloggioFilter, setAlloggioFilter] = useState("");
@@ -142,6 +145,13 @@ export function ParticipationFeesTable() {
         return false;
       }
 
+      if (
+        cityFilter &&
+        !(participant.citta ?? "").toLowerCase().includes(cityFilter.toLowerCase())
+      ) {
+        return false;
+      }
+
       if (arrivoFilter && (participant.data_arrivo ?? "") !== arrivoFilter) {
         return false;
       }
@@ -174,7 +184,7 @@ export function ParticipationFeesTable() {
     });
 
     return filtered;
-  }, [alloggioFilter, arrivoFilter, groupFilter, participants, partenzaFilter, search, sortDirection, sortKey]);
+  }, [alloggioFilter, arrivoFilter, cityFilter, groupFilter, participants, partenzaFilter, search, sortDirection, sortKey]);
 
   const visibleIds = useMemo(
     () => visibleParticipants.map((participant) => participant.id),
@@ -230,6 +240,7 @@ export function ParticipationFeesTable() {
   function resetFilters() {
     setSearch("");
     setGroupFilter("");
+    setCityFilter("");
     setArrivoFilter("");
     setPartenzaFilter("");
     setAlloggioFilter("");
@@ -582,6 +593,11 @@ export function ParticipationFeesTable() {
                 </button>
               </th>
               <th className="px-4 py-3">
+                <button type="button" onClick={() => toggleSort("citta")}>
+                  {t("participants.table.header.city")} {sortLabel("citta")}
+                </button>
+              </th>
+              <th className="px-4 py-3">
                 <button type="button" onClick={() => toggleSort("data_arrivo")}>
                   {t("participants.table.header.arrivalDate")} {sortLabel("data_arrivo")}
                 </button>
@@ -635,6 +651,14 @@ export function ParticipationFeesTable() {
               </th>
               <th className="px-2 pb-3">
                 <input
+                  value={cityFilter}
+                  onChange={(e) => setCityFilter(e.target.value)}
+                  placeholder={t("participants.table.filter.city")}
+                  className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
+                />
+              </th>
+              <th className="px-2 pb-3">
+                <input
                   type="date"
                   value={arrivoFilter}
                   onChange={(e) => setArrivoFilter(e.target.value)}
@@ -670,7 +694,7 @@ export function ParticipationFeesTable() {
           <tbody>
             {visibleParticipants.length === 0 ? (
               <tr>
-                <td className="px-4 py-4 text-slate-500" colSpan={9}>
+                <td className="px-4 py-4 text-slate-500" colSpan={10}>
                   {t("participants.table.noResults")}
                 </td>
               </tr>
@@ -690,6 +714,7 @@ export function ParticipationFeesTable() {
                     <td className="px-4 py-3">{participant.group || "-"}</td>
                     <td className="px-4 py-3">{participant.nome || "-"}</td>
                     <td className="px-4 py-3">{participant.cognome || "-"}</td>
+                    <td className="px-4 py-3">{participant.citta || "-"}</td>
                     <td className="px-4 py-3">
                       {displayDate(participant.data_arrivo, ARRIVAL_DATE_MIN, ARRIVAL_DATE_MAX)}
                     </td>
