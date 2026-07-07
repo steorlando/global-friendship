@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ALLOGGIO_SHORT_OPTIONS,
   ARRIVAL_DATE_MAX,
   ARRIVAL_DATE_MIN,
   DEPARTURE_DATE_MAX,
@@ -28,9 +27,6 @@ type SortKey =
   | "nome"
   | "cognome"
   | "citta"
-  | "data_arrivo"
-  | "data_partenza"
-  | "alloggio"
   | "quota_totale"
   | "fee_paid";
 
@@ -83,9 +79,6 @@ export function ParticipationFeesTable() {
   const [search, setSearch] = useState("");
   const [groupFilter, setGroupFilter] = useState("");
   const [cityFilter, setCityFilter] = useState("");
-  const [arrivoFilter, setArrivoFilter] = useState("");
-  const [partenzaFilter, setPartenzaFilter] = useState("");
-  const [alloggioFilter, setAlloggioFilter] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("cognome");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
@@ -152,18 +145,6 @@ export function ParticipationFeesTable() {
         return false;
       }
 
-      if (arrivoFilter && (participant.data_arrivo ?? "") !== arrivoFilter) {
-        return false;
-      }
-
-      if (partenzaFilter && (participant.data_partenza ?? "") !== partenzaFilter) {
-        return false;
-      }
-
-      if (alloggioFilter && (participant.alloggio ?? "") !== alloggioFilter) {
-        return false;
-      }
-
       return true;
     });
 
@@ -184,7 +165,7 @@ export function ParticipationFeesTable() {
     });
 
     return filtered;
-  }, [alloggioFilter, arrivoFilter, cityFilter, groupFilter, participants, partenzaFilter, search, sortDirection, sortKey]);
+  }, [cityFilter, groupFilter, participants, search, sortDirection, sortKey]);
 
   const visibleIds = useMemo(
     () => visibleParticipants.map((participant) => participant.id),
@@ -241,9 +222,6 @@ export function ParticipationFeesTable() {
     setSearch("");
     setGroupFilter("");
     setCityFilter("");
-    setArrivoFilter("");
-    setPartenzaFilter("");
-    setAlloggioFilter("");
   }
 
   function setDraft(participant: Participant, value: string) {
@@ -598,19 +576,7 @@ export function ParticipationFeesTable() {
                 </button>
               </th>
               <th className="px-4 py-3">
-                <button type="button" onClick={() => toggleSort("data_arrivo")}>
-                  {t("participants.table.header.arrivalDate")} {sortLabel("data_arrivo")}
-                </button>
-              </th>
-              <th className="px-4 py-3">
-                <button type="button" onClick={() => toggleSort("data_partenza")}>
-                  {t("participants.table.header.departureDate")} {sortLabel("data_partenza")}
-                </button>
-              </th>
-              <th className="px-4 py-3">
-                <button type="button" onClick={() => toggleSort("alloggio")}>
-                  {t("participants.table.header.accommodation")} {sortLabel("alloggio")}
-                </button>
+                {t("fees.stayDetails")}
               </th>
               <th className="px-4 py-3">
                 <button type="button" onClick={() => toggleSort("quota_totale")}>
@@ -658,34 +624,7 @@ export function ParticipationFeesTable() {
                 />
               </th>
               <th className="px-2 pb-3">
-                <input
-                  type="date"
-                  value={arrivoFilter}
-                  onChange={(e) => setArrivoFilter(e.target.value)}
-                  className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
-                />
-              </th>
-              <th className="px-2 pb-3">
-                <input
-                  type="date"
-                  value={partenzaFilter}
-                  onChange={(e) => setPartenzaFilter(e.target.value)}
-                  className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
-                />
-              </th>
-              <th className="px-2 pb-3">
-                <select
-                  value={alloggioFilter}
-                  onChange={(e) => setAlloggioFilter(e.target.value)}
-                  className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
-                >
-                  <option value="">{t("common.all")}</option>
-                  {ALLOGGIO_SHORT_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
+                <span className="sr-only">{t("fees.stayDetails")}</span>
               </th>
               <th className="px-2 pb-3" />
               <th className="px-2 pb-3" />
@@ -694,7 +633,7 @@ export function ParticipationFeesTable() {
           <tbody>
             {visibleParticipants.length === 0 ? (
               <tr>
-                <td className="px-4 py-4 text-slate-500" colSpan={10}>
+                <td className="px-4 py-4 text-slate-500" colSpan={8}>
                   {t("participants.table.noResults")}
                 </td>
               </tr>
@@ -715,17 +654,20 @@ export function ParticipationFeesTable() {
                     <td className="px-4 py-3">{participant.nome || "-"}</td>
                     <td className="px-4 py-3">{participant.cognome || "-"}</td>
                     <td className="px-4 py-3">{participant.citta || "-"}</td>
-                    <td className="px-4 py-3">
-                      {displayDate(participant.data_arrivo, ARRIVAL_DATE_MIN, ARRIVAL_DATE_MAX)}
+                    <td className="px-4 py-3 text-xs leading-5 whitespace-nowrap">
+                      <div>
+                        <span className="font-medium">{t("participants.table.header.arrivalDate")}:</span>{" "}
+                        {displayDate(participant.data_arrivo, ARRIVAL_DATE_MIN, ARRIVAL_DATE_MAX)}
+                      </div>
+                      <div>
+                        <span className="font-medium">{t("participants.table.header.departureDate")}:</span>{" "}
+                        {displayDate(participant.data_partenza, DEPARTURE_DATE_MIN, DEPARTURE_DATE_MAX)}
+                      </div>
+                      <div>
+                        <span className="font-medium">{t("participants.table.header.accommodation")}:</span>{" "}
+                        {participant.alloggio || "-"}
+                      </div>
                     </td>
-                    <td className="px-4 py-3">
-                      {displayDate(
-                        participant.data_partenza,
-                        DEPARTURE_DATE_MIN,
-                        DEPARTURE_DATE_MAX
-                      )}
-                    </td>
-                    <td className="px-4 py-3">{participant.alloggio || "-"}</td>
                     <td className="px-4 py-3">
                       {participant.quota_totale === null
                         ? "-"

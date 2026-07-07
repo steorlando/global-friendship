@@ -568,6 +568,7 @@ const it: TranslationDictionary = {
   "fees.selectAll": "Seleziona tutti i partecipanti visibili",
   "fees.calculatedFee": "Quota calcolata",
   "fees.feePaid": "Quota pagata",
+  "fees.stayDetails": "Soggiorno",
   "fees.searchNameGroup": "Cerca nome/gruppo",
   "fees.amountPlaceholder": "0,00",
   "fees.bankImport.title": "Importa quote dall'estratto conto",

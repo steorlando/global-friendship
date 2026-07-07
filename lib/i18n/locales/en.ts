@@ -595,6 +595,7 @@ const en: TranslationDictionary = {
   "fees.selectAll": "Select all visible participants",
   "fees.calculatedFee": "Calculated fee",
   "fees.feePaid": "Fee paid",
+  "fees.stayDetails": "Stay",
   "fees.searchNameGroup": "Search name/group",
   "fees.amountPlaceholder": "0.00",
   "fees.bankImport.title": "Import fees from a bank statement",
