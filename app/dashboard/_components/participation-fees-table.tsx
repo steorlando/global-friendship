@@ -41,6 +41,22 @@ type GroupSummaryRow = {
   outstandingFee: number;
 };
 
+type GroupPaymentStatus = "paid" | "unpaid" | "partial";
+
+const FEE_COMPARISON_TOLERANCE = 0.005;
+
+function getGroupPaymentStatus(row: GroupSummaryRow): GroupPaymentStatus {
+  if (row.totalPaidFee <= FEE_COMPARISON_TOLERANCE) return "unpaid";
+  if (row.totalPaidFee >= row.totalExpectedFee - FEE_COMPARISON_TOLERANCE) return "paid";
+  return "partial";
+}
+
+function groupPaymentRowClass(status: GroupPaymentStatus) {
+  if (status === "paid") return "border-emerald-200 bg-emerald-50 text-emerald-950";
+  if (status === "unpaid") return "border-red-200 bg-red-50 text-red-950";
+  return "border-amber-200 bg-amber-50 text-amber-950";
+}
+
 function dateInRange(value: string | null, min: string, max: string) {
   if (!value) return false;
   return value >= min && value <= max;
@@ -81,6 +97,7 @@ export function ParticipationFeesTable() {
   const [cityFilter, setCityFilter] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("cognome");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [hideFullyPaidGroups, setHideFullyPaidGroups] = useState(false);
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [feeDrafts, setFeeDrafts] = useState<DraftFees>({});
@@ -200,6 +217,13 @@ export function ParticipationFeesTable() {
 
     return [...byGroup.values()].sort((a, b) => a.group.localeCompare(b.group));
   }, [t, visibleParticipants]);
+  const visibleGroupSummaryRows = useMemo(
+    () =>
+      hideFullyPaidGroups
+        ? groupSummaryRows.filter((row) => getGroupPaymentStatus(row) !== "paid")
+        : groupSummaryRows,
+    [groupSummaryRows, hideFullyPaidGroups]
+  );
 
   const allVisibleSelected =
     visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
@@ -475,9 +499,25 @@ export function ParticipationFeesTable() {
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="text-base font-semibold text-slate-900">{t("fees.groupSummary")}</h3>
-          <p className="text-xs text-slate-500">{t("fees.groupSummaryHint")}</p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-base font-semibold text-slate-900">{t("fees.groupSummary")}</h3>
+            <p className="text-xs text-slate-500">{t("fees.groupSummaryHint")}</p>
+          </div>
+          <button
+            type="button"
+            aria-pressed={hideFullyPaidGroups}
+            onClick={() => setHideFullyPaidGroups((current) => !current)}
+            className={`rounded border px-3 py-2 text-sm font-medium transition-colors ${
+              hideFullyPaidGroups
+                ? "border-emerald-700 bg-emerald-700 text-white hover:bg-emerald-800"
+                : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+            }`}
+          >
+            {hideFullyPaidGroups
+              ? t("fees.showFullyPaidGroups")
+              : t("fees.hideFullyPaidGroups")}
+          </button>
         </div>
 
         <div className="mt-4 overflow-x-auto rounded border border-slate-200">
@@ -492,15 +532,20 @@ export function ParticipationFeesTable() {
               </tr>
             </thead>
             <tbody>
-              {groupSummaryRows.length === 0 ? (
+              {visibleGroupSummaryRows.length === 0 ? (
                 <tr>
                   <td className="px-4 py-4 text-slate-500" colSpan={5}>
-                    {t("fees.noGroups")}
+                    {hideFullyPaidGroups && groupSummaryRows.length > 0
+                      ? t("fees.allVisibleGroupsFullyPaid")
+                      : t("fees.noGroups")}
                   </td>
                 </tr>
               ) : (
-                groupSummaryRows.map((row) => (
-                  <tr key={row.group} className="border-t border-slate-100">
+                visibleGroupSummaryRows.map((row) => (
+                  <tr
+                    key={row.group}
+                    className={`border-t ${groupPaymentRowClass(getGroupPaymentStatus(row))}`}
+                  >
                     <td className="px-4 py-3">{row.group}</td>
                     <td className="px-4 py-3">{row.participantsCount}</td>
                     <td className="px-4 py-3">{formatCurrency(row.totalExpectedFee)}</td>
