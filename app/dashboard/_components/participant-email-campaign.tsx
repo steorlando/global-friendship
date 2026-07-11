@@ -24,10 +24,14 @@ import {
   isRecipientIdExcluded,
   parseRecipientIdsFromText,
 } from "@/lib/email/recipient-id-utils";
+import { hasOutstandingParticipationFee } from "@/lib/participation-fees/payment-status";
 
 type RecipientType = "participants" | "group_leaders";
 
-type Participant = ParticipantTemplateData & { citta: string | null };
+type Participant = ParticipantTemplateData & {
+  citta: string | null;
+  fee_paid: number | null;
+};
 
 type GroupLeader = GroupLeaderTemplateData;
 
@@ -248,6 +252,7 @@ export function ParticipantEmailCampaign() {
   const [participantArrivoFilter, setParticipantArrivoFilter] = useState("");
   const [participantPartenzaFilter, setParticipantPartenzaFilter] = useState("");
   const [participantAlloggioFilter, setParticipantAlloggioFilter] = useState("");
+  const [participantPaymentFilter, setParticipantPaymentFilter] = useState("all");
   const [participantSortKey, setParticipantSortKey] = useState<ParticipantSortKey>("cognome");
   const [participantSortDirection, setParticipantSortDirection] = useState<SortDirection>("asc");
 
@@ -407,6 +412,12 @@ export function ParticipantEmailCampaign() {
       if (participantAlloggioFilter && (participant.alloggio ?? "") !== participantAlloggioFilter) {
         return false;
       }
+      if (
+        participantPaymentFilter === "outstanding" &&
+        !hasOutstandingParticipationFee(participant)
+      ) {
+        return false;
+      }
 
       return true;
     });
@@ -437,6 +448,7 @@ export function ParticipantEmailCampaign() {
     participantGroupFilter,
     participantRegistrationTypeFilter,
     participantPartenzaFilter,
+    participantPaymentFilter,
     participantSearch,
     participantSortDirection,
     participantSortKey,
@@ -1271,7 +1283,7 @@ export function ParticipantEmailCampaign() {
         </div>
 
         {activeRecipientType === "participants" ? (
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-7">
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-8">
             <div>
               <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Search
@@ -1370,6 +1382,19 @@ export function ParticipantEmailCampaign() {
                 onChange={(event) => setParticipantAlloggioFilter(event.target.value)}
                 className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
               />
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Payment
+              </label>
+              <select
+                value={participantPaymentFilter}
+                onChange={(event) => setParticipantPaymentFilter(event.target.value)}
+                className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
+              >
+                <option value="all">All payment statuses</option>
+                <option value="outstanding">Fee outstanding</option>
+              </select>
             </div>
           </div>
         ) : (
