@@ -223,6 +223,7 @@ function toParticipantRow(value: unknown): ParticipantRow {
       (row.partecipa_intero_evento as boolean | null | undefined) ?? null,
     presenza_dettaglio:
       (row.presenza_dettaglio as Record<string, unknown> | null | undefined) ?? null,
+    deleted_at: (row.deleted_at as string | null | undefined) ?? null,
   };
 }
 
@@ -309,8 +310,16 @@ async function loadParticipantsForGroups(groupIds: string[]) {
   const service = createSupabaseServiceClient();
   const executeSelect = async (selectFields: string) =>
     Promise.all([
-      service.from("partecipanti").select(selectFields).in("gruppo_id", groupIds),
-      service.from("partecipanti").select(selectFields).in("gruppo_label", groupIds),
+      service
+        .from("partecipanti")
+        .select(selectFields)
+        .in("gruppo_id", groupIds)
+        .is("deleted_at", null),
+      service
+        .from("partecipanti")
+        .select(selectFields)
+        .in("gruppo_label", groupIds)
+        .is("deleted_at", null),
     ]);
 
   let [byGroupId, byGroupLabel] = await executeSelect(SELECT_FIELDS_WITH_CITY);
@@ -359,7 +368,12 @@ async function loadParticipantById(
   participantId: string
 ) {
   const executeSelect = async (selectFields: string) =>
-    service.from("partecipanti").select(selectFields).eq("id", participantId).maybeSingle();
+    service
+      .from("partecipanti")
+      .select(selectFields)
+      .eq("id", participantId)
+      .is("deleted_at", null)
+      .maybeSingle();
 
   let { data, error } = await executeSelect(SELECT_FIELDS_WITH_CITY);
   if (error) {
