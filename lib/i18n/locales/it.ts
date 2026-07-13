@@ -243,6 +243,7 @@ const it: TranslationDictionary = {
   "manager.operatorAccommodation.hostel": "Ostello con il gruppo",
   "manager.operatorAccommodation.missing": "Nessuna scelta indicata",
   "manager.operatorAccommodation.notApplicable": "Non applicabile (alloggio autonomo)",
+  "manager.operatorAccommodation.downloadHotelExcel": "Scarica elenco Hotel (Excel)",
   "manager.statistics.topCounters": "Contatori principali",
   "manager.statistics.totalRegistrations": "Registrazioni totali",
   "manager.statistics.subtitle": "Dashboard panoramica partecipanti. Le statistiche per tipo iscrizione escludono \"Driver - Autista\".",

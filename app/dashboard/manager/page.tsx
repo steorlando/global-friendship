@@ -877,12 +877,36 @@ function OperatorAccommodationPreferenceSection({
 
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h3 className="text-lg font-semibold text-slate-900">
-        {t("manager.operatorAccommodation.title")}
-      </h3>
-      <p className="mt-1 text-sm text-slate-500">
-        {t("manager.operatorAccommodation.subtitle")}
-      </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-slate-900">
+            {t("manager.operatorAccommodation.title")}
+          </h3>
+          <p className="mt-1 text-sm text-slate-500">
+            {t("manager.operatorAccommodation.subtitle")}
+          </p>
+        </div>
+        <a
+          href="/api/manager/statistics/operator-hotel-export"
+          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700 transition hover:border-indigo-300 hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+        >
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 20 20"
+            fill="none"
+            className="h-4 w-4"
+          >
+            <path
+              d="M10 2.5v9m0 0 3.25-3.25M10 11.5 6.75 8.25M4 13.5v2A1.5 1.5 0 0 0 5.5 17h9a1.5 1.5 0 0 0 1.5-1.5v-2"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          {t("manager.operatorAccommodation.downloadHotelExcel")}
+        </a>
+      </div>
 
       <div className="mt-4 overflow-hidden rounded border border-slate-200">
         <table className="w-full border-collapse text-left text-sm">

@@ -279,6 +279,10 @@ Statistics currently implemented:
   - hotel preference
   - hostel-with-group preference
   - missing preference
+- The operator accommodation preference box includes an authenticated Excel download for
+  current Hotel-preferring operators. The export is generated live by
+  `app/api/manager/statistics/operator-hotel-export/route.ts` and is available to manager
+  and admin roles.
 - Registrations by country
 - Registrations by group
 - Registrations by Italian city

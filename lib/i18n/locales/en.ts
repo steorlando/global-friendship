@@ -262,6 +262,7 @@ const en: TranslationDictionary = {
   "manager.operatorAccommodation.hostel": "Hostel with group",
   "manager.operatorAccommodation.missing": "No preference selected",
   "manager.operatorAccommodation.notApplicable": "Not applicable (autonomous accommodation)",
+  "manager.operatorAccommodation.downloadHotelExcel": "Download hotel list (Excel)",
   "manager.statistics.topCounters": "Top counters",
   "manager.statistics.totalRegistrations": "Total registrations",
   "manager.statistics.title": "Statistics",
