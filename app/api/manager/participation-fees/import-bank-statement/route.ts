@@ -38,7 +38,7 @@ type ReportRow = ParsedBankPayment & {
   note: string;
 };
 
-async function requireManager() {
+async function requireManagerOrAdmin() {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
@@ -59,7 +59,7 @@ async function requireManager() {
     .from("profili")
     .select("ruolo")
     .ilike("email", email)
-    .eq("ruolo", "manager")
+    .in("ruolo", ["manager", "admin"])
     .limit(1);
 
   if (profileError) {
@@ -200,7 +200,7 @@ function safeBaseName(fileName: string): string {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireManager();
+  const auth = await requireManagerOrAdmin();
   if ("errorResponse" in auth) return auth.errorResponse;
 
   try {

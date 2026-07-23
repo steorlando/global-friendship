@@ -41,7 +41,7 @@ function toResponseParticipant(row: ParticipantFeeRow) {
   };
 }
 
-async function requireManagerContext() {
+async function requireManagerOrAdminContext() {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
@@ -65,7 +65,7 @@ async function requireManagerContext() {
     .from("profili")
     .select("ruolo")
     .ilike("email", email)
-    .eq("ruolo", "manager")
+    .in("ruolo", ["manager", "admin"])
     .limit(1);
 
   if (profileError) {
@@ -102,7 +102,7 @@ async function loadAllParticipants(service = createSupabaseServiceClient()) {
 }
 
 export async function GET() {
-  const auth = await requireManagerContext();
+  const auth = await requireManagerOrAdminContext();
   if ("errorResponse" in auth) return auth.errorResponse;
 
   try {
@@ -123,7 +123,7 @@ export async function GET() {
 }
 
 export async function PATCH(req: Request) {
-  const auth = await requireManagerContext();
+  const auth = await requireManagerOrAdminContext();
   if ("errorResponse" in auth) return auth.errorResponse;
 
   let body: Record<string, unknown> = {};
@@ -182,7 +182,7 @@ export async function PATCH(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const auth = await requireManagerContext();
+  const auth = await requireManagerOrAdminContext();
   if ("errorResponse" in auth) return auth.errorResponse;
 
   let body: Record<string, unknown> = {};

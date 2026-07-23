@@ -3,7 +3,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { ParticipationFeesTable } from "../../_components/participation-fees-table";
 import { getServerTranslator } from "@/lib/i18n/server";
 
-export default async function ManagerParticipationFeesPage() {
+export default async function ManagerAdminParticipationFeesPage() {
   const { t } = await getServerTranslator();
   const supabase = await createSupabaseServerClient();
   const {
@@ -25,7 +25,7 @@ export default async function ManagerParticipationFeesPage() {
     .from("profili")
     .select("ruolo")
     .ilike("email", email)
-    .eq("ruolo", "manager")
+    .in("ruolo", ["manager", "admin"])
     .limit(1);
 
   if (error || !profile || profile.length === 0) {

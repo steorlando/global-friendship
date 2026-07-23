@@ -500,37 +500,39 @@ export function PartecipanteForm() {
         </div>
       ) : null}
 
-      <section className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-4" aria-labelledby="participant-total-fee-title">
-        <p
-          id="participant-total-fee-title"
-          className="text-xs font-medium uppercase tracking-wide text-indigo-700"
-        >
-          {t("participant.form.paymentSummary")}
-        </p>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-md border border-indigo-200 bg-white/70 px-3 py-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-indigo-700">
-              {t("fees.totalExpected")}
-            </p>
-            <p className="mt-1 text-xl font-semibold text-indigo-950">
-              {quotaTotale === null
-                ? "-"
-                : formatNumber(quotaTotale, { style: "currency", currency: "EUR" })}
-            </p>
+      {!canManageHostCityFields && (
+        <section className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-4" aria-labelledby="participant-total-fee-title">
+          <p
+            id="participant-total-fee-title"
+            className="text-xs font-medium uppercase tracking-wide text-indigo-700"
+          >
+            {t("participant.form.paymentSummary")}
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-md border border-indigo-200 bg-white/70 px-3 py-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-indigo-700">
+                {t("fees.totalExpected")}
+              </p>
+              <p className="mt-1 text-xl font-semibold text-indigo-950">
+                {quotaTotale === null
+                  ? "-"
+                  : formatNumber(quotaTotale, { style: "currency", currency: "EUR" })}
+              </p>
+            </div>
+            <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">
+                {t("fees.totalPaid")}
+              </p>
+              <p className="mt-1 text-xl font-semibold text-emerald-950">
+                {formatNumber(feePaid ?? 0, { style: "currency", currency: "EUR" })}
+              </p>
+            </div>
           </div>
-          <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">
-              {t("fees.totalPaid")}
-            </p>
-            <p className="mt-1 text-xl font-semibold text-emerald-950">
-              {formatNumber(feePaid ?? 0, { style: "currency", currency: "EUR" })}
-            </p>
-          </div>
-        </div>
-        <p className="mt-1 text-xs text-indigo-700">
-          {t("participant.form.totalFeeHint")}
-        </p>
-      </section>
+          <p className="mt-1 text-xs text-indigo-700">
+            {t("participant.form.totalFeeHint")}
+          </p>
+        </section>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2">
         <div>

@@ -125,6 +125,7 @@ Sections currently exposed:
 
 - Statistics
 - Participants
+- Participation Fees
 - Alloggi
 - Users & Profiles
 - Email Campaigns
@@ -220,8 +221,11 @@ stay details, the saved expected value returned by the database trigger is shown
 Main files:
 
 - `app/api/manager/participation-fees/import-bank-statement/route.ts`
+- `app/dashboard/manager/participation-fees/page.tsx`
+- `app/dashboard/admin/participation-fees/page.tsx`
 - `lib/participation-fees/bank-statement.ts`
 - `supabase/participation_fee_bank_import_migration.sql`
+- `supabase/participation_fees_admin_access_migration.sql`
 
 From the manager Participation Fees tab, an operator can upload an `.xlsx`/`.xls` bank
 statement. Incoming entries are considered when the extended description contains
@@ -595,6 +599,7 @@ High-value migrations to know:
 - `supabase/email_templates_migration.sql`
 - `supabase/email_send_logs_migration.sql`
 - `supabase/participation_fees_migration.sql`
+- `supabase/participation_fees_admin_access_migration.sql`
 - `supabase/participation_fee_db_calculation_migration.sql`
 - `supabase/participation_fee_nullable_host_city_migration.sql`
 - `supabase/participation_fee_business_rules_migration.sql`

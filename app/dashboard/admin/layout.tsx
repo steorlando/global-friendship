@@ -25,6 +25,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       isActive: pathname === "/dashboard/admin/deleted-participants",
     },
     {
+      href: "/dashboard/admin/participation-fees",
+      label: t("dashboard.manager.tab.fees"),
+      isActive: pathname === "/dashboard/admin/participation-fees",
+    },
+    {
       href: "/dashboard/alloggi",
       label: t("roles.alloggi"),
       isActive: pathname.startsWith("/dashboard/alloggi"),
