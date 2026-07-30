@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
+import { DashboardNavLink } from "@/app/dashboard/_components/dashboard-nav-link";
 import { useI18n } from "@/lib/i18n/provider";
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
@@ -59,17 +59,13 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         </h2>
         <nav className="mt-4 flex flex-wrap gap-2 text-sm">
           {sections.map((section) => (
-            <Link
+            <DashboardNavLink
               key={section.href}
               href={section.href}
-              className={`rounded-full border px-4 py-2 font-medium transition-all duration-200 ${
-                section.isActive
-                  ? "border-indigo-600 bg-indigo-600 text-white shadow-sm"
-                  : "border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-100"
-              }`}
-            >
-              {section.label}
-            </Link>
+              label={section.label}
+              loadingLabel={t("common.loading")}
+              isActive={section.isActive}
+            />
           ))}
         </nav>
       </aside>
