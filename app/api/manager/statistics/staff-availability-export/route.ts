@@ -1,29 +1,14 @@
 import { NextResponse } from "next/server";
-import * as XLSX from "xlsx";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import type { StaffAvailabilityStatRow } from "@/lib/statistics/staff-availability";
 import {
-  describeStaffAvailability,
-  type StaffAvailabilityStatRow,
-} from "@/lib/statistics/staff-availability";
+  buildStaffAvailabilityWorkbook,
+  type StaffAvailabilityExportParticipant,
+  type StaffAvailabilityExportRow,
+} from "@/lib/statistics/staff-availability-export";
 
 export const runtime = "nodejs";
-
-type ParticipantContactRow = {
-  id: string;
-  personal_code: string | null;
-  email: string | null;
-  telefono: string | null;
-  nome: string | null;
-  cognome: string | null;
-  gruppo_label: string | null;
-  gruppo_id: string | null;
-  deleted_at: string | null;
-};
-
-type StaffExportRow = ParticipantContactRow & {
-  availability: StaffAvailabilityStatRow;
-};
 
 async function requireManagerOrAdmin() {
   const supabase = await createSupabaseServerClient();
@@ -67,69 +52,6 @@ async function requireManagerOrAdmin() {
   return { service };
 }
 
-function displayPersonalCode(value: string | null): string {
-  const normalized = (value ?? "").trim();
-  return /^\d{1,4}$/.test(normalized) ? normalized.padStart(4, "0") : normalized;
-}
-
-function formatDateTime(value: string | null | undefined): string {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat("it-IT", {
-    dateStyle: "short",
-    timeStyle: "short",
-    timeZone: "Europe/Rome",
-  }).format(date);
-}
-
-function buildWorkbook(rows: StaffExportRow[]): Buffer {
-  const matrix = [
-    [
-      "ID",
-      "Email",
-      "Telefono",
-      "Nome",
-      "Cognome",
-      "Gruppo",
-      "Disponibilità",
-      "Ultimo aggiornamento",
-    ],
-    ...rows.map((row) => [
-      displayPersonalCode(row.personal_code),
-      row.email ?? "",
-      row.telefono ?? "",
-      row.nome ?? "",
-      row.cognome ?? "",
-      row.gruppo_label ?? row.gruppo_id ?? "",
-      describeStaffAvailability(row.availability),
-      formatDateTime(row.availability.updated_at),
-    ]),
-  ];
-
-  const workbook = XLSX.utils.book_new();
-  const worksheet = XLSX.utils.aoa_to_sheet(matrix);
-  worksheet["!autofilter"] = { ref: `A1:H${Math.max(1, matrix.length)}` };
-  worksheet["!freeze"] = { xSplit: 0, ySplit: 1 };
-  worksheet["!cols"] = [
-    { wch: 10 },
-    { wch: 36 },
-    { wch: 22 },
-    { wch: 20 },
-    { wch: 24 },
-    { wch: 30 },
-    { wch: 70 },
-    { wch: 22 },
-  ];
-
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Disponibilità staff");
-  return XLSX.write(workbook, {
-    type: "buffer",
-    bookType: "xlsx",
-    compression: true,
-  });
-}
-
 export async function GET() {
   const auth = await requireManagerOrAdmin();
   if ("errorResponse" in auth) return auth.errorResponse;
@@ -162,12 +84,12 @@ export async function GET() {
         .is("deleted_at", null),
     ),
   );
-  const participants: ParticipantContactRow[] = [];
+  const participants: StaffAvailabilityExportParticipant[] = [];
   for (const result of participantResults) {
     if (result.error) {
       return NextResponse.json({ error: result.error.message }, { status: 500 });
     }
-    participants.push(...((result.data ?? []) as ParticipantContactRow[]));
+    participants.push(...((result.data ?? []) as StaffAvailabilityExportParticipant[]));
   }
 
   const availabilityByParticipant = new Map(
@@ -178,7 +100,7 @@ export async function GET() {
       ...participant,
       availability: availabilityByParticipant.get(participant.id),
     }))
-    .filter((row): row is StaffExportRow => Boolean(row.availability))
+    .filter((row): row is StaffAvailabilityExportRow => Boolean(row.availability))
     .sort((a, b) => {
       const groupCompare = (a.gruppo_label ?? a.gruppo_id ?? "").localeCompare(
         b.gruppo_label ?? b.gruppo_id ?? "",
@@ -190,7 +112,7 @@ export async function GET() {
       return (a.nome ?? "").localeCompare(b.nome ?? "", "it");
     });
 
-  const file = buildWorkbook(rows);
+  const file = buildStaffAvailabilityWorkbook(rows);
   const dateStamp = new Date().toISOString().slice(0, 10);
 
   return new NextResponse(new Uint8Array(file), {

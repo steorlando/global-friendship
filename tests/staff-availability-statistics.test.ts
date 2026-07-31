@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import * as XLSX from "xlsx";
 
 import {
   buildStaffAvailabilitySummary,
   describeStaffAvailability,
   type StaffAvailabilityStatRow,
 } from "../lib/statistics/staff-availability.ts";
+import { buildStaffAvailabilityWorkbook } from "../lib/statistics/staff-availability-export.ts";
 
 const rows: StaffAvailabilityStatRow[] = [
   {
@@ -59,4 +61,50 @@ test("describes all selected availability details for the Excel export", () => {
     describeStaffAvailability(rows[2]),
     "Social media - montaggio foto o video, articoli lunghi, altro: Interviste",
   );
+});
+
+test("creates a readable Excel export with contacts and four-digit ID", () => {
+  const file = buildStaffAvailabilityWorkbook([
+    {
+      id: "participant-two",
+      personal_code: "16",
+      email: "maria@example.org",
+      telefono: "+39 333 1234567",
+      nome: "Maria",
+      cognome: "Rossi",
+      gruppo_label: "Roma",
+      gruppo_id: null,
+      deleted_at: null,
+      availability: {
+        ...rows[1],
+        updated_at: "2026-07-31T15:30:00.000Z",
+      },
+    },
+  ]);
+  const workbook = XLSX.read(file, { type: "buffer" });
+  const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+  const matrix = XLSX.utils.sheet_to_json<string[]>(worksheet, {
+    header: 1,
+    raw: false,
+  });
+
+  assert.deepEqual(matrix[0], [
+    "ID",
+    "Email",
+    "Telefono",
+    "Nome",
+    "Cognome",
+    "Gruppo",
+    "Disponibilità",
+    "Ultimo aggiornamento",
+  ]);
+  assert.deepEqual(matrix[1].slice(0, 7), [
+    "0016",
+    "maria@example.org",
+    "+39 333 1234567",
+    "Maria",
+    "Rossi",
+    "Roma",
+    "Band - strumento: Chitarra; Social media - foto o video, post per i social",
+  ]);
 });
