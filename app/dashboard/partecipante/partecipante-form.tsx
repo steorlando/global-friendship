@@ -14,6 +14,8 @@ import {
   isOperatorRegistrationType,
 } from "@/lib/partecipante/constants";
 import { useI18n } from "@/lib/i18n/provider";
+import type { ParticipantStaffAvailability } from "@/lib/partecipante/staff-availability";
+import { StaffAvailabilityQuestionnaire } from "./staff-availability-questionnaire";
 
 type PresenceDettaglioMap = Record<string, boolean>;
 
@@ -153,6 +155,8 @@ export function PartecipanteForm() {
   const [hostCity, setHostCity] = useState("");
   const [quotaTotale, setQuotaTotale] = useState<number | null>(null);
   const [feePaid, setFeePaid] = useState<number | null>(null);
+  const [staffAvailability, setStaffAvailability] =
+    useState<ParticipantStaffAvailability | null>(null);
   const showOperatorAccommodationPreference = isOperatorRegistrationType(
     formData.tipo_iscrizione
   ) && !isAutonomousAccommodation(formData.alloggio);
@@ -180,6 +184,7 @@ export function PartecipanteForm() {
           );
           setSelectedParticipantId(participantId ?? null);
           setCanManageHostCityFields(false);
+          setStaffAvailability(null);
           return;
         }
 
@@ -202,6 +207,11 @@ export function PartecipanteForm() {
         setRequiresSelection(false);
         setCanManageHostCityFields(Boolean(json.canManageHostCityFields));
         setHostCity(typeof json.hostCity === "string" ? json.hostCity : "");
+        setStaffAvailability(
+          json.staffAvailability && typeof json.staffAvailability === "object"
+            ? (json.staffAvailability as ParticipantStaffAvailability)
+            : null
+        );
         if (returnedSelectedId) {
           window.localStorage.setItem(
             PARTICIPANT_SELECTION_STORAGE_KEY,
@@ -283,6 +293,11 @@ export function PartecipanteForm() {
       const participant = json.participant as ApiParticipant;
       setCanManageHostCityFields(Boolean(json.canManageHostCityFields));
       setHostCity(typeof json.hostCity === "string" ? json.hostCity : "");
+      setStaffAvailability(
+        json.staffAvailability && typeof json.staffAvailability === "object"
+          ? (json.staffAvailability as ParticipantStaffAvailability)
+          : null
+      );
       setEmail(participant.email ?? "");
       setFormData({
         nome: participant.nome ?? "",
@@ -456,7 +471,7 @@ export function PartecipanteForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <div className="space-y-5">
       {requiresSelection && participantCandidates.length > 0 ? (
         <div className="rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <p className="font-medium">{t("participant.form.multipleFoundTitle")}</p>
@@ -500,6 +515,15 @@ export function PartecipanteForm() {
         </div>
       ) : null}
 
+      {selectedParticipantId && !requiresSelection ? (
+        <StaffAvailabilityQuestionnaire
+          key={selectedParticipantId}
+          participantId={selectedParticipantId}
+          initialAvailability={staffAvailability}
+        />
+      ) : null}
+
+      <form onSubmit={handleSubmit} className="space-y-5">
       {!canManageHostCityFields && (
         <section className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-4" aria-labelledby="participant-total-fee-title">
           <p
@@ -925,6 +949,7 @@ export function PartecipanteForm() {
           </div>
         )}
       </section>
-    </form>
+      </form>
+    </div>
   );
 }

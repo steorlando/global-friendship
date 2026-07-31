@@ -4,6 +4,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { getGmailSenderAddress, sendGmailTextEmail } from "@/lib/email/gmail";
 import { computeParticipantCalculatedFields } from "@/lib/tally/calculated-fields";
 import { loadEventRuntimeSettings } from "@/lib/event/settings";
+import { loadParticipantStaffAvailability } from "@/lib/partecipante/staff-availability-server";
 import {
   ALLOGGIO_OPTIONS,
   ARRIVAL_DATE_MAX,
@@ -345,11 +346,15 @@ export async function GET(req: Request) {
   if ("selectionResponse" in selected) return selected.selectionResponse;
   const { participant, candidates } = selected;
   let eventSettings;
+  let staffAvailability;
   try {
-    eventSettings = await loadEventRuntimeSettings();
+    [eventSettings, staffAvailability] = await Promise.all([
+      loadEventRuntimeSettings(),
+      loadParticipantStaffAvailability(participant.id),
+    ]);
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unable to load event settings" },
+      { error: error instanceof Error ? error.message : "Unable to load participant data" },
       { status: 500 }
     );
   }
@@ -364,6 +369,7 @@ export async function GET(req: Request) {
     selectedParticipantId: participant.id,
     canManageHostCityFields,
     hostCity: eventSettings.hostCity,
+    staffAvailability,
     participant: {
       ...participant,
       esigenze_alimentari: parseStoredEsigenze(participant.esigenze_alimentari),

@@ -31,7 +31,7 @@ Keep it updated when major routes, data structures, or business rules change.
 - Never create or switch to a different branch for Codex changes in this repository.
 
 Notes:
-- `npm test` runs `tests/email-recipient-id-utils.test.ts` and `tests/bank-statement-import.test.ts`.
+- `npm test` runs `tests/email-recipient-id-utils.test.ts`, `tests/bank-statement-import.test.ts`, and `tests/participant-staff-availability.test.ts`.
 - There are many additional `tests/*.test.ts` files in the repo; run them explicitly with `node --test --experimental-strip-types <file>` if needed.
 
 ## Environment Variables
@@ -210,11 +210,20 @@ Main files:
 - `app/dashboard/partecipante/page.tsx`
 - `app/dashboard/partecipante/partecipante-form.tsx`
 - `app/dashboard/partecipante/organizers-contact-card.tsx`
+- `app/dashboard/partecipante/staff-availability-questionnaire.tsx`
+- `app/dashboard/partecipante/staff-availability-actions.ts`
+- `lib/partecipante/staff-availability.ts`
 
 The participant profile displays read-only expected (`quota_totale`) and paid (`fee_paid`)
 participation fee amounts. The same two values are visible in the participant edit modal
 used by capogruppo, manager, and admin. After the participant updates accommodation or
 stay details, the saved expected value returned by the database trigger is shown immediately.
+
+The participant profile also contains a prominent staff-availability questionnaire. A
+participant can select one or more of band, choir, and social media. Band selection requires
+vocals or instrument details; social-media selection requires one or more activity choices.
+The authenticated server action verifies that the selected participant belongs to the signed-in
+email before upserting one row in `participant_staff_availability`.
 
 ### Participation Fee Bank Import
 
@@ -612,6 +621,7 @@ High-value migrations to know:
 - `supabase/participants_soft_delete_migration.sql`
 - `supabase/participant_personal_code_migration.sql`
 - `supabase/participation_fee_bank_import_migration.sql`
+- `supabase/participant_staff_availability_migration.sql`
 
 Main business tables encountered frequently:
 
@@ -636,6 +646,7 @@ Main business tables encountered frequently:
 - `stanze_gruppi`
 - `partecipanti_stanze`
 - `participation_fee_bank_payments`
+- `participant_staff_availability`
 
 Participant identifiers:
 
