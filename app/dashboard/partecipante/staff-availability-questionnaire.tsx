@@ -246,7 +246,10 @@ export function StaffAvailabilityQuestionnaire({
                 </legend>
                 <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:gap-6">
                   {(["vocals", "instrument"] as const).map((role) => (
-                    <label key={role} className="inline-flex items-center gap-2 text-sm">
+                    <label
+                      key={role}
+                      className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-800"
+                    >
                       <input
                         type="radio"
                         name={`staff-band-role-${participantId}`}
