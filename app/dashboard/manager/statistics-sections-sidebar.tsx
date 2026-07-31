@@ -9,6 +9,7 @@ type StatisticsSectionsSidebarProps = {
     registrations: string;
     trend: string;
     dailyPresence: string;
+    staffAvailability: string;
     duplicates: string;
     open: string;
     close: string;
@@ -52,6 +53,9 @@ export function StatisticsSectionsSidebar({
         <nav className="mt-3 flex flex-col gap-2 text-sm">
           <a href="#top-counters" className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
             {labels.counters}
+          </a>
+          <a href="#staff-availability" className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
+            {labels.staffAvailability}
           </a>
           <a href="#registrations" className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
             {labels.registrations}

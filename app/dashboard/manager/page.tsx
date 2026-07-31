@@ -14,6 +14,12 @@ import {
   isAutonomousAccommodation,
   normalizeOperatorAccommodationPreference,
 } from "@/lib/partecipante/constants";
+import {
+  buildStaffAvailabilitySummary,
+  emptyStaffAvailabilitySummary,
+  type StaffAvailabilityStatRow,
+  type StaffAvailabilitySummary,
+} from "@/lib/statistics/staff-availability";
 
 export const dynamic = "force-dynamic";
 
@@ -941,6 +947,143 @@ function OperatorAccommodationPreferenceSection({
   );
 }
 
+function StaffAvailabilityMetric({
+  label,
+  value,
+  emphasized = false,
+}: {
+  label: string;
+  value: number;
+  emphasized?: boolean;
+}) {
+  return (
+    <article
+      className={`rounded-lg border p-4 ${
+        emphasized
+          ? "border-violet-200 bg-violet-50"
+          : "border-slate-200 bg-slate-50"
+      }`}
+    >
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+        {label}
+      </p>
+      <p className="mt-2 text-3xl font-bold text-slate-950">{value}</p>
+    </article>
+  );
+}
+
+function StaffAvailabilitySection({
+  summary,
+  t,
+}: {
+  summary: StaffAvailabilitySummary;
+  t: (key: string, values?: Record<string, string | number>) => string;
+}) {
+  return (
+    <section
+      id="staff-availability"
+      className="rounded-xl border border-violet-200 bg-white p-6 shadow-sm"
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-slate-900">
+            {t("manager.staffAvailability.title")}
+          </h3>
+          <p className="mt-1 text-sm text-slate-500">
+            {t("manager.staffAvailability.subtitle")}
+          </p>
+        </div>
+        <a
+          href="/api/manager/statistics/staff-availability-export"
+          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-semibold text-violet-700 transition hover:border-violet-300 hover:bg-violet-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2"
+        >
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 20 20"
+            fill="none"
+            className="h-4 w-4"
+          >
+            <path
+              d="M10 2.5v9m0 0 3.25-3.25M10 11.5 6.75 8.25M4 13.5v2A1.5 1.5 0 0 0 5.5 17h9a1.5 1.5 0 0 0 1.5-1.5v-2"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          {t("manager.staffAvailability.downloadExcel")}
+        </a>
+      </div>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StaffAvailabilityMetric
+          label={t("manager.staffAvailability.responses")}
+          value={summary.responses}
+          emphasized
+        />
+        <StaffAvailabilityMetric
+          label={t("manager.staffAvailability.band")}
+          value={summary.band}
+        />
+        <StaffAvailabilityMetric
+          label={t("manager.staffAvailability.choir")}
+          value={summary.choir}
+        />
+        <StaffAvailabilityMetric
+          label={t("manager.staffAvailability.socialMedia")}
+          value={summary.socialMedia}
+        />
+      </div>
+
+      <div className="mt-4 grid gap-4 xl:grid-cols-2">
+        <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-4">
+          <h4 className="text-sm font-semibold text-slate-900">
+            {t("manager.staffAvailability.bandDetails")}
+          </h4>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <StaffAvailabilityMetric
+              label={t("manager.staffAvailability.bandVocals")}
+              value={summary.bandVocals}
+            />
+            <StaffAvailabilityMetric
+              label={t("manager.staffAvailability.bandInstrument")}
+              value={summary.bandInstrument}
+            />
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-sky-200 bg-sky-50/60 p-4">
+          <h4 className="text-sm font-semibold text-slate-900">
+            {t("manager.staffAvailability.socialDetails")}
+          </h4>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <StaffAvailabilityMetric
+              label={t("manager.staffAvailability.socialCapture")}
+              value={summary.socialCapture}
+            />
+            <StaffAvailabilityMetric
+              label={t("manager.staffAvailability.socialPostProduction")}
+              value={summary.socialPostProduction}
+            />
+            <StaffAvailabilityMetric
+              label={t("manager.staffAvailability.socialShortPosts")}
+              value={summary.socialShortPosts}
+            />
+            <StaffAvailabilityMetric
+              label={t("manager.staffAvailability.socialLongArticles")}
+              value={summary.socialLongArticles}
+            />
+            <StaffAvailabilityMetric
+              label={t("manager.staffAvailability.socialOther")}
+              value={summary.socialOther}
+            />
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function RegistrationTrendSection({
   series,
   t,
@@ -1187,6 +1330,27 @@ export async function StatisticsDashboard({
   const participants = ((data ?? []) as unknown as ParticipantStatRow[]).filter(
     (participant) => !participant.deleted_at
   );
+  let staffAvailabilitySummary = emptyStaffAvailabilitySummary();
+  if (!publicView) {
+    const { data: staffAvailabilityData, error: staffAvailabilityError } = await service
+      .from("participant_staff_availability")
+      .select("participant_id,areas,band_role,social_media_tasks");
+
+    if (staffAvailabilityError) {
+      return (
+        <section className="rounded border border-red-200 bg-red-50 p-6">
+          <h2 className="text-xl font-bold text-red-800">{t("manager.statistics.title")}</h2>
+          <p className="mt-2 text-sm text-red-700">{staffAvailabilityError.message}</p>
+        </section>
+      );
+    }
+
+    const activeParticipantIds = new Set(participants.map((participant) => participant.id));
+    const activeAvailabilityRows = (
+      (staffAvailabilityData ?? []) as StaffAvailabilityStatRow[]
+    ).filter((row) => activeParticipantIds.has(row.participant_id));
+    staffAvailabilitySummary = buildStaffAvailabilitySummary(activeAvailabilityRows);
+  }
   const operatorAccommodationPreferenceCounts =
     buildOperatorAccommodationPreferenceCounts(participants);
   const leaderGroupIds = new Set<string>();
@@ -1349,6 +1513,7 @@ export async function StatisticsDashboard({
             registrations: t("manager.statistics.registrations"),
             trend: t("manager.statistics.trend"),
             dailyPresence: t("manager.statistics.dailyPresence"),
+            staffAvailability: t("manager.statistics.staffAvailability"),
             duplicates: t("manager.duplicates.section"),
             open: t("manager.statistics.openSections"),
             close: t("manager.statistics.closeSections"),
@@ -1376,6 +1541,10 @@ export async function StatisticsDashboard({
               ))}
             </div>
           </section>
+
+          {!publicView && (
+            <StaffAvailabilitySection summary={staffAvailabilitySummary} t={t} />
+          )}
 
           <div className="grid gap-6 xl:grid-cols-2">
             <RegistrationsTabsSection
