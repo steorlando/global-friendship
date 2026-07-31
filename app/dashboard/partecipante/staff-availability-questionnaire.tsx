@@ -111,10 +111,40 @@ export function StaffAvailabilityQuestionnaire({
   function saveAvailability() {
     setError(null);
     setSuccess(null);
+
+    if (draft.areas.length === 0) {
+      setError(t("participant.staff.validation.area"));
+      return;
+    }
+    if (includesBand && !draft.bandRole) {
+      setError(t("participant.staff.validation.bandRole"));
+      return;
+    }
+    if (
+      includesBand &&
+      draft.bandRole === "instrument" &&
+      !draft.bandInstrument?.trim()
+    ) {
+      setError(t("participant.staff.validation.instrument"));
+      return;
+    }
+    if (includesSocialMedia && draft.socialMediaTasks.length === 0) {
+      setError(t("participant.staff.validation.socialTask"));
+      return;
+    }
+    if (
+      includesSocialMedia &&
+      includesSocialOther &&
+      !draft.socialMediaOther?.trim()
+    ) {
+      setError(t("participant.staff.validation.socialOther"));
+      return;
+    }
+
     startTransition(async () => {
       const result = await saveParticipantStaffAvailability(participantId, draft);
       if (!result.ok) {
-        setError(result.error);
+        setError(t("participant.staff.saveError"));
         return;
       }
 

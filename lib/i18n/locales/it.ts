@@ -121,6 +121,14 @@ const it: TranslationDictionary = {
   "participant.staff.saving": "Salvataggio...",
   "participant.staff.closeButton": "Chiudi",
   "participant.staff.saveSuccess": "Le tue preferenze per lo staff sono state salvate.",
+  "participant.staff.saveError": "Impossibile salvare le preferenze per lo staff.",
+  "participant.staff.validation.area": "Seleziona almeno un'attività dello staff.",
+  "participant.staff.validation.bandRole":
+    "Indica se vuoi cantare o suonare uno strumento.",
+  "participant.staff.validation.instrument": "Indica quale strumento sai suonare.",
+  "participant.staff.validation.socialTask":
+    "Seleziona almeno un'attività per i social media.",
+  "participant.staff.validation.socialOther": "Descrivi l'altra attività per i social media.",
   "participant.form.multipleFoundTitle": "Trovate più registrazioni partecipante.",
   "participant.form.multipleFoundBody": "Seleziona il profilo partecipante che vuoi gestire con questa email.",
   "participant.form.profile": "Profilo partecipante",

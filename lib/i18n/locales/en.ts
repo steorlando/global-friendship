@@ -139,6 +139,14 @@ const en: TranslationDictionary = {
   "participant.staff.saving": "Saving...",
   "participant.staff.closeButton": "Close",
   "participant.staff.saveSuccess": "Your staff preferences have been saved.",
+  "participant.staff.saveError": "Unable to save your staff preferences.",
+  "participant.staff.validation.area": "Select at least one staff area.",
+  "participant.staff.validation.bandRole":
+    "Choose whether you want to sing or play an instrument.",
+  "participant.staff.validation.instrument": "Indicate which instrument you can play.",
+  "participant.staff.validation.socialTask":
+    "Select at least one social media activity.",
+  "participant.staff.validation.socialOther": "Describe the other social media activity.",
 
   "participant.form.multipleFoundTitle": "Multiple participant registrations found.",
   "participant.form.multipleFoundBody": "Select the participant profile you want to manage with this email.",
