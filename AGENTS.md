@@ -31,7 +31,8 @@ Keep it updated when major routes, data structures, or business rules change.
 - Never create or switch to a different branch for Codex changes in this repository.
 
 Notes:
-- `npm test` runs `tests/email-recipient-id-utils.test.ts`, `tests/bank-statement-import.test.ts`, and `tests/participant-staff-availability.test.ts`.
+- `npm test` runs the core email-recipient, bank-import, participant staff-availability,
+  and staff-questionnaire translation tests.
 - There are many additional `tests/*.test.ts` files in the repo; run them explicitly with `node --test --experimental-strip-types <file>` if needed.
 
 ## Environment Variables

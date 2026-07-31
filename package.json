@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test --experimental-strip-types tests/email-recipient-id-utils.test.ts tests/bank-statement-import.test.ts tests/participant-staff-availability.test.ts",
+    "test": "node --test --experimental-strip-types tests/email-recipient-id-utils.test.ts tests/bank-statement-import.test.ts tests/participant-staff-availability.test.ts tests/participant-staff-translations.test.ts",
     "supabase:tables": "node scripts/supabase-admin.mjs list-tables",
     "supabase:select": "node scripts/supabase-admin.mjs select",
     "supabase:insert": "node scripts/supabase-admin.mjs insert",
