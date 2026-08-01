@@ -1003,22 +1003,25 @@ function StaffAvailabilitySection({
         <div className="flex flex-wrap gap-2">
           <Link
             href="/dashboard/manager/staff-availability"
-            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2"
+            aria-label={t("staffAvailabilityList.open")}
+            title={t("staffAvailabilityList.open")}
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 transition hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2"
           >
-            <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4">
+            <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-5 w-5">
               <path d="M3 4.5h14M3 10h14M3 15.5h14M6.5 3v14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
-            {t("staffAvailabilityList.open")}
           </Link>
           <a
             href="/api/manager/statistics/staff-availability-export"
-            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-semibold text-violet-700 transition hover:border-violet-300 hover:bg-violet-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2"
+            aria-label={t("manager.staffAvailability.downloadExcel")}
+            title={t("manager.staffAvailability.downloadExcel")}
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-violet-200 bg-violet-50 text-violet-700 transition hover:border-violet-300 hover:bg-violet-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2"
           >
           <svg
             aria-hidden="true"
             viewBox="0 0 20 20"
             fill="none"
-            className="h-4 w-4"
+            className="h-5 w-5"
           >
             <path
               d="M10 2.5v9m0 0 3.25-3.25M10 11.5 6.75 8.25M4 13.5v2A1.5 1.5 0 0 0 5.5 17h9a1.5 1.5 0 0 0 1.5-1.5v-2"
@@ -1028,7 +1031,6 @@ function StaffAvailabilitySection({
               strokeLinejoin="round"
             />
           </svg>
-            {t("manager.staffAvailability.downloadExcel")}
           </a>
         </div>
       </div>
