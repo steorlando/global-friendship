@@ -1000,10 +1000,20 @@ function StaffAvailabilitySection({
             {t("manager.staffAvailability.subtitle")}
           </p>
         </div>
-        <a
-          href="/api/manager/statistics/staff-availability-export"
-          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-semibold text-violet-700 transition hover:border-violet-300 hover:bg-violet-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2"
-        >
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/dashboard/manager/staff-availability"
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2"
+          >
+            <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4">
+              <path d="M3 4.5h14M3 10h14M3 15.5h14M6.5 3v14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+            {t("staffAvailabilityList.open")}
+          </Link>
+          <a
+            href="/api/manager/statistics/staff-availability-export"
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-semibold text-violet-700 transition hover:border-violet-300 hover:bg-violet-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2"
+          >
           <svg
             aria-hidden="true"
             viewBox="0 0 20 20"
@@ -1018,8 +1028,9 @@ function StaffAvailabilitySection({
               strokeLinejoin="round"
             />
           </svg>
-          {t("manager.staffAvailability.downloadExcel")}
-        </a>
+            {t("manager.staffAvailability.downloadExcel")}
+          </a>
+        </div>
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

@@ -6,6 +6,7 @@ import {
   buildStaffAvailabilitySummary,
   describeStaffAvailability,
   matchesStaffAvailabilityFilter,
+  matchesStaffAvailabilityAreas,
   parseStaffAvailabilityFilter,
   type StaffAvailabilityStatRow,
 } from "../lib/statistics/staff-availability.ts";
@@ -104,6 +105,23 @@ test("matches every dashboard staff availability metric", () => {
   assert.deepEqual(
     rows.filter((row) => matchesStaffAvailabilityFilter(row, "social_other")).map((row) => row.participant_id),
     ["three"],
+  );
+});
+
+test("combines staff area filters with OR logic and shows all without filters", () => {
+  assert.deepEqual(
+    rows.filter((row) => matchesStaffAvailabilityAreas(row, [])).map((row) => row.participant_id),
+    ["one", "two", "three"],
+  );
+  assert.deepEqual(
+    rows
+      .filter((row) => matchesStaffAvailabilityAreas(row, ["choir", "social_media"]))
+      .map((row) => row.participant_id),
+    ["one", "two", "three"],
+  );
+  assert.deepEqual(
+    rows.filter((row) => matchesStaffAvailabilityAreas(row, ["choir"])).map((row) => row.participant_id),
+    ["one"],
   );
 });
 

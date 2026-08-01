@@ -45,6 +45,11 @@ export const STAFF_AVAILABILITY_FILTERS = [
 export type StaffAvailabilityFilter =
   (typeof STAFF_AVAILABILITY_FILTERS)[number];
 
+export type StaffAvailabilityAreaFilter = Extract<
+  StaffAvailabilityFilter,
+  "band" | "choir" | "social_media"
+>;
+
 const staffAvailabilityFilterSet = new Set<string>(STAFF_AVAILABILITY_FILTERS);
 
 export function parseStaffAvailabilityFilter(
@@ -87,6 +92,15 @@ export function matchesStaffAvailabilityFilter(
     case "social_other":
       return socialTasks.includes("other");
   }
+}
+
+export function matchesStaffAvailabilityAreas(
+  row: StaffAvailabilityStatRow,
+  filters: StaffAvailabilityAreaFilter[],
+): boolean {
+  if (filters.length === 0) return true;
+  const areas = row.areas ?? [];
+  return filters.some((filter) => areas.includes(filter));
 }
 
 export function emptyStaffAvailabilitySummary(): StaffAvailabilitySummary {

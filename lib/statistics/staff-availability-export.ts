@@ -20,7 +20,7 @@ export type StaffAvailabilityExportRow = StaffAvailabilityExportParticipant & {
   availability: StaffAvailabilityStatRow;
 };
 
-function displayPersonalCode(value: string | null): string {
+export function displayPersonalCode(value: string | null): string {
   const normalized = (value ?? "").trim();
   return /^\d{1,4}$/.test(normalized) ? normalized.padStart(4, "0") : normalized;
 }
