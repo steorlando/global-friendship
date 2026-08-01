@@ -234,6 +234,8 @@ const it: TranslationDictionary = {
   "participants.table.filter.min": "Min",
   "participants.table.filter.max": "Max",
   "participants.table.noResults": "Nessun partecipante trovato con i filtri correnti.",
+  "participants.table.staffAvailabilityFilter": "Filtro disponibilità team: {filter}",
+  "participants.table.clearStaffAvailabilityFilter": "Rimuovi filtro disponibilità",
   "participants.table.modal.editTitle": "Modifica partecipante",
   "participants.table.modal.personalCode": "Codice personale",
   "participants.table.modal.close": "Chiudi",

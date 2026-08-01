@@ -20,6 +20,11 @@ import {
   parseStoredDifficoltaAccessibilita,
   alloggioShortToLong,
 } from "@/lib/partecipante/constants";
+import {
+  matchesStaffAvailabilityFilter,
+  parseStaffAvailabilityFilter,
+  type StaffAvailabilityStatRow,
+} from "@/lib/statistics/staff-availability";
 
 type ParticipantRow = {
   id: string;
@@ -369,15 +374,42 @@ function toResponseParticipant(row: ParticipantRow) {
   };
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const auth = await requireManagerContext();
   if ("errorResponse" in auth) return auth.errorResponse;
 
   try {
-    const [participants, assignableGroups] = await Promise.all([
+    const staffAvailabilityFilter = parseStaffAvailabilityFilter(
+      new URL(req.url).searchParams.get("staffAvailability"),
+    );
+    const availabilityPromise = staffAvailabilityFilter
+      ? auth.service
+          .from("participant_staff_availability")
+          .select("participant_id,areas,band_role,social_media_tasks")
+      : Promise.resolve({ data: null, error: null });
+    const [allParticipants, assignableGroups, availabilityResult] = await Promise.all([
       loadAllParticipants(),
       loadAssignableGroups(auth.service),
+      availabilityPromise,
     ]);
+    let participants = allParticipants;
+
+    if (staffAvailabilityFilter) {
+      const { data: availabilityRows, error: availabilityError } = availabilityResult;
+
+      if (availabilityError) {
+        throw new Error(availabilityError.message);
+      }
+
+      const matchingParticipantIds = new Set(
+        ((availabilityRows ?? []) as StaffAvailabilityStatRow[])
+          .filter((row) => matchesStaffAvailabilityFilter(row, staffAvailabilityFilter))
+          .map((row) => row.participant_id),
+      );
+      participants = allParticipants.filter((participant) =>
+        matchingParticipantIds.has(participant.id),
+      );
+    }
     const groups = [
       ...new Set(participants.map((participant) => buildGroupLabel(participant))),
     ]
@@ -388,6 +420,7 @@ export async function GET() {
       groups,
       assignableGroups,
       showGroupColumn: true,
+      staffAvailabilityFilter,
       participants: participants.map(toResponseParticipant),
     });
   } catch (error) {

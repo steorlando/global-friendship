@@ -16,6 +16,7 @@ import {
   normalizeOperatorAccommodationPreference,
 } from "@/lib/partecipante/constants";
 import { useI18n } from "@/lib/i18n/provider";
+import type { StaffAvailabilityFilter } from "@/lib/statistics/staff-availability";
 
 type PresenceDettaglioMap = Record<string, boolean>;
 
@@ -129,6 +130,19 @@ const EMPTY_FORM: FormState = {
 };
 
 const OPTIONAL_COLUMNS: OptionalColumnKey[] = ["tipo_iscrizione", "citta", "eta"];
+const STAFF_AVAILABILITY_FILTER_LABEL_KEYS: Record<StaffAvailabilityFilter, string> = {
+  responses: "manager.staffAvailability.responses",
+  band: "manager.staffAvailability.band",
+  choir: "manager.staffAvailability.choir",
+  social_media: "manager.staffAvailability.socialMedia",
+  band_vocals: "manager.staffAvailability.bandVocals",
+  band_instrument: "manager.staffAvailability.bandInstrument",
+  social_capture: "manager.staffAvailability.socialCapture",
+  social_post_production: "manager.staffAvailability.socialPostProduction",
+  social_short_posts: "manager.staffAvailability.socialShortPosts",
+  social_long_articles: "manager.staffAvailability.socialLongArticles",
+  social_other: "manager.staffAvailability.socialOther",
+};
 const HOST_CITY_PRESENCE_OPTIONS = [
   "Opening ceremony Friday 28th August",
   "Dinner - Friday 28th August",
@@ -377,6 +391,8 @@ export function ParticipantsTable({
   const [statCityFilter, setStatCityFilter] = useState("");
   const [statItalyOnlyFilter, setStatItalyOnlyFilter] = useState(false);
   const [enrollmentBucketFilter, setEnrollmentBucketFilter] = useState<EnrollmentBucket | "">("");
+  const [staffAvailabilityFilter, setStaffAvailabilityFilter] =
+    useState<StaffAvailabilityFilter | null>(null);
   const [onlyRoma, setOnlyRoma] = useState(false);
 
   const editingParticipant = useMemo(
@@ -697,7 +713,14 @@ export function ParticipantsTable({
       setLoadError(null);
 
       try {
-        const res = await fetch(apiBasePath, { method: "GET" });
+        const pageParams = new URLSearchParams(window.location.search);
+        const staffAvailability = pageParams.get("staffAvailability") ?? "";
+        const apiParams = new URLSearchParams();
+        if (staffAvailability) apiParams.set("staffAvailability", staffAvailability);
+        const apiUrl = apiParams.size > 0
+          ? `${apiBasePath}?${apiParams.toString()}`
+          : apiBasePath;
+        const res = await fetch(apiUrl, { method: "GET" });
         const json = await res.json();
 
         if (!res.ok) {
@@ -710,6 +733,12 @@ export function ParticipantsTable({
         setGroups(Array.isArray(json.groups) ? json.groups : []);
         setAssignableGroups(
           Array.isArray(json.assignableGroups) ? json.assignableGroups : []
+        );
+        setStaffAvailabilityFilter(
+          typeof json.staffAvailabilityFilter === "string" &&
+            json.staffAvailabilityFilter in STAFF_AVAILABILITY_FILTER_LABEL_KEYS
+            ? (json.staffAvailabilityFilter as StaffAvailabilityFilter)
+            : null,
         );
       } catch {
         setLoadError(t("participants.table.loadError"));
@@ -802,6 +831,12 @@ export function ParticipantsTable({
     setQuotaMinFilter("");
     setQuotaMaxFilter("");
     setOperatorAccommodationFilter("");
+  }
+
+  function clearStaffAvailabilityFilter() {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("staffAvailability");
+    window.location.assign(`${url.pathname}${url.search}${url.hash}`);
   }
 
   function toggleOptionalColumn(column: OptionalColumnKey) {
@@ -1024,6 +1059,22 @@ export function ParticipantsTable({
             </button>
           ) : null}
         </div>
+        {staffAvailabilityFilter ? (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-900">
+            <p>
+              {t("participants.table.staffAvailabilityFilter", {
+                filter: t(STAFF_AVAILABILITY_FILTER_LABEL_KEYS[staffAvailabilityFilter]),
+              })}
+            </p>
+            <button
+              type="button"
+              onClick={clearStaffAvailabilityFilter}
+              className="rounded border border-violet-300 bg-white px-3 py-1.5 text-xs font-semibold text-violet-800 transition hover:bg-violet-100"
+            >
+              {t("participants.table.clearStaffAvailabilityFilter")}
+            </button>
+          </div>
+        ) : null}
         {exportError ? (
           <p className="mt-3 text-sm text-red-700" role="alert">{exportError}</p>
         ) : null}

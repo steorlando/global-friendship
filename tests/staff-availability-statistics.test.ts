@@ -5,6 +5,8 @@ import * as XLSX from "xlsx";
 import {
   buildStaffAvailabilitySummary,
   describeStaffAvailability,
+  matchesStaffAvailabilityFilter,
+  parseStaffAvailabilityFilter,
   type StaffAvailabilityStatRow,
 } from "../lib/statistics/staff-availability.ts";
 import { buildStaffAvailabilityWorkbook } from "../lib/statistics/staff-availability-export.ts";
@@ -50,6 +52,59 @@ test("builds staff response and availability counters", () => {
     socialLongArticles: 1,
     socialOther: 1,
   });
+});
+
+test("parses only supported staff availability filters", () => {
+  assert.equal(parseStaffAvailabilityFilter("band_instrument"), "band_instrument");
+  assert.equal(parseStaffAvailabilityFilter("unknown"), null);
+  assert.equal(parseStaffAvailabilityFilter(null), null);
+});
+
+test("matches every dashboard staff availability metric", () => {
+  assert.deepEqual(
+    rows.filter((row) => matchesStaffAvailabilityFilter(row, "responses")).map((row) => row.participant_id),
+    ["one", "two", "three"],
+  );
+  assert.deepEqual(
+    rows.filter((row) => matchesStaffAvailabilityFilter(row, "band")).map((row) => row.participant_id),
+    ["one", "two"],
+  );
+  assert.deepEqual(
+    rows.filter((row) => matchesStaffAvailabilityFilter(row, "choir")).map((row) => row.participant_id),
+    ["one"],
+  );
+  assert.deepEqual(
+    rows.filter((row) => matchesStaffAvailabilityFilter(row, "social_media")).map((row) => row.participant_id),
+    ["two", "three"],
+  );
+  assert.deepEqual(
+    rows.filter((row) => matchesStaffAvailabilityFilter(row, "band_vocals")).map((row) => row.participant_id),
+    ["one"],
+  );
+  assert.deepEqual(
+    rows.filter((row) => matchesStaffAvailabilityFilter(row, "band_instrument")).map((row) => row.participant_id),
+    ["two"],
+  );
+  assert.deepEqual(
+    rows.filter((row) => matchesStaffAvailabilityFilter(row, "social_capture")).map((row) => row.participant_id),
+    ["two"],
+  );
+  assert.deepEqual(
+    rows.filter((row) => matchesStaffAvailabilityFilter(row, "social_post_production")).map((row) => row.participant_id),
+    ["three"],
+  );
+  assert.deepEqual(
+    rows.filter((row) => matchesStaffAvailabilityFilter(row, "social_short_posts")).map((row) => row.participant_id),
+    ["two"],
+  );
+  assert.deepEqual(
+    rows.filter((row) => matchesStaffAvailabilityFilter(row, "social_long_articles")).map((row) => row.participant_id),
+    ["three"],
+  );
+  assert.deepEqual(
+    rows.filter((row) => matchesStaffAvailabilityFilter(row, "social_other")).map((row) => row.participant_id),
+    ["three"],
+  );
 });
 
 test("describes all selected availability details for the Excel export", () => {

@@ -17,6 +17,7 @@ import {
 import {
   buildStaffAvailabilitySummary,
   emptyStaffAvailabilitySummary,
+  type StaffAvailabilityFilter,
   type StaffAvailabilityStatRow,
   type StaffAvailabilitySummary,
 } from "@/lib/statistics/staff-availability";
@@ -950,15 +951,19 @@ function OperatorAccommodationPreferenceSection({
 function StaffAvailabilityMetric({
   label,
   value,
+  filter,
   emphasized = false,
 }: {
   label: string;
   value: number;
+  filter: StaffAvailabilityFilter;
   emphasized?: boolean;
 }) {
   return (
-    <article
-      className={`rounded-lg border p-4 ${
+    <Link
+      href={`/dashboard/manager/participants?staffAvailability=${filter}`}
+      aria-label={`${label}: ${value}`}
+      className={`group block rounded-lg border p-4 transition hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${
         emphasized
           ? "border-violet-200 bg-violet-50"
           : "border-slate-200 bg-slate-50"
@@ -967,8 +972,10 @@ function StaffAvailabilityMetric({
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
         {label}
       </p>
-      <p className="mt-2 text-3xl font-bold text-slate-950">{value}</p>
-    </article>
+      <p className="mt-2 text-3xl font-bold text-slate-950 group-hover:text-indigo-700">
+        {value}
+      </p>
+    </Link>
   );
 }
 
@@ -1019,19 +1026,23 @@ function StaffAvailabilitySection({
         <StaffAvailabilityMetric
           label={t("manager.staffAvailability.responses")}
           value={summary.responses}
+          filter="responses"
           emphasized
         />
         <StaffAvailabilityMetric
           label={t("manager.staffAvailability.band")}
           value={summary.band}
+          filter="band"
         />
         <StaffAvailabilityMetric
           label={t("manager.staffAvailability.choir")}
           value={summary.choir}
+          filter="choir"
         />
         <StaffAvailabilityMetric
           label={t("manager.staffAvailability.socialMedia")}
           value={summary.socialMedia}
+          filter="social_media"
         />
       </div>
 
@@ -1044,10 +1055,12 @@ function StaffAvailabilitySection({
             <StaffAvailabilityMetric
               label={t("manager.staffAvailability.bandVocals")}
               value={summary.bandVocals}
+              filter="band_vocals"
             />
             <StaffAvailabilityMetric
               label={t("manager.staffAvailability.bandInstrument")}
               value={summary.bandInstrument}
+              filter="band_instrument"
             />
           </div>
         </div>
@@ -1060,22 +1073,27 @@ function StaffAvailabilitySection({
             <StaffAvailabilityMetric
               label={t("manager.staffAvailability.socialCapture")}
               value={summary.socialCapture}
+              filter="social_capture"
             />
             <StaffAvailabilityMetric
               label={t("manager.staffAvailability.socialPostProduction")}
               value={summary.socialPostProduction}
+              filter="social_post_production"
             />
             <StaffAvailabilityMetric
               label={t("manager.staffAvailability.socialShortPosts")}
               value={summary.socialShortPosts}
+              filter="social_short_posts"
             />
             <StaffAvailabilityMetric
               label={t("manager.staffAvailability.socialLongArticles")}
               value={summary.socialLongArticles}
+              filter="social_long_articles"
             />
             <StaffAvailabilityMetric
               label={t("manager.staffAvailability.socialOther")}
               value={summary.socialOther}
+              filter="social_other"
             />
           </div>
         </div>

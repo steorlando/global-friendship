@@ -253,6 +253,8 @@ const en: TranslationDictionary = {
   "participants.table.filter.min": "Min",
   "participants.table.filter.max": "Max",
   "participants.table.noResults": "No participants found with the current filters.",
+  "participants.table.staffAvailabilityFilter": "Event team availability filter: {filter}",
+  "participants.table.clearStaffAvailabilityFilter": "Clear availability filter",
   "participants.table.modal.editTitle": "Edit participant",
   "participants.table.modal.personalCode": "Personal code",
   "participants.table.modal.close": "Close",

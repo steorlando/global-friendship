@@ -28,6 +28,67 @@ export type StaffAvailabilitySummary = {
   socialOther: number;
 };
 
+export const STAFF_AVAILABILITY_FILTERS = [
+  "responses",
+  "band",
+  "choir",
+  "social_media",
+  "band_vocals",
+  "band_instrument",
+  "social_capture",
+  "social_post_production",
+  "social_short_posts",
+  "social_long_articles",
+  "social_other",
+] as const;
+
+export type StaffAvailabilityFilter =
+  (typeof STAFF_AVAILABILITY_FILTERS)[number];
+
+const staffAvailabilityFilterSet = new Set<string>(STAFF_AVAILABILITY_FILTERS);
+
+export function parseStaffAvailabilityFilter(
+  value: string | null | undefined,
+): StaffAvailabilityFilter | null {
+  const normalized = (value ?? "").trim();
+  return staffAvailabilityFilterSet.has(normalized)
+    ? (normalized as StaffAvailabilityFilter)
+    : null;
+}
+
+export function matchesStaffAvailabilityFilter(
+  row: StaffAvailabilityStatRow,
+  filter: StaffAvailabilityFilter,
+): boolean {
+  const areas = row.areas ?? [];
+  const socialTasks = row.social_media_tasks ?? [];
+
+  switch (filter) {
+    case "responses":
+      return true;
+    case "band":
+      return areas.includes("band");
+    case "choir":
+      return areas.includes("choir");
+    case "social_media":
+      return areas.includes("social_media");
+    case "band_vocals":
+      return row.band_role === "vocals";
+    case "band_instrument":
+      return row.band_role === "instrument";
+    case "social_capture":
+      return socialTasks.includes("capture");
+    case "social_post_production":
+      return socialTasks.includes("post_production");
+    case "social_short_posts":
+      return socialTasks.includes("short_posts");
+    case "social_long_articles":
+      return socialTasks.includes("long_articles");
+    case "social_other":
+      return socialTasks.includes("other");
+  }
+}
+
 export function emptyStaffAvailabilitySummary(): StaffAvailabilitySummary {
   return {
     responses: 0,
