@@ -14,6 +14,7 @@ import {
   type ParticipantTemplateData,
 } from "@/lib/email/participant-template";
 import {
+  formatGroupLeaderGroups,
   GROUP_LEADER_TEMPLATE_FIELDS,
   renderGroupLeaderTemplateHtml,
   renderGroupLeaderTemplateText,
@@ -48,7 +49,14 @@ type ParticipantSortKey =
   | "alloggio"
   | "quota_totale";
 
-type GroupLeaderSortKey = "nome" | "cognome" | "email" | "telefono" | "italia" | "roma";
+type GroupLeaderSortKey =
+  | "nome"
+  | "cognome"
+  | "gruppi"
+  | "email"
+  | "telefono"
+  | "italia"
+  | "roma";
 
 type SortDirection = "asc" | "desc";
 
@@ -618,6 +626,9 @@ export function ParticipantEmailCampaign() {
       } else if (groupLeaderSortKey === "roma") {
         aValue = getBooleanSortValue(a.roma);
         bValue = getBooleanSortValue(b.roma);
+      } else if (groupLeaderSortKey === "gruppi") {
+        aValue = formatGroupLeaderGroups(a.gruppi).toLowerCase();
+        bValue = formatGroupLeaderGroups(b.gruppi).toLowerCase();
       } else {
         aValue = ((a[groupLeaderSortKey] as string | null) ?? "").toLowerCase();
         bValue = ((b[groupLeaderSortKey] as string | null) ?? "").toLowerCase();
@@ -1805,6 +1816,9 @@ export function ParticipantEmailCampaign() {
                     <button type="button" onClick={() => toggleGroupLeaderSort("cognome")}>Surname</button>
                   </th>
                   <th className="px-4 py-3 font-semibold">
+                    <button type="button" onClick={() => toggleGroupLeaderSort("gruppi")}>Groups</button>
+                  </th>
+                  <th className="px-4 py-3 font-semibold">
                     <button type="button" onClick={() => toggleGroupLeaderSort("email")}>Email</button>
                   </th>
                   <th className="px-4 py-3 font-semibold">
@@ -1821,7 +1835,7 @@ export function ParticipantEmailCampaign() {
               <tbody className="divide-y divide-slate-100">
                 {filteredSortedGroupLeaders.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-3 py-3 text-slate-500">
+                    <td colSpan={8} className="px-3 py-3 text-slate-500">
                       No group leaders match current filters.
                     </td>
                   </tr>
@@ -1838,6 +1852,9 @@ export function ParticipantEmailCampaign() {
                       </td>
                       <td className="px-4 py-3 text-slate-900">{leader.nome || "-"}</td>
                       <td className="px-4 py-3 text-slate-900">{leader.cognome || "-"}</td>
+                      <td className="max-w-xs px-4 py-3 text-slate-700">
+                        {formatGroupLeaderGroups(leader.gruppi) || "-"}
+                      </td>
                       <td className="px-4 py-3 text-slate-700">{leader.email || "-"}</td>
                       <td className="px-4 py-3 text-slate-700">{leader.telefono || "-"}</td>
                       <td className="px-4 py-3 text-slate-700">{formatBoolean(leader.italia)}</td>

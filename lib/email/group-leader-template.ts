@@ -42,7 +42,7 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#39;");
 }
 
-function toCommaList(values: string[] | null | undefined): string {
+export function formatGroupLeaderGroups(values: string[] | null | undefined): string {
   const cleaned = (values ?? []).map((item) => item.trim()).filter(Boolean);
   return cleaned.join(", ");
 }
@@ -60,7 +60,7 @@ function buildTemplateMap(groupLeader: GroupLeaderTemplateData): Record<string, 
     email: normalizeString(groupLeader.email),
     telefono: normalizeString(groupLeader.telefono),
     ruolo: normalizeString(groupLeader.ruolo),
-    gruppi: toCommaList(groupLeader.gruppi),
+    gruppi: formatGroupLeaderGroups(groupLeader.gruppi),
     italia: groupLeader.italia == null ? "" : groupLeader.italia ? "Yes" : "No",
     roma: groupLeader.roma == null ? "" : groupLeader.roma ? "Yes" : "No",
   };

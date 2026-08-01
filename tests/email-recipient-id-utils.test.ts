@@ -12,6 +12,7 @@ import {
   buildParticipantRegistrationConfirmationText,
 } from "../lib/email/participant-registration-confirmation-template.ts";
 import { renderParticipantTemplateText } from "../lib/email/participant-template.ts";
+import { formatGroupLeaderGroups } from "../lib/email/group-leader-template.ts";
 
 const ID_1 = "6f40f01e-8d63-4fcb-95f6-7b0f6bf4960d";
 const ID_2 = "f2e81b7f-e26f-47cc-a1f2-3692305bca18";
@@ -41,6 +42,11 @@ test("participant campaign id token renders the four-digit personal code", () =>
   });
 
   assert.equal(rendered, "Code: 1234");
+});
+
+test("group leader campaign table formats all associated groups", () => {
+  assert.equal(formatGroupLeaderGroups([" Padova ", "Perugia"]), "Padova, Perugia");
+  assert.equal(formatGroupLeaderGroups([]), "");
 });
 
 test("parseRecipientIdsFromText parses comma-separated IDs", () => {
