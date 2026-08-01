@@ -7,6 +7,7 @@ import {
 } from "@/lib/groups/display-names";
 import { sendGmailEmail } from "@/lib/email/gmail";
 import { loadEmailSenderRuntimeSettings } from "@/lib/email/settings";
+import { batchInFilterValues } from "@/lib/supabase/query-batching";
 import {
   htmlToText,
   renderParticipantTemplateHtml,
@@ -235,6 +236,25 @@ async function runWithConcurrency<T>(
   await Promise.all(workers);
 }
 
+async function loadRowsInBatches<T>(
+  recipientIds: string[],
+  loadBatch: (
+    batchIds: string[]
+  ) => Promise<{ data: T[] | null; error: { message: string } | null }>
+): Promise<{ data: T[]; error: string | null }> {
+  const rows: T[] = [];
+
+  for (const batchIds of batchInFilterValues(recipientIds)) {
+    const { data, error } = await loadBatch(batchIds);
+    if (error) {
+      return { data: [], error: error.message };
+    }
+    rows.push(...(data ?? []));
+  }
+
+  return { data: rows, error: null };
+}
+
 function toTemplateData(row: ParticipantRow): ParticipantTemplateData {
   return {
     id: row.id,
@@ -368,14 +388,21 @@ export async function POST(req: Request) {
   }
 
   if (recipientType === "group_leaders") {
-    const { data, error } = await auth.service
-      .from("profili")
-      .select(GROUP_LEADER_SELECT_FIELDS)
-      .eq("ruolo", "capogruppo")
-      .in("id", recipientIds);
+    const { data, error } = await loadRowsInBatches<GroupLeaderRow>(
+      recipientIds,
+      async (batchIds) =>
+        auth.service
+          .from("profili")
+          .select(GROUP_LEADER_SELECT_FIELDS)
+          .eq("ruolo", "capogruppo")
+          .in("id", batchIds) as unknown as Promise<{
+          data: GroupLeaderRow[] | null;
+          error: { message: string } | null;
+        }>
+    );
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error }, { status: 500 });
     }
 
     const rows = (data ?? []) as GroupLeaderRow[];
@@ -451,13 +478,20 @@ export async function POST(req: Request) {
       }
     });
   } else {
-    const { data, error } = await auth.service
-      .from("partecipanti")
-      .select(SELECT_FIELDS)
-      .in("id", recipientIds);
+    const { data, error } = await loadRowsInBatches<ParticipantRow>(
+      recipientIds,
+      async (batchIds) =>
+        auth.service
+          .from("partecipanti")
+          .select(SELECT_FIELDS)
+          .in("id", batchIds) as unknown as Promise<{
+          data: ParticipantRow[] | null;
+          error: { message: string } | null;
+        }>
+    );
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error }, { status: 500 });
     }
 
     const rows = ((data ?? []) as ParticipantRow[]).filter((row) => !row.deleted_at);
