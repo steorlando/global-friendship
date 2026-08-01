@@ -152,7 +152,11 @@ export function StaffAvailabilityTable({ rows }: { rows: StaffAvailabilityExport
                   <td className="min-w-72 px-4 py-3 text-slate-700">{displaySocialMedia(row, t)}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-slate-500">
                     {row.availability.updated_at
-                      ? formatDate(row.availability.updated_at, { dateStyle: "short", timeStyle: "short" })
+                      ? formatDate(row.availability.updated_at, {
+                          dateStyle: "short",
+                          timeStyle: "short",
+                          timeZone: "Europe/Rome",
+                        })
                       : "—"}
                   </td>
                 </tr>
