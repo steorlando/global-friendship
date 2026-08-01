@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import NextLink from "next/link";
 import { usePathname } from "next/navigation";
 import Link from "@tiptap/extension-link";
@@ -24,6 +24,7 @@ import {
   isRecipientIdExcluded,
   parseRecipientIdsFromText,
 } from "@/lib/email/recipient-id-utils";
+import { matchesParticipantFilterSelection } from "@/lib/email/participant-campaign-filters";
 import { hasOutstandingParticipationFee } from "@/lib/participation-fees/payment-status";
 
 type RecipientType = "participants" | "group_leaders";
@@ -116,6 +117,120 @@ function safeIncludes(value: string | null, search: string): boolean {
 function formatBoolean(value: boolean | null): string {
   if (value === null) return "-";
   return value ? "Yes" : "No";
+}
+
+function CheckboxMultiSelect({
+  buttonId,
+  labelId,
+  options,
+  selectedValues,
+  allLabel,
+  selectedPluralLabel,
+  onToggle,
+  onClear,
+}: {
+  buttonId: string;
+  labelId: string;
+  options: Array<{ value: string; label: string }>;
+  selectedValues: ReadonlySet<string>;
+  allLabel: string;
+  selectedPluralLabel: string;
+  onToggle: (value: string) => void;
+  onClear: () => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!containerRef.current?.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+        buttonRef.current?.focus();
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen]);
+
+  const buttonLabel =
+    selectedValues.size === 0
+      ? allLabel
+      : selectedValues.size === 1
+        ? options.find((option) => selectedValues.has(option.value))?.label ??
+          [...selectedValues][0]
+        : `${selectedValues.size} ${selectedPluralLabel} selected`;
+
+  return (
+    <div ref={containerRef} className="relative mt-1">
+      <button
+        ref={buttonRef}
+        id={buttonId}
+        type="button"
+        aria-expanded={isOpen}
+        aria-controls={`${buttonId}-options`}
+        onClick={() => setIsOpen((current) => !current)}
+        className="flex w-full items-center justify-between gap-3 rounded border border-slate-300 bg-white px-4 py-3 text-left text-sm"
+      >
+        <span className="min-w-0 truncate">{buttonLabel}</span>
+        <span aria-hidden="true" className="shrink-0 text-xs text-slate-500">
+          {isOpen ? "▲" : "▼"}
+        </span>
+      </button>
+
+      {isOpen && (
+        <div
+          id={`${buttonId}-options`}
+          role="group"
+          aria-labelledby={labelId}
+          className="absolute z-30 mt-1 w-full min-w-64 rounded border border-slate-300 bg-white p-2 shadow-lg"
+        >
+          <div className="mb-1 flex items-center justify-between border-b border-slate-200 px-2 pb-2">
+            <span className="text-xs text-slate-500">
+              {selectedValues.size === 0 ? `${allLabel} included` : `${selectedValues.size} selected`}
+            </span>
+            <button
+              type="button"
+              onClick={onClear}
+              disabled={selectedValues.size === 0}
+              className="text-xs font-medium text-indigo-700 hover:underline disabled:cursor-not-allowed disabled:text-slate-400 disabled:no-underline"
+            >
+              Clear
+            </button>
+          </div>
+          <div className="max-h-64 overflow-y-auto py-1">
+            {options.map((option) => (
+              <label
+                key={option.value}
+                className="flex cursor-pointer items-start gap-2 rounded px-2 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedValues.has(option.value)}
+                  onChange={() => onToggle(option.value)}
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600"
+                />
+                <span>{option.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function sanitizePreviewHtml(html: string): string {
@@ -246,8 +361,10 @@ export function ParticipantEmailCampaign() {
   });
 
   const [participantSearch, setParticipantSearch] = useState("");
-  const [participantGroupFilter, setParticipantGroupFilter] = useState("");
-  const [participantRegistrationTypeFilter, setParticipantRegistrationTypeFilter] = useState("");
+  const [participantGroupFilters, setParticipantGroupFilters] = useState<Set<string>>(new Set());
+  const [participantRegistrationTypeFilters, setParticipantRegistrationTypeFilters] = useState<
+    Set<string>
+  >(new Set());
   const [participantCityFilter, setParticipantCityFilter] = useState("");
   const [participantArrivoFilter, setParticipantArrivoFilter] = useState("");
   const [participantPartenzaFilter, setParticipantPartenzaFilter] = useState("");
@@ -388,12 +505,17 @@ export function ParticipantEmailCampaign() {
         if (!matches) return false;
       }
 
-      if (showGroupColumn && participantGroupFilter) {
-        if (!safeIncludes(participant.group, participantGroupFilter)) return false;
+      if (
+        showGroupColumn &&
+        !matchesParticipantFilterSelection(participant.group, participantGroupFilters)
+      ) {
+        return false;
       }
       if (
-        participantRegistrationTypeFilter &&
-        (participant.tipo_iscrizione ?? "").trim() !== participantRegistrationTypeFilter
+        !matchesParticipantFilterSelection(
+          participant.tipo_iscrizione,
+          participantRegistrationTypeFilters
+        )
       ) {
         return false;
       }
@@ -445,8 +567,8 @@ export function ParticipantEmailCampaign() {
     participantAlloggioFilter,
     participantArrivoFilter,
     participantCityFilter,
-    participantGroupFilter,
-    participantRegistrationTypeFilter,
+    participantGroupFilters,
+    participantRegistrationTypeFilters,
     participantPartenzaFilter,
     participantPaymentFilter,
     participantSearch,
@@ -837,6 +959,30 @@ export function ParticipantEmailCampaign() {
     }
     setParticipantSortKey(key);
     setParticipantSortDirection("asc");
+  }
+
+  function toggleParticipantGroupFilter(group: string) {
+    setParticipantGroupFilters((current) => {
+      const next = new Set(current);
+      if (next.has(group)) {
+        next.delete(group);
+      } else {
+        next.add(group);
+      }
+      return next;
+    });
+  }
+
+  function toggleParticipantRegistrationTypeFilter(registrationType: string) {
+    setParticipantRegistrationTypeFilters((current) => {
+      const next = new Set(current);
+      if (next.has(registrationType)) {
+        next.delete(registrationType);
+      } else {
+        next.add(registrationType);
+      }
+      return next;
+    });
   }
 
   function toggleGroupLeaderSort(key: GroupLeaderSortKey) {
@@ -1298,39 +1444,46 @@ export function ParticipantEmailCampaign() {
             </div>
             {showGroupColumn && (
               <div>
-                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <label
+                  id="participant-group-filter-label"
+                  htmlFor="participant-group-filter"
+                  className="text-xs font-semibold uppercase tracking-wide text-slate-500"
+                >
                   Group
                 </label>
-                <input
-                  type="text"
-                  value={participantGroupFilter}
-                  onChange={(event) => setParticipantGroupFilter(event.target.value)}
-                  list="group-options"
-                  className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
+                <CheckboxMultiSelect
+                  buttonId="participant-group-filter"
+                  labelId="participant-group-filter-label"
+                  options={groups.map((group) => ({ value: group, label: group }))}
+                  selectedValues={participantGroupFilters}
+                  allLabel="All groups"
+                  selectedPluralLabel="groups"
+                  onToggle={toggleParticipantGroupFilter}
+                  onClear={() => setParticipantGroupFilters(new Set())}
                 />
-                <datalist id="group-options">
-                  {groups.map((group) => (
-                    <option key={group} value={group} />
-                  ))}
-                </datalist>
               </div>
             )}
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <label
+                id="participant-registration-type-filter-label"
+                htmlFor="participant-registration-type-filter"
+                className="text-xs font-semibold uppercase tracking-wide text-slate-500"
+              >
                 Registration type
               </label>
-              <select
-                value={participantRegistrationTypeFilter}
-                onChange={(event) => setParticipantRegistrationTypeFilter(event.target.value)}
-                className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
-              >
-                <option value="">All registration types</option>
-                {participantRegistrationTypes.map((registrationType) => (
-                  <option key={registrationType.value} value={registrationType.value}>
-                    {registrationType.value} ({registrationType.count})
-                  </option>
-                ))}
-              </select>
+              <CheckboxMultiSelect
+                buttonId="participant-registration-type-filter"
+                labelId="participant-registration-type-filter-label"
+                options={participantRegistrationTypes.map((registrationType) => ({
+                  value: registrationType.value,
+                  label: `${registrationType.value} (${registrationType.count})`,
+                }))}
+                selectedValues={participantRegistrationTypeFilters}
+                allLabel="All registration types"
+                selectedPluralLabel="registration types"
+                onToggle={toggleParticipantRegistrationTypeFilter}
+                onClear={() => setParticipantRegistrationTypeFilters(new Set())}
+              />
             </div>
             <div>
               <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
