@@ -54,9 +54,6 @@ export function StatisticsSectionsSidebar({
           <a href="#top-counters" className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
             {labels.counters}
           </a>
-          <a href="#staff-availability" className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
-            {labels.staffAvailability}
-          </a>
           <a href="#registrations" className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
             {labels.registrations}
           </a>
@@ -65,6 +62,9 @@ export function StatisticsSectionsSidebar({
           </a>
           <a href="#daily-presence" className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
             {labels.dailyPresence}
+          </a>
+          <a href="#staff-availability" className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
+            {labels.staffAvailability}
           </a>
           {includeDuplicates && (
             <a

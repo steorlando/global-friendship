@@ -1542,10 +1542,6 @@ export async function StatisticsDashboard({
             </div>
           </section>
 
-          {!publicView && (
-            <StaffAvailabilitySection summary={staffAvailabilitySummary} t={t} />
-          )}
-
           <div className="grid gap-6 xl:grid-cols-2">
             <RegistrationsTabsSection
               buckets={ENROLLMENT_BUCKETS}
@@ -1556,6 +1552,10 @@ export async function StatisticsDashboard({
 
             <DailyPresenceSection participants={participants} />
           </div>
+
+          {!publicView && (
+            <StaffAvailabilitySection summary={staffAvailabilitySummary} t={t} />
+          )}
 
           {!publicView && (
             <OperatorAccommodationPreferenceSection
