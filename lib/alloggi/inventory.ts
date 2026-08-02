@@ -114,6 +114,22 @@ const ROOM_SELECT_FIELDS =
   "id,albergo_id,nome,codice_interno,numero_reale,capienza,gender_policy,available_from,available_to,created_at,updated_at";
 const DATE_ONLY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const DAY_FIRST_DATE_REGEX = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+const SUPABASE_IN_FILTER_BATCH_SIZE = 50;
+
+export function chunkQueryValues<T>(
+  values: readonly T[],
+  batchSize = SUPABASE_IN_FILTER_BATCH_SIZE
+): T[][] {
+  if (!Number.isInteger(batchSize) || batchSize < 1) {
+    throw new Error("batchSize must be a positive integer");
+  }
+
+  const batches: T[][] = [];
+  for (let index = 0; index < values.length; index += batchSize) {
+    batches.push(values.slice(index, index + batchSize));
+  }
+  return batches;
+}
 
 function normalizeText(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -668,31 +684,43 @@ export async function loadAccommodationRooms(
   service: ServiceClient,
   filters: { hotelId?: string | null; roomIds?: string[] } = {}
 ): Promise<AccommodationRoom[]> {
-  let roomsQuery = service
-    .from("stanze")
-    .select(ROOM_SELECT_FIELDS)
-    .order("codice_interno", { ascending: true });
+  const requestedRoomIds = filters.roomIds
+    ? [...new Set(filters.roomIds.filter(Boolean))]
+    : [];
+  const roomIdBatches = chunkQueryValues(requestedRoomIds);
+  const roomResponses = await Promise.all(
+    (roomIdBatches.length > 0 ? roomIdBatches : [null]).map((roomIdBatch) => {
+      let query = service
+        .from("stanze")
+        .select(ROOM_SELECT_FIELDS)
+        .order("codice_interno", { ascending: true });
 
-  if (filters.hotelId) {
-    roomsQuery = roomsQuery.eq("albergo_id", filters.hotelId);
+      if (filters.hotelId) {
+        query = query.eq("albergo_id", filters.hotelId);
+      }
+
+      if (roomIdBatch) {
+        query = query.in("id", roomIdBatch);
+      }
+
+      return query;
+    })
+  );
+
+  const roomRows: RoomRow[] = [];
+  for (const response of roomResponses) {
+    if (response.error) {
+      throw new Error(response.error.message);
+    }
+    roomRows.push(...((response.data ?? []) as RoomRow[]));
   }
 
-  if (filters.roomIds && filters.roomIds.length > 0) {
-    roomsQuery = roomsQuery.in("id", filters.roomIds);
-  }
-
-  const roomsRes = await roomsQuery;
-  if (roomsRes.error) {
-    throw new Error(roomsRes.error.message);
-  }
-
-  const roomRows = (roomsRes.data ?? []) as RoomRow[];
   if (roomRows.length === 0) return [];
 
   const hotelIds = [...new Set(roomRows.map((row) => row.albergo_id).filter(Boolean))];
   const roomIds = roomRows.map((row) => row.id);
 
-  const [hotelsRes, roomCountsRes, roomGroupsRes, assignmentsRes] = await Promise.all([
+  const [hotelsRes, roomCountsRes, roomGroupRows, assignmentRows] = await Promise.all([
     hotelIds.length > 0
       ? service.from("alberghi").select(HOTEL_SELECT_FIELDS).in("id", hotelIds)
       : Promise.resolve({
@@ -705,18 +733,30 @@ export async function loadAccommodationRooms(
           data: [] as Array<{ albergo_id: string | null }>,
           error: null,
         }),
-    roomIds.length > 0
-      ? service.from("stanze_gruppi").select("stanza_id,gruppo_id").in("stanza_id", roomIds)
-      : Promise.resolve({
-          data: [] as RoomGroupRow[],
-          error: null,
-        }),
-    roomIds.length > 0
-      ? service.from("partecipanti_stanze").select("stanza_id").in("stanza_id", roomIds)
-      : Promise.resolve({
-          data: [] as ParticipantRoomAssignmentRow[],
-          error: null,
-        }),
+    Promise.all(
+      chunkQueryValues(roomIds).map(async (roomIdBatch) => {
+        const { data, error } = await service
+          .from("stanze_gruppi")
+          .select("stanza_id,gruppo_id")
+          .in("stanza_id", roomIdBatch);
+        if (error) {
+          throw new Error(error.message);
+        }
+        return (data ?? []) as RoomGroupRow[];
+      })
+    ).then((batches) => batches.flat()),
+    Promise.all(
+      chunkQueryValues(roomIds).map(async (roomIdBatch) => {
+        const { data, error } = await service
+          .from("partecipanti_stanze")
+          .select("stanza_id")
+          .in("stanza_id", roomIdBatch);
+        if (error) {
+          throw new Error(error.message);
+        }
+        return (data ?? []) as ParticipantRoomAssignmentRow[];
+      })
+    ).then((batches) => batches.flat()),
   ]);
 
   if (hotelsRes.error) {
@@ -725,14 +765,6 @@ export async function loadAccommodationRooms(
 
   if (roomCountsRes.error) {
     throw new Error(roomCountsRes.error.message);
-  }
-
-  if (roomGroupsRes.error) {
-    throw new Error(roomGroupsRes.error.message);
-  }
-
-  if (assignmentsRes.error) {
-    throw new Error(assignmentsRes.error.message);
   }
 
   const roomCountByHotelId = new Map<string, number>();
@@ -752,7 +784,7 @@ export async function loadAccommodationRooms(
 
   const groupCountByRoomId = new Map<string, number>();
   const groupIdsByRoomId = new Map<string, Set<string>>();
-  for (const row of (roomGroupsRes.data ?? []) as RoomGroupRow[]) {
+  for (const row of roomGroupRows) {
     const roomId = (row.stanza_id ?? "").trim();
     const groupId = (row.gruppo_id ?? "").trim();
     if (!roomId || !groupId) continue;
@@ -763,7 +795,7 @@ export async function loadAccommodationRooms(
   }
 
   const assignmentCountByRoomId = new Map<string, number>();
-  for (const row of (assignmentsRes.data ?? []) as ParticipantRoomAssignmentRow[]) {
+  for (const row of assignmentRows) {
     const roomId = (row.stanza_id ?? "").trim();
     if (!roomId) continue;
     assignmentCountByRoomId.set(roomId, (assignmentCountByRoomId.get(roomId) ?? 0) + 1);

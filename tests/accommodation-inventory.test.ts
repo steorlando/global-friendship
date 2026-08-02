@@ -3,12 +3,24 @@ import test from "node:test";
 import {
   buildHotelRoomCodePrefix,
   buildNextInternalRoomCode,
+  chunkQueryValues,
   formatRoomSequenceLabel,
   normalizeAccommodationHotelInput,
   normalizeAccommodationRoomImportRow,
   isOrganizationProvidedAccommodation,
   normalizeAccommodationRoomInput,
 } from "../lib/alloggi/inventory.ts";
+
+test("chunkQueryValues keeps large Supabase filters below the URL limit", () => {
+  const roomIds = Array.from({ length: 226 }, (_, index) => `room-${index + 1}`);
+  const batches = chunkQueryValues(roomIds);
+
+  assert.deepEqual(
+    batches.map((batch) => batch.length),
+    [50, 50, 50, 50, 26]
+  );
+  assert.deepEqual(batches.flat(), roomIds);
+});
 
 test("isOrganizationProvidedAccommodation matches the canonical short value", () => {
   assert.equal(isOrganizationProvidedAccommodation("Provided by organization"), true);
