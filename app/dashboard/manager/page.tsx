@@ -1636,6 +1636,7 @@ export async function StatisticsDashboard({
             open: t("manager.statistics.openSections"),
             close: t("manager.statistics.closeSections"),
           }}
+          includePrivateSections={!publicView}
           includeDuplicates={!publicView}
         />
 

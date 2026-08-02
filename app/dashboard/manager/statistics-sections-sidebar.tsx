@@ -15,11 +15,13 @@ type StatisticsSectionsSidebarProps = {
     open: string;
     close: string;
   };
+  includePrivateSections: boolean;
   includeDuplicates: boolean;
 };
 
 export function StatisticsSectionsSidebar({
   labels,
+  includePrivateSections,
   includeDuplicates,
 }: StatisticsSectionsSidebarProps) {
   const [expanded, setExpanded] = useState(false);
@@ -64,12 +66,16 @@ export function StatisticsSectionsSidebar({
           <a href="#daily-presence" className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
             {labels.dailyPresence}
           </a>
-          <a href="#staff-availability" className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
-            {labels.staffAvailability}
-          </a>
-          <a href="#accessibility" className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
-            {labels.accessibility}
-          </a>
+          {includePrivateSections ? (
+            <>
+              <a href="#staff-availability" className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
+                {labels.staffAvailability}
+              </a>
+              <a href="#accessibility" className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
+                {labels.accessibility}
+              </a>
+            </>
+          ) : null}
           {includeDuplicates && (
             <a
               href="#duplicates-non-associated"
