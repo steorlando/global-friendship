@@ -17,6 +17,7 @@ import {
 } from "@/lib/partecipante/constants";
 import { useI18n } from "@/lib/i18n/provider";
 import type { StaffAvailabilityFilter } from "@/lib/statistics/staff-availability";
+import type { ParticipantStaffAvailability } from "@/lib/partecipante/staff-availability";
 
 type PresenceDettaglioMap = Record<string, boolean>;
 
@@ -50,6 +51,7 @@ type Participant = {
   partecipa_intero_evento?: boolean | null;
   presenza_dettaglio?: PresenceDettaglioMap | null;
   can_manage_host_city_fields?: boolean | null;
+  staff_availability?: ParticipantStaffAvailability | null;
 };
 
 type FormState = {
@@ -963,7 +965,7 @@ export function ParticipantsTable({
 
       const updated = json.participant as Participant;
       setParticipants((prev) =>
-        prev.map((row) => (row.id === updated.id ? updated : row))
+        prev.map((row) => (row.id === updated.id ? { ...row, ...updated } : row))
       );
       setSuccess(t("participants.table.saveSuccess"));
 
@@ -1516,6 +1518,83 @@ export function ParticipantsTable({
                   </p>
                 </div>
               </section>
+
+              {editingParticipant.staff_availability !== undefined ? (
+                <section
+                  className="rounded-lg border border-indigo-200 bg-indigo-50/60 p-4"
+                  aria-labelledby="group-leader-staff-availability-title"
+                >
+                  <h3
+                    id="group-leader-staff-availability-title"
+                    className="text-sm font-semibold text-indigo-950"
+                  >
+                    {t("participants.table.modal.staffAvailability.title")}
+                  </h3>
+
+                  {editingParticipant.staff_availability ? (
+                    <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                      {(["band", "choir", "social_media"] as const).map((area) => {
+                        const availability = editingParticipant.staff_availability;
+                        const selected = availability?.areas.includes(area) ?? false;
+                        const details: string[] = [];
+
+                        if (selected && area === "band") {
+                          if (availability?.bandRole) {
+                            details.push(
+                              t(`participant.staff.band.${availability.bandRole}`)
+                            );
+                          }
+                          if (availability?.bandInstrument) {
+                            details.push(availability.bandInstrument);
+                          }
+                        }
+
+                        if (selected && area === "social_media") {
+                          for (const task of availability?.socialMediaTasks ?? []) {
+                            details.push(t(`participant.staff.social.${task}`));
+                          }
+                          if (availability?.socialMediaOther) {
+                            details.push(availability.socialMediaOther);
+                          }
+                        }
+
+                        return (
+                          <div
+                            key={area}
+                            className={`rounded-lg border p-3 ${
+                              selected
+                                ? "border-emerald-200 bg-emerald-50"
+                                : "border-slate-200 bg-white"
+                            }`}
+                          >
+                            <p className="text-sm font-semibold text-slate-900">
+                              {t(`participant.staff.area.${area}`)}
+                            </p>
+                            <p
+                              className={`mt-1 text-xs font-medium ${
+                                selected ? "text-emerald-700" : "text-slate-500"
+                              }`}
+                            >
+                              {selected
+                                ? t("participants.table.modal.staffAvailability.available")
+                                : t("participants.table.modal.staffAvailability.notSelected")}
+                            </p>
+                            {details.length > 0 ? (
+                              <p className="mt-2 text-xs leading-5 text-slate-600">
+                                {details.join(" · ")}
+                              </p>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-sm text-slate-600">
+                      {t("participants.table.modal.staffAvailability.noResponse")}
+                    </p>
+                  )}
+                </section>
+              ) : null}
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div>

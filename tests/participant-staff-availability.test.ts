@@ -1,4 +1,5 @@
 import { strict as assert } from "node:assert";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { normalizeParticipantStaffAvailabilityInput } from "../lib/partecipante/staff-availability.ts";
 
@@ -94,6 +95,28 @@ test("requires social tasks and a description for the other option", () => {
 
   assert.equal(missingTasks.ok, false);
   assert.equal(missingOther.ok, false);
+});
+
+test("group leaders receive and can view participant staff availability", () => {
+  const routeSource = readFileSync(
+    new URL("../app/api/capogruppo/participants/route.ts", import.meta.url),
+    "utf8"
+  );
+  const tableSource = readFileSync(
+    new URL("../app/dashboard/_components/participants-table.tsx", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(routeSource, /\.from\("participant_staff_availability"\)/);
+  assert.match(routeSource, /staff_availability: staffAvailability/);
+  assert.match(
+    tableSource,
+    /editingParticipant\.staff_availability !== undefined/
+  );
+  assert.match(
+    tableSource,
+    /participants\.table\.modal\.staffAvailability\.noResponse/
+  );
 });
 
 test("rejects unsupported staff and social values", () => {

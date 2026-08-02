@@ -129,6 +129,11 @@ const it: TranslationDictionary = {
   "participant.staff.validation.socialTask":
     "Seleziona almeno un'attività per i social media.",
   "participant.staff.validation.socialOther": "Descrivi l'altra attività per i social media.",
+  "participants.table.modal.staffAvailability.title": "Disponibilità per il team dell'evento",
+  "participants.table.modal.staffAvailability.available": "Disponibile",
+  "participants.table.modal.staffAvailability.notSelected": "Non selezionato",
+  "participants.table.modal.staffAvailability.noResponse":
+    "Questo partecipante non ha ancora comunicato la propria disponibilità.",
   "participant.form.multipleFoundTitle": "Trovate più registrazioni partecipante.",
   "participant.form.multipleFoundBody": "Seleziona il profilo partecipante che vuoi gestire con questa email.",
   "participant.form.profile": "Profilo partecipante",

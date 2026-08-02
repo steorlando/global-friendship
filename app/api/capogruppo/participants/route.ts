@@ -17,6 +17,7 @@ import {
   parseStoredDifficoltaAccessibilita,
   alloggioShortToLong,
 } from "@/lib/partecipante/constants";
+import type { ParticipantStaffAvailability } from "@/lib/partecipante/staff-availability";
 
 type ParticipantRow = {
   id: string;
@@ -49,6 +50,16 @@ type ParticipantRow = {
   partecipa_intero_evento: boolean | null;
   presenza_dettaglio: Record<string, unknown> | null;
   deleted_at?: string | null;
+};
+
+type StaffAvailabilityRow = {
+  participant_id: string;
+  areas: ParticipantStaffAvailability["areas"];
+  band_role: ParticipantStaffAvailability["bandRole"];
+  band_instrument: string | null;
+  social_media_tasks: ParticipantStaffAvailability["socialMediaTasks"];
+  social_media_other: string | null;
+  updated_at: string | null;
 };
 
 const SELECT_FIELDS_BASE =
@@ -397,7 +408,54 @@ async function loadParticipantById(
   return participant?.deleted_at ? null : participant;
 }
 
-function toResponseParticipant(row: ParticipantRow, hostCity: string) {
+async function loadStaffAvailabilityForParticipants(
+  service: ReturnType<typeof createSupabaseServiceClient>,
+  participantIds: string[]
+): Promise<Map<string, ParticipantStaffAvailability>> {
+  if (participantIds.length === 0) return new Map();
+
+  const batches: string[][] = [];
+  for (let index = 0; index < participantIds.length; index += 100) {
+    batches.push(participantIds.slice(index, index + 100));
+  }
+
+  const results = await Promise.all(
+    batches.map((batch) =>
+      service
+        .from("participant_staff_availability")
+        .select(
+          "participant_id,areas,band_role,band_instrument,social_media_tasks,social_media_other,updated_at"
+        )
+        .in("participant_id", batch)
+    )
+  );
+
+  const rows: StaffAvailabilityRow[] = [];
+  for (const result of results) {
+    if (result.error) throw new Error(result.error.message);
+    rows.push(...((result.data ?? []) as StaffAvailabilityRow[]));
+  }
+
+  return new Map(
+    rows.map((row) => [
+      row.participant_id,
+      {
+        areas: row.areas ?? [],
+        bandRole: row.band_role,
+        bandInstrument: row.band_instrument,
+        socialMediaTasks: row.social_media_tasks ?? [],
+        socialMediaOther: row.social_media_other,
+        updatedAt: row.updated_at,
+      },
+    ])
+  );
+}
+
+function toResponseParticipant(
+  row: ParticipantRow,
+  hostCity: string,
+  staffAvailability?: ParticipantStaffAvailability | null
+) {
   const presenzaDettaglio = normalizePresenceDettaglio(row.presenza_dettaglio);
   return {
     ...row,
@@ -409,6 +467,9 @@ function toResponseParticipant(row: ParticipantRow, hostCity: string) {
       typeof row.partecipa_intero_evento === "boolean" ? row.partecipa_intero_evento : null,
     presenza_dettaglio: presenzaDettaglio,
     can_manage_host_city_fields: canManageHostCityFieldsForParticipant(row, hostCity),
+    ...(staffAvailability !== undefined
+      ? { staff_availability: staffAvailability }
+      : {}),
   };
 }
 
@@ -421,13 +482,22 @@ export async function GET() {
       loadParticipantsForGroups(auth.groups),
       loadEventRuntimeSettings(),
     ]);
+    const staffAvailabilityByParticipant =
+      await loadStaffAvailabilityForParticipants(
+        auth.service,
+        participants.map((participant) => participant.id)
+      );
 
     return NextResponse.json({
       groups: auth.groups,
       showGroupColumn: auth.groups.length > 1,
       hostCity: eventSettings.hostCity,
       participants: participants.map((participant) =>
-        toResponseParticipant(participant, eventSettings.hostCity)
+        toResponseParticipant(
+          participant,
+          eventSettings.hostCity,
+          staffAvailabilityByParticipant.get(participant.id) ?? null
+        )
       ),
     });
   } catch (error) {

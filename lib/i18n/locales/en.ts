@@ -147,6 +147,11 @@ const en: TranslationDictionary = {
   "participant.staff.validation.socialTask":
     "Select at least one social media activity.",
   "participant.staff.validation.socialOther": "Describe the other social media activity.",
+  "participants.table.modal.staffAvailability.title": "Event team availability",
+  "participants.table.modal.staffAvailability.available": "Available",
+  "participants.table.modal.staffAvailability.notSelected": "Not selected",
+  "participants.table.modal.staffAvailability.noResponse":
+    "This participant has not submitted their availability yet.",
 
   "participant.form.multipleFoundTitle": "Multiple participant registrations found.",
   "participant.form.multipleFoundBody": "Select the participant profile you want to manage with this email.",

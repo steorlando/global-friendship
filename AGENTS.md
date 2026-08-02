@@ -199,6 +199,10 @@ The participants page shows a payment summary across all groups assigned to the 
 - total already paid (`fee_paid`)
 - outstanding balance (due minus paid)
 
+When a group leader opens a participant edit modal, it also shows that participant's
+read-only event-team availability for band, choir, and social media, including the saved
+band and social-media details when present.
+
 The participants page also provides a prominent Excel export containing the useful
 participant, contact, travel, accommodation, accessibility, and payment fields. The
 export uses the four-digit `personal_code` as its human-facing ID and never includes
