@@ -188,7 +188,7 @@ function assertAllocationSumEqualsTotal(
   return null;
 }
 
-async function requireManagerContext() {
+async function requireManagerOrAdminContext() {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
@@ -212,8 +212,7 @@ async function requireManagerContext() {
     .from("profili")
     .select("ruolo")
     .ilike("email", email)
-    .eq("ruolo", "manager")
-    .limit(1);
+    .in("ruolo", ["manager", "admin"]);
 
   if (profileError) {
     return {
@@ -611,7 +610,7 @@ async function mutateSponsorship(
 }
 
 export async function GET() {
-  const auth = await requireManagerContext();
+  const auth = await requireManagerOrAdminContext();
   if ("errorResponse" in auth) return auth.errorResponse;
 
   try {
@@ -624,7 +623,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const auth = await requireManagerContext();
+  const auth = await requireManagerOrAdminContext();
   if ("errorResponse" in auth) return auth.errorResponse;
 
   let payload: MutationPayload | null = null;

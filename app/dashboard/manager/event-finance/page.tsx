@@ -25,8 +25,7 @@ export default async function ManagerEventFinancePage() {
     .from("profili")
     .select("ruolo")
     .ilike("email", email)
-    .eq("ruolo", "manager")
-    .limit(1);
+    .in("ruolo", ["manager", "admin"]);
 
   if (error || !profile || profile.length === 0) {
     return (
