@@ -21,6 +21,11 @@ import {
   type StaffAvailabilityStatRow,
   type StaffAvailabilitySummary,
 } from "@/lib/statistics/staff-availability";
+import {
+  ACCESSIBILITY_FILTERS,
+  buildAccessibilitySummary,
+  type AccessibilityFilter,
+} from "@/lib/statistics/accessibility";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +48,8 @@ type ParticipantStatRow = {
   alloggio: string | null;
   created_at: string | null;
   deleted_at?: string | null;
+  disabilita_accessibilita?: boolean | null;
+  difficolta_accessibilita?: string | null;
 };
 
 type ProfileLinkRow = {
@@ -83,7 +90,7 @@ const ENROLLMENT_BUCKET_LABEL_KEYS: Record<EnrollmentBucket, string> = {
 };
 
 const SELECT_FIELDS_BASE =
-  "id,nome,cognome,email,tipo_iscrizione,preferenza_alloggio_operatore,paese_residenza,nazione,gruppo_label,gruppo_id,data_arrivo,data_partenza,alloggio_short,alloggio,created_at,deleted_at,dati_tally";
+  "id,nome,cognome,email,tipo_iscrizione,preferenza_alloggio_operatore,paese_residenza,nazione,gruppo_label,gruppo_id,data_arrivo,data_partenza,alloggio_short,alloggio,created_at,deleted_at,dati_tally,disabilita_accessibilita,difficolta_accessibilita";
 const SELECT_FIELDS_BASE_LEGACY =
   "id,nome,cognome,email,tipo_iscrizione,paese_residenza,nazione,gruppo_label,gruppo_id,data_arrivo,data_partenza,alloggio_short,alloggio,created_at";
 const SELECT_FIELDS_WITH_CITY = `${SELECT_FIELDS_BASE},citta:città`;
@@ -1035,7 +1042,7 @@ function StaffAvailabilitySection({
         </div>
       </div>
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">
         <StaffAvailabilityMetric
           label={t("manager.staffAvailability.responses")}
           value={summary.responses}
@@ -1059,7 +1066,7 @@ function StaffAvailabilitySection({
         />
       </div>
 
-      <div className="mt-4 grid gap-4 xl:grid-cols-2">
+      <div className="mt-4 grid gap-4">
         <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-4">
           <h4 className="text-sm font-semibold text-slate-900">
             {t("manager.staffAvailability.bandDetails")}
@@ -1082,7 +1089,7 @@ function StaffAvailabilitySection({
           <h4 className="text-sm font-semibold text-slate-900">
             {t("manager.staffAvailability.socialDetails")}
           </h4>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <StaffAvailabilityMetric
               label={t("manager.staffAvailability.socialCapture")}
               value={summary.socialCapture}
@@ -1110,6 +1117,84 @@ function StaffAvailabilitySection({
             />
           </div>
         </div>
+      </div>
+    </section>
+  );
+}
+
+const ACCESSIBILITY_LABEL_KEYS: Record<AccessibilityFilter, string> = {
+  seeing: "participant.option.accessibility.seeing",
+  hearing: "participant.option.accessibility.hearing",
+  walking: "participant.option.accessibility.walking",
+  self_care: "participant.option.accessibility.selfCare",
+  concentration: "participant.option.accessibility.concentration",
+  communicating: "participant.option.accessibility.communicating",
+  wheelchair: "participant.option.accessibility.wheelchair",
+  accessible_accommodation: "participant.option.accessibility.accessibleAccommodation",
+  assistance: "participant.option.accessibility.assistance",
+};
+
+function AccessibilitySection({
+  summary,
+  t,
+}: {
+  summary: Record<AccessibilityFilter, number>;
+  t: (key: string, values?: Record<string, string | number>) => string;
+}) {
+  return (
+    <section
+      id="accessibility"
+      className="rounded-xl border border-rose-200 bg-white p-6 shadow-sm"
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-slate-900">
+            {t("manager.accessibility.title")}
+          </h3>
+          <p className="mt-1 text-sm text-slate-500">
+            {t("manager.accessibility.subtitle")}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/dashboard/manager/accessibility"
+            aria-label={t("accessibilityList.open")}
+            title={t("accessibilityList.open")}
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2"
+          >
+            <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-5 w-5">
+              <path d="M3 4.5h14M3 10h14M3 15.5h14M6.5 3v14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </Link>
+          <a
+            href="/api/manager/statistics/accessibility-export"
+            aria-label={t("manager.accessibility.downloadExcel")}
+            title={t("manager.accessibility.downloadExcel")}
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-700 transition hover:border-rose-300 hover:bg-rose-100 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2"
+          >
+            <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-5 w-5">
+              <path d="M10 2.5v9m0 0 3.25-3.25M10 11.5 6.75 8.25M4 13.5v2A1.5 1.5 0 0 0 5.5 17h9a1.5 1.5 0 0 0 1.5-1.5v-2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </a>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        {ACCESSIBILITY_FILTERS.map((filter) => (
+          <Link
+            key={filter}
+            href={`/dashboard/manager/accessibility?filter=${filter}`}
+            aria-label={`${t(ACCESSIBILITY_LABEL_KEYS[filter])}: ${summary[filter]}`}
+            className="group block rounded-lg border border-slate-200 bg-slate-50 p-4 transition hover:-translate-y-0.5 hover:border-rose-300 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+          >
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+              {t(ACCESSIBILITY_LABEL_KEYS[filter])}
+            </p>
+            <p className="mt-2 text-3xl font-bold text-slate-950 group-hover:text-rose-700">
+              {summary[filter]}
+            </p>
+          </Link>
+        ))}
       </div>
     </section>
   );
@@ -1361,6 +1446,7 @@ export async function StatisticsDashboard({
   const participants = ((data ?? []) as unknown as ParticipantStatRow[]).filter(
     (participant) => !participant.deleted_at
   );
+  const accessibilitySummary = buildAccessibilitySummary(participants);
   let staffAvailabilitySummary = emptyStaffAvailabilitySummary();
   if (!publicView) {
     const { data: staffAvailabilityData, error: staffAvailabilityError } = await service
@@ -1545,6 +1631,7 @@ export async function StatisticsDashboard({
             trend: t("manager.statistics.trend"),
             dailyPresence: t("manager.statistics.dailyPresence"),
             staffAvailability: t("manager.statistics.staffAvailability"),
+            accessibility: t("manager.statistics.accessibility"),
             duplicates: t("manager.duplicates.section"),
             open: t("manager.statistics.openSections"),
             close: t("manager.statistics.closeSections"),
@@ -1585,7 +1672,10 @@ export async function StatisticsDashboard({
           </div>
 
           {!publicView && (
-            <StaffAvailabilitySection summary={staffAvailabilitySummary} t={t} />
+            <div className="grid gap-6 xl:grid-cols-2 xl:items-start">
+              <StaffAvailabilitySection summary={staffAvailabilitySummary} t={t} />
+              <AccessibilitySection summary={accessibilitySummary} t={t} />
+            </div>
           )}
 
           {!publicView && (

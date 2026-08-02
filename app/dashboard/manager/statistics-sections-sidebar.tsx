@@ -10,6 +10,7 @@ type StatisticsSectionsSidebarProps = {
     trend: string;
     dailyPresence: string;
     staffAvailability: string;
+    accessibility: string;
     duplicates: string;
     open: string;
     close: string;
@@ -65,6 +66,9 @@ export function StatisticsSectionsSidebar({
           </a>
           <a href="#staff-availability" className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
             {labels.staffAvailability}
+          </a>
+          <a href="#accessibility" className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
+            {labels.accessibility}
           </a>
           {includeDuplicates && (
             <a

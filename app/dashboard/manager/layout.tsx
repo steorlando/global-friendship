@@ -12,7 +12,10 @@ export default function ManagerLayout({ children }: { children: ReactNode }) {
     {
       href: "/dashboard/manager",
       label: t("dashboard.manager.tab.statistics"),
-      activePrefix: "/dashboard/manager/staff-availability",
+      activePrefixes: [
+        "/dashboard/manager/staff-availability",
+        "/dashboard/manager/accessibility",
+      ],
     },
     { href: "/dashboard/manager/participants", label: t("dashboard.manager.tab.participants") },
     { href: "/dashboard/alloggi", label: t("dashboard.manager.tab.accommodation") },
@@ -42,7 +45,7 @@ export default function ManagerLayout({ children }: { children: ReactNode }) {
               loadingLabel={t("common.loading")}
               isActive={
                 pathname === tab.href ||
-                Boolean(tab.activePrefix && pathname.startsWith(tab.activePrefix))
+                Boolean(tab.activePrefixes?.some((prefix) => pathname.startsWith(prefix)))
               }
             />
           ))}
