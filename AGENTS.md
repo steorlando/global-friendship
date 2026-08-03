@@ -593,6 +593,9 @@ Recent state:
 
 - Accommodation inventory / hardening work exists in the repo
 - Review `supabase/accommodation_hardening_migration.sql` when debugging alloggi features
+- In the hotel overview, the participant metrics for people needing placement, assigned,
+  and unassigned open a detailed participant list; bed metrics remain non-clickable because
+  they represent capacity rather than people.
 
 ## Supabase / Database Notes
 

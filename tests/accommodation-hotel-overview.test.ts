@@ -29,6 +29,10 @@ test("buildAccommodationHotelOverview counts unassigned and hotel allocations by
     participants: [
       {
         id: "p1",
+        personal_code: "12",
+        nome: "Anna",
+        cognome: "Rossi",
+        email: "anna@example.com",
         gruppo_id: "g1",
         gruppo_label: null,
         alloggio: null,
@@ -70,7 +74,7 @@ test("buildAccommodationHotelOverview counts unassigned and hotel allocations by
       { gruppo_id: "g2", stanza_id: "r2" },
     ],
     rooms: [
-      { id: "r1", albergo_id: "h1", capienza: 4 },
+      { id: "r1", albergo_id: "h1", capienza: 4, numero_reale: "101" },
       { id: "r2", albergo_id: "h2", capienza: 2 },
       { id: "r3", albergo_id: "h1", capienza: 3 },
     ],
@@ -113,4 +117,26 @@ test("buildAccommodationHotelOverview counts unassigned and hotel allocations by
   assert.equal(overview.totals.unassignedBedCount, 0);
   assert.equal(overview.totals.hotelBedCounts.h1, 7);
   assert.equal(overview.totals.hotelBedCounts.h2, 2);
+
+  assert.equal(overview.participants.length, 3);
+  assert.deepEqual(
+    overview.participants.find((participant) => participant.id === "p1"),
+    {
+      id: "p1",
+      personalCode: "0012",
+      firstName: "Anna",
+      lastName: "Rossi",
+      email: "anna@example.com",
+      groupId: "g1",
+      groupName: "Roma Centro",
+      assignedHotelId: "h1",
+      assignedHotelName: "Wombat's",
+      roomNumber: "101",
+    }
+  );
+  assert.equal(
+    overview.participants.find((participant) => participant.id === "p2")
+      ?.assignedHotelId,
+    null
+  );
 });

@@ -33,15 +33,30 @@ type OverviewTotals = {
   hotelBedCounts: Record<string, number>;
 };
 
+type OverviewParticipant = {
+  id: string;
+  personalCode: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  groupId: string | null;
+  groupName: string;
+  assignedHotelId: string | null;
+  assignedHotelName: string | null;
+  roomNumber: string | null;
+};
+
 type OverviewResponse = {
   hotels?: Hotel[];
   rows?: OverviewRow[];
+  participants?: OverviewParticipant[];
   totals?: OverviewTotals;
   error?: string;
 };
 
 type RomeGroupingMode = "standard" | "aggregate_rome";
 type MetricMode = "participants" | "beds";
+type ParticipantMetric = "need" | "assigned" | "unassigned";
 
 function matchesGroupSearch(row: OverviewRow, searchTerm: string): boolean {
   const normalized = searchTerm.trim().toLowerCase();
@@ -132,6 +147,7 @@ export function AccommodationHotelOverviewManager() {
   const { t, formatNumber } = useI18n();
   const [hotels, setHotels] = useState<Hotel[]>([]);
   const [rows, setRows] = useState<OverviewRow[]>([]);
+  const [participants, setParticipants] = useState<OverviewParticipant[]>([]);
   const [totals, setTotals] = useState<OverviewTotals>({
     needsAccommodationCount: 0,
     unassignedCount: 0,
@@ -144,6 +160,8 @@ export function AccommodationHotelOverviewManager() {
   const [romeGroupingMode, setRomeGroupingMode] =
     useState<RomeGroupingMode>("standard");
   const [metricMode, setMetricMode] = useState<MetricMode>("participants");
+  const [selectedParticipantMetric, setSelectedParticipantMetric] =
+    useState<ParticipantMetric | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const deferredSearchTerm = useDeferredValue(searchTerm);
@@ -166,6 +184,7 @@ export function AccommodationHotelOverviewManager() {
       const nextRows = sortOverviewRows(json.rows ?? [], "participants");
       setHotels(nextHotels);
       setRows(nextRows);
+      setParticipants(json.participants ?? []);
       setTotals(
         json.totals ?? {
           needsAccommodationCount: 0,
@@ -186,6 +205,17 @@ export function AccommodationHotelOverviewManager() {
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    if (!selectedParticipantMetric) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setSelectedParticipantMetric(null);
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedParticipantMetric]);
 
   const rowsForSelectedMode = useMemo(() => {
     if (romeGroupingMode === "aggregate_rome") {
@@ -224,6 +254,18 @@ export function AccommodationHotelOverviewManager() {
       : t("accommodation.hotelOverview.table.unassigned");
   const displayedTotalCount = rowsForSelectedMode.length;
   const isRomeGrouped = romeGroupingMode === "aggregate_rome";
+  const selectedParticipants = useMemo(() => {
+    if (selectedParticipantMetric === "assigned") {
+      return participants.filter((participant) => participant.assignedHotelId);
+    }
+    if (selectedParticipantMetric === "unassigned") {
+      return participants.filter((participant) => !participant.assignedHotelId);
+    }
+    return participants;
+  }, [participants, selectedParticipantMetric]);
+  const selectedParticipantMetricTitle = selectedParticipantMetric
+    ? t(`accommodation.hotelOverview.details.${selectedParticipantMetric}Title`)
+    : "";
 
   return (
     <div className="space-y-6">
@@ -241,9 +283,16 @@ export function AccommodationHotelOverviewManager() {
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
             {t("accommodation.hotelOverview.summary.need")}
           </p>
-          <p className="mt-3 text-4xl font-semibold text-slate-900">
+          <button
+            type="button"
+            onClick={() => setSelectedParticipantMetric("need")}
+            className="mt-3 rounded text-left text-4xl font-semibold text-indigo-700 underline decoration-indigo-200 decoration-2 underline-offset-4 transition hover:text-indigo-900 hover:decoration-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+            aria-label={t("accommodation.hotelOverview.details.open", {
+              metric: t("accommodation.hotelOverview.summary.need"),
+            })}
+          >
             {formatNumber(totals.needsAccommodationCount)}
-          </p>
+          </button>
         </article>
 
         <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -252,9 +301,22 @@ export function AccommodationHotelOverviewManager() {
               ? t("accommodation.hotelOverview.summary.assignedBeds")
               : t("accommodation.hotelOverview.summary.assigned")}
           </p>
-          <p className="mt-3 text-4xl font-semibold text-slate-900">
-            {formatNumber(summaryAssignedValue)}
-          </p>
+          {metricMode === "participants" ? (
+            <button
+              type="button"
+              onClick={() => setSelectedParticipantMetric("assigned")}
+              className="mt-3 rounded text-left text-4xl font-semibold text-indigo-700 underline decoration-indigo-200 decoration-2 underline-offset-4 transition hover:text-indigo-900 hover:decoration-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+              aria-label={t("accommodation.hotelOverview.details.open", {
+                metric: t("accommodation.hotelOverview.summary.assigned"),
+              })}
+            >
+              {formatNumber(summaryAssignedValue)}
+            </button>
+          ) : (
+            <p className="mt-3 text-4xl font-semibold text-slate-900">
+              {formatNumber(summaryAssignedValue)}
+            </p>
+          )}
         </article>
 
         <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -263,9 +325,22 @@ export function AccommodationHotelOverviewManager() {
               ? t("accommodation.hotelOverview.summary.uncoveredBeds")
               : t("accommodation.hotelOverview.summary.unassigned")}
           </p>
-          <p className="mt-3 text-4xl font-semibold text-slate-900">
-            {formatNumber(summaryUnassignedValue)}
-          </p>
+          {metricMode === "participants" ? (
+            <button
+              type="button"
+              onClick={() => setSelectedParticipantMetric("unassigned")}
+              className="mt-3 rounded text-left text-4xl font-semibold text-indigo-700 underline decoration-indigo-200 decoration-2 underline-offset-4 transition hover:text-indigo-900 hover:decoration-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+              aria-label={t("accommodation.hotelOverview.details.open", {
+                metric: t("accommodation.hotelOverview.summary.unassigned"),
+              })}
+            >
+              {formatNumber(summaryUnassignedValue)}
+            </button>
+          ) : (
+            <p className="mt-3 text-4xl font-semibold text-slate-900">
+              {formatNumber(summaryUnassignedValue)}
+            </p>
+          )}
         </article>
       </section>
 
@@ -350,7 +425,10 @@ export function AccommodationHotelOverviewManager() {
               </button>
               <button
                 type="button"
-                onClick={() => setMetricMode("beds")}
+                onClick={() => {
+                  setMetricMode("beds");
+                  setSelectedParticipantMetric(null);
+                }}
                 aria-pressed={metricMode === "beds"}
                 className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition ${
                   metricMode === "beds"
@@ -475,6 +553,114 @@ export function AccommodationHotelOverviewManager() {
           </table>
         </div>
       </section>
+
+      {selectedParticipantMetric ? (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 px-4 py-8"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="hotel-overview-participant-list-title"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setSelectedParticipantMetric(null);
+          }}
+        >
+          <section className="w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6">
+              <div>
+                <h2
+                  id="hotel-overview-participant-list-title"
+                  className="text-xl font-semibold text-slate-900"
+                >
+                  {selectedParticipantMetricTitle}
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  {t("accommodation.hotelOverview.details.count", {
+                    count: formatNumber(selectedParticipants.length),
+                  })}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedParticipantMetric(null)}
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+              >
+                {t("accommodation.hotelOverview.details.close")}
+              </button>
+            </header>
+
+            <div className="max-h-[70vh] overflow-auto">
+              <table className="min-w-full divide-y divide-slate-200 text-sm">
+                <thead className="sticky top-0 bg-slate-50 text-left text-slate-700">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold sm:px-6">
+                      {t("accommodation.hotelOverview.details.person")}
+                    </th>
+                    <th className="px-4 py-3 font-semibold">
+                      {t("accommodation.hotelOverview.details.group")}
+                    </th>
+                    <th className="px-4 py-3 font-semibold">
+                      {t("accommodation.hotelOverview.details.contact")}
+                    </th>
+                    <th className="px-4 py-3 font-semibold sm:pr-6">
+                      {t("accommodation.hotelOverview.details.placement")}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {selectedParticipants.length ? (
+                    selectedParticipants.map((participant) => (
+                      <tr key={participant.id}>
+                        <td className="px-4 py-3 text-slate-900 sm:px-6">
+                          <div className="font-medium">
+                            {[participant.firstName, participant.lastName]
+                              .filter(Boolean)
+                              .join(" ") || "-"}
+                          </div>
+                          <div className="mt-0.5 text-xs text-slate-500">
+                            {participant.personalCode
+                              ? `ID ${participant.personalCode}`
+                              : "-"}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-slate-700">
+                          {participant.groupName || "-"}
+                        </td>
+                        <td className="px-4 py-3 text-slate-700">
+                          {participant.email || "-"}
+                        </td>
+                        <td className="px-4 py-3 text-slate-700 sm:pr-6">
+                          {participant.assignedHotelName ? (
+                            <>
+                              <div>{participant.assignedHotelName}</div>
+                              {participant.roomNumber ? (
+                                <div className="mt-0.5 text-xs text-slate-500">
+                                  {t("accommodation.hotelOverview.details.room", {
+                                    room: participant.roomNumber,
+                                  })}
+                                </div>
+                              ) : null}
+                            </>
+                          ) : (
+                            <span className="font-medium text-amber-700">
+                              {t("accommodation.hotelOverview.details.noAssignment")}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={4} className="px-6 py-10 text-center text-slate-500">
+                        {t("accommodation.hotelOverview.details.empty")}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }

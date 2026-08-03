@@ -11,6 +11,10 @@ type ServiceClient = SupabaseClient;
 
 type OverviewParticipantRow = {
   id: string;
+  personal_code?: string | number | null;
+  nome?: string | null;
+  cognome?: string | null;
+  email?: string | null;
   gruppo_id: string | null;
   gruppo_label: string | null;
   alloggio: string | null;
@@ -20,6 +24,10 @@ type OverviewParticipantRow = {
 
 type RawOverviewParticipantRow = {
   id?: string | null;
+  personal_code?: string | number | null;
+  nome?: string | null;
+  cognome?: string | null;
+  email?: string | null;
   gruppo_id?: string | null;
   gruppo_label?: string | null;
   alloggio?: string | null;
@@ -41,6 +49,22 @@ type OverviewRoomRow = {
   id: string;
   albergo_id: string | null;
   capienza: number | null;
+  numero_reale?: string | null;
+  nome?: string | null;
+  codice_interno?: string | null;
+};
+
+export type AccommodationHotelOverviewParticipant = {
+  id: string;
+  personalCode: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  groupId: string | null;
+  groupName: string;
+  assignedHotelId: string | null;
+  assignedHotelName: string | null;
+  roomNumber: string | null;
 };
 
 export type AccommodationHotelOverviewRow = {
@@ -58,6 +82,7 @@ export type AccommodationHotelOverviewRow = {
 export type AccommodationHotelOverview = {
   hotels: AccommodationHotel[];
   rows: AccommodationHotelOverviewRow[];
+  participants: AccommodationHotelOverviewParticipant[];
   totals: {
     needsAccommodationCount: number;
     unassignedCount: number;
@@ -105,6 +130,7 @@ export function buildAccommodationHotelOverview(args: {
 }): AccommodationHotelOverview {
   const roomHotelByRoomId = new Map<string, string>();
   const roomCapacityByRoomId = new Map<string, number>();
+  const roomLabelByRoomId = new Map<string, string>();
   for (const room of args.rooms) {
     const roomId = String(room.id ?? "").trim();
     const hotelId = String(room.albergo_id ?? "").trim();
@@ -112,16 +138,24 @@ export function buildAccommodationHotelOverview(args: {
     if (!roomId || !hotelId) continue;
     roomHotelByRoomId.set(roomId, hotelId);
     roomCapacityByRoomId.set(roomId, capacity > 0 ? capacity : 0);
+    const roomLabel = String(
+      room.numero_reale ?? room.nome ?? room.codice_interno ?? ""
+    ).trim();
+    if (roomLabel) roomLabelByRoomId.set(roomId, roomLabel);
   }
 
   const assignmentHotelByParticipantId = new Map<string, string>();
+  const assignmentRoomByParticipantId = new Map<string, string>();
   for (const assignment of args.assignments) {
     const participantId = String(assignment.partecipante_id ?? "").trim();
     const roomId = String(assignment.stanza_id ?? "").trim();
     const hotelId = roomHotelByRoomId.get(roomId);
     if (!participantId || !hotelId) continue;
     assignmentHotelByParticipantId.set(participantId, hotelId);
+    assignmentRoomByParticipantId.set(participantId, roomId);
   }
+
+  const hotelNameById = new Map(args.hotels.map((hotel) => [hotel.id, hotel.name]));
 
   const rows = args.groups.map((group) => {
     const hotelCounts: Record<string, number> = Object.fromEntries(
@@ -203,7 +237,56 @@ export function buildAccommodationHotelOverview(args: {
     }
   }
 
-  return { hotels: args.hotels, rows, totals };
+  const participants = args.participants
+    .map((participant) => ({
+      participant,
+      group: args.groups.find((group) => participantBelongsToGroup(participant, group)),
+    }))
+    .filter(
+      ({ participant, group }) =>
+        Boolean(group) &&
+        isOrganizationProvidedAccommodation(getParticipantAccommodationShort(participant))
+    )
+    .map(({ participant, group }) => {
+      const rawAssignedHotelId =
+        assignmentHotelByParticipantId.get(participant.id) ?? null;
+      const assignedHotelId =
+        rawAssignedHotelId && hotelNameById.has(rawAssignedHotelId)
+          ? rawAssignedHotelId
+          : null;
+      const assignedRoomId = assignmentRoomByParticipantId.get(participant.id) ?? null;
+      const groupId = group?.id ?? null;
+      const groupName = group?.name ?? "";
+
+      return {
+        id: participant.id,
+        personalCode:
+          participant.personal_code == null
+            ? null
+            : String(participant.personal_code).padStart(4, "0"),
+        firstName: participant.nome ?? null,
+        lastName: participant.cognome ?? null,
+        email: participant.email ?? null,
+        groupId,
+        groupName,
+        assignedHotelId,
+        assignedHotelName: assignedHotelId
+          ? hotelNameById.get(assignedHotelId) ?? null
+          : null,
+        roomNumber: assignedRoomId
+          ? roomLabelByRoomId.get(assignedRoomId) ?? null
+          : null,
+      };
+    })
+    .sort((a, b) => {
+      const byGroup = a.groupName.localeCompare(b.groupName);
+      if (byGroup !== 0) return byGroup;
+      return `${a.lastName ?? ""} ${a.firstName ?? ""}`.localeCompare(
+        `${b.lastName ?? ""} ${b.firstName ?? ""}`
+      );
+    });
+
+  return { hotels: args.hotels, rows, totals, participants };
 }
 
 export async function loadAccommodationHotelOverview(
@@ -216,7 +299,9 @@ export async function loadAccommodationHotelOverview(
     service.from("partecipanti").select("*").is("deleted_at", null),
     service.from("partecipanti_stanze").select("partecipante_id,stanza_id"),
     service.from("stanze_gruppi").select("stanza_id,gruppo_id"),
-    service.from("stanze").select("id,albergo_id,capienza"),
+    service
+      .from("stanze")
+      .select("id,albergo_id,capienza,numero_reale,nome,codice_interno"),
     ]);
 
   if (participantsRes.error) {
@@ -235,6 +320,10 @@ export async function loadAccommodationHotelOverview(
   const participants = ((participantsRes.data ?? []) as RawOverviewParticipantRow[]).map(
     (row) => ({
       id: row.id ?? "",
+      personal_code: row.personal_code ?? null,
+      nome: row.nome ?? null,
+      cognome: row.cognome ?? null,
+      email: row.email ?? null,
       gruppo_id: row.gruppo_id ?? null,
       gruppo_label: row.gruppo_label ?? null,
       alloggio: row.alloggio ?? null,
