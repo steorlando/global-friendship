@@ -46,8 +46,14 @@ type OverviewParticipant = {
   roomNumber: string | null;
 };
 
+type HotelAvailability = {
+  emptyRoomCount: number;
+  emptyBedCount: number;
+};
+
 type OverviewResponse = {
   hotels?: Hotel[];
+  hotelAvailability?: Record<string, HotelAvailability>;
   rows?: OverviewRow[];
   participants?: OverviewParticipant[];
   totals?: OverviewTotals;
@@ -146,6 +152,9 @@ function buildFilteredTotals(rows: OverviewRow[], hotels: Hotel[]): OverviewTota
 export function AccommodationHotelOverviewManager() {
   const { t, formatNumber } = useI18n();
   const [hotels, setHotels] = useState<Hotel[]>([]);
+  const [hotelAvailability, setHotelAvailability] = useState<
+    Record<string, HotelAvailability>
+  >({});
   const [rows, setRows] = useState<OverviewRow[]>([]);
   const [participants, setParticipants] = useState<OverviewParticipant[]>([]);
   const [totals, setTotals] = useState<OverviewTotals>({
@@ -183,6 +192,7 @@ export function AccommodationHotelOverviewManager() {
       const nextHotels = json.hotels ?? [];
       const nextRows = sortOverviewRows(json.rows ?? [], "participants");
       setHotels(nextHotels);
+      setHotelAvailability(json.hotelAvailability ?? {});
       setRows(nextRows);
       setParticipants(json.participants ?? []);
       setTotals(
@@ -484,42 +494,81 @@ export function AccommodationHotelOverviewManager() {
                     {t("accommodation.hotelOverview.table.loading")}
                   </td>
                 </tr>
-              ) : displayedRows.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={Math.max(2, hotels.length + 2)}
-                    className="px-4 py-8 text-center text-slate-500"
-                  >
-                    {t("accommodation.hotelOverview.table.empty")}
-                  </td>
-                </tr>
               ) : (
-                displayedRows.map((row) => (
-                  <tr key={row.groupId} className="odd:bg-white even:bg-slate-50/60">
-                    <td className="sticky left-0 z-10 border-b border-slate-100 bg-white px-4 py-3 font-medium text-slate-900 even:bg-slate-50/60">
-                      <div>{row.groupName}</div>
-                    </td>
-                    <td className="border-b border-slate-100 px-4 py-3 text-center font-semibold text-amber-700">
-                      {formatNumber(
-                        metricMode === "beds"
-                          ? row.unassignedBedCount
-                          : row.unassignedCount
-                      )}
-                    </td>
-                    {hotels.map((hotel) => (
-                      <td
-                        key={`${row.groupId}-${hotel.id}`}
-                        className="border-b border-slate-100 px-4 py-3 text-center text-slate-700"
-                      >
-                        {formatNumber(
-                          metricMode === "beds"
-                            ? row.hotelBedCounts[hotel.id] ?? 0
-                            : row.hotelCounts[hotel.id] ?? 0
-                        )}
+                <>
+                  {hotels.length ? (
+                    <tr className="bg-emerald-50/80">
+                      <th className="sticky left-0 z-10 border-b border-emerald-200 bg-emerald-50 px-4 py-3 text-left font-semibold text-emerald-950">
+                        {t("accommodation.hotelOverview.table.availability")}
+                      </th>
+                      <td className="border-b border-emerald-200 px-4 py-3 text-center text-slate-400">
+                        —
                       </td>
-                    ))}
-                  </tr>
-                ))
+                      {hotels.map((hotel) => {
+                        const availability = hotelAvailability[hotel.id] ?? {
+                          emptyRoomCount: 0,
+                          emptyBedCount: 0,
+                        };
+
+                        return (
+                          <td
+                            key={`availability-${hotel.id}`}
+                            className="border-b border-emerald-200 px-4 py-3 text-center"
+                          >
+                            <div className="font-semibold text-emerald-900">
+                              {t("accommodation.hotelOverview.table.emptyRooms", {
+                                count: formatNumber(availability.emptyRoomCount),
+                              })}
+                            </div>
+                            <div className="mt-1 text-xs font-medium text-emerald-700">
+                              {t("accommodation.hotelOverview.table.emptyBeds", {
+                                count: formatNumber(availability.emptyBedCount),
+                              })}
+                            </div>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ) : null}
+
+                  {displayedRows.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={Math.max(2, hotels.length + 2)}
+                        className="px-4 py-8 text-center text-slate-500"
+                      >
+                        {t("accommodation.hotelOverview.table.empty")}
+                      </td>
+                    </tr>
+                  ) : (
+                    displayedRows.map((row) => (
+                      <tr key={row.groupId} className="odd:bg-white even:bg-slate-50/60">
+                        <td className="sticky left-0 z-10 border-b border-slate-100 bg-white px-4 py-3 font-medium text-slate-900 even:bg-slate-50/60">
+                          <div>{row.groupName}</div>
+                        </td>
+                        <td className="border-b border-slate-100 px-4 py-3 text-center font-semibold text-amber-700">
+                          {formatNumber(
+                            metricMode === "beds"
+                              ? row.unassignedBedCount
+                              : row.unassignedCount
+                          )}
+                        </td>
+                        {hotels.map((hotel) => (
+                          <td
+                            key={`${row.groupId}-${hotel.id}`}
+                            className="border-b border-slate-100 px-4 py-3 text-center text-slate-700"
+                          >
+                            {formatNumber(
+                              metricMode === "beds"
+                                ? row.hotelBedCounts[hotel.id] ?? 0
+                                : row.hotelCounts[hotel.id] ?? 0
+                            )}
+                          </td>
+                        ))}
+                      </tr>
+                    ))
+                  )}
+                </>
               )}
             </tbody>
             {!loading && displayedRows.length > 0 ? (

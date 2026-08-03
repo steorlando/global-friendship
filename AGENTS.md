@@ -596,6 +596,8 @@ Recent state:
 - In the hotel overview, the participant metrics for people needing placement, assigned,
   and unassigned open a detailed participant list; bed metrics remain non-clickable because
   they represent capacity rather than people.
+- The first matrix row shows, for each hotel, rooms with no active participant assignments
+  and remaining empty beds calculated from room capacity minus active occupants.
 
 ## Supabase / Database Notes
 

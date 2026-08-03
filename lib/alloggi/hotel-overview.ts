@@ -67,6 +67,11 @@ export type AccommodationHotelOverviewParticipant = {
   roomNumber: string | null;
 };
 
+export type AccommodationHotelAvailability = {
+  emptyRoomCount: number;
+  emptyBedCount: number;
+};
+
 export type AccommodationHotelOverviewRow = {
   groupId: string;
   groupName: string;
@@ -81,6 +86,7 @@ export type AccommodationHotelOverviewRow = {
 
 export type AccommodationHotelOverview = {
   hotels: AccommodationHotel[];
+  hotelAvailability: Record<string, AccommodationHotelAvailability>;
   rows: AccommodationHotelOverviewRow[];
   participants: AccommodationHotelOverviewParticipant[];
   totals: {
@@ -156,6 +162,38 @@ export function buildAccommodationHotelOverview(args: {
   }
 
   const hotelNameById = new Map(args.hotels.map((hotel) => [hotel.id, hotel.name]));
+  const activeParticipantIds = new Set(args.participants.map((participant) => participant.id));
+  const occupantIdsByRoomId = new Map<string, Set<string>>();
+
+  for (const assignment of args.assignments) {
+    const participantId = String(assignment.partecipante_id ?? "").trim();
+    const roomId = String(assignment.stanza_id ?? "").trim();
+    if (!participantId || !roomId || !activeParticipantIds.has(participantId)) continue;
+
+    const occupantIds = occupantIdsByRoomId.get(roomId) ?? new Set<string>();
+    occupantIds.add(participantId);
+    occupantIdsByRoomId.set(roomId, occupantIds);
+  }
+
+  const hotelAvailability: Record<string, AccommodationHotelAvailability> =
+    Object.fromEntries(
+      args.hotels.map((hotel) => [
+        hotel.id,
+        { emptyRoomCount: 0, emptyBedCount: 0 },
+      ])
+    );
+
+  for (const room of args.rooms) {
+    const roomId = String(room.id ?? "").trim();
+    const hotelId = String(room.albergo_id ?? "").trim();
+    const availability = hotelAvailability[hotelId];
+    if (!roomId || !availability) continue;
+
+    const occupantCount = occupantIdsByRoomId.get(roomId)?.size ?? 0;
+    const capacity = Math.max(room.capienza ?? 0, 0);
+    if (occupantCount === 0) availability.emptyRoomCount += 1;
+    availability.emptyBedCount += Math.max(capacity - occupantCount, 0);
+  }
 
   const rows = args.groups.map((group) => {
     const hotelCounts: Record<string, number> = Object.fromEntries(
@@ -286,7 +324,7 @@ export function buildAccommodationHotelOverview(args: {
       );
     });
 
-  return { hotels: args.hotels, rows, totals, participants };
+  return { hotels: args.hotels, hotelAvailability, rows, totals, participants };
 }
 
 export async function loadAccommodationHotelOverview(

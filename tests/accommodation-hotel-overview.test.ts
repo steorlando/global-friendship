@@ -82,6 +82,10 @@ test("buildAccommodationHotelOverview counts unassigned and hotel allocations by
 
   assert.equal(overview.hotels.length, 2);
   assert.equal(overview.rows.length, 2);
+  assert.deepEqual(overview.hotelAvailability, {
+    h1: { emptyRoomCount: 1, emptyBedCount: 6 },
+    h2: { emptyRoomCount: 0, emptyBedCount: 1 },
+  });
 
   const romaRow = overview.rows.find((row) => row.groupId === "g1");
   const milanoRow = overview.rows.find((row) => row.groupId === "g2");
