@@ -8,6 +8,7 @@ import {
   type RoomGenderPolicy,
 } from "../alloggi/inventory.ts";
 import { loadAccommodationGroups } from "../alloggi/group-allocations.ts";
+import { batchInFilterValues } from "../supabase/query-batching.ts";
 
 type ServiceClient = SupabaseClient;
 
@@ -387,34 +388,35 @@ async function loadParticipantsForGroups(
 ): Promise<ParticipantRow[]> {
   if (groupIds.length === 0) return [];
 
-  const [byGroupId, byGroupLabel] = await Promise.all([
-    service
-      .from("partecipanti")
-      .select(
-        "id,nome,cognome,email,gruppo_id,gruppo_label,alloggio,alloggio_short,data_nascita,data_arrivo,data_partenza,sesso,eta"
-      )
-      .is("deleted_at", null)
-      .in("gruppo_id", groupIds),
-    service
-      .from("partecipanti")
-      .select(
-        "id,nome,cognome,email,gruppo_id,gruppo_label,alloggio,alloggio_short,data_nascita,data_arrivo,data_partenza,sesso,eta"
-      )
-      .is("deleted_at", null)
-      .in("gruppo_label", groupIds),
-  ]);
-
-  if (byGroupId.error) {
-    throw new Error(byGroupId.error.message);
-  }
-  if (byGroupLabel.error) {
-    throw new Error(byGroupLabel.error.message);
-  }
+  const groupIdBatches = batchInFilterValues(groupIds);
+  const responses = await Promise.all(
+    groupIdBatches.flatMap((groupIdBatch) => [
+      service
+        .from("partecipanti")
+        .select(
+          "id,nome,cognome,email,gruppo_id,gruppo_label,alloggio,alloggio_short,data_nascita,data_arrivo,data_partenza,sesso,eta"
+        )
+        .is("deleted_at", null)
+        .in("gruppo_id", groupIdBatch),
+      service
+        .from("partecipanti")
+        .select(
+          "id,nome,cognome,email,gruppo_id,gruppo_label,alloggio,alloggio_short,data_nascita,data_arrivo,data_partenza,sesso,eta"
+        )
+        .is("deleted_at", null)
+        .in("gruppo_label", groupIdBatch),
+    ])
+  );
 
   const merged = new Map<string, ParticipantRow>();
-  for (const row of [...(byGroupId.data ?? []), ...(byGroupLabel.data ?? [])]) {
-    if (!row.id) continue;
-    merged.set(row.id, row as ParticipantRow);
+  for (const response of responses) {
+    if (response.error) {
+      throw new Error(response.error.message);
+    }
+    for (const row of response.data ?? []) {
+      if (!row.id) continue;
+      merged.set(row.id, row as ParticipantRow);
+    }
   }
 
   return [...merged.values()].sort((a, b) => {
@@ -457,16 +459,27 @@ export async function loadGroupLeaderRoomAssignmentData(
     ? allowedGroupIds.filter((groupId) => groupId === filters.groupId)
     : allowedGroupIds;
 
-  const [allGroups, participantRows, roomScopesRes] = await Promise.all([
+  const [allGroups, participantRows, roomScopeResponses] = await Promise.all([
     loadAccommodationGroups(service),
     loadParticipantsForGroups(service, scopedGroupIds),
     scopedGroupIds.length > 0
-      ? service.from("stanze_gruppi").select("stanza_id,gruppo_id").in("gruppo_id", scopedGroupIds)
-      : Promise.resolve({ data: [] as RoomScopeRow[], error: null }),
+      ? Promise.all(
+          batchInFilterValues(scopedGroupIds).map((groupIdBatch) =>
+            service
+              .from("stanze_gruppi")
+              .select("stanza_id,gruppo_id")
+              .in("gruppo_id", groupIdBatch)
+          )
+        )
+      : Promise.resolve([]),
   ]);
 
-  if (roomScopesRes.error) {
-    throw new Error(roomScopesRes.error.message);
+  const roomScopeRows: RoomScopeRow[] = [];
+  for (const response of roomScopeResponses) {
+    if (response.error) {
+      throw new Error(response.error.message);
+    }
+    roomScopeRows.push(...((response.data ?? []) as RoomScopeRow[]));
   }
 
   const groups = allGroups.filter((group) => scopedGroupIds.includes(group.id));
@@ -474,7 +487,7 @@ export async function loadGroupLeaderRoomAssignmentData(
     .filter((row) => isOrganizationProvidedAccommodation(getParticipantAccommodationShort(row)))
     .map(toGroupLeaderParticipant);
 
-  const roomScopes = ((roomScopesRes.data ?? []) as RoomScopeRow[])
+  const roomScopes = roomScopeRows
     .filter((row) => row.stanza_id && row.gruppo_id)
     .map((row) => ({
       groupId: String(row.gruppo_id),
@@ -489,21 +502,31 @@ export async function loadGroupLeaderRoomAssignmentData(
   const roomIds = [...new Set(roomScopes.map((row) => row.roomId))];
   const participantIds = participants.map((participant) => participant.id);
 
-  const [rooms, assignmentsRes] = await Promise.all([
+  const [rooms, assignmentResponses] = await Promise.all([
     roomIds.length > 0 ? loadAccommodationRooms(service, { roomIds }) : Promise.resolve([]),
     participantIds.length > 0
-      ? service
-          .from("partecipanti_stanze")
-          .select("id,partecipante_id,stanza_id,gruppo_id,created_at,updated_at,created_by,updated_by")
-          .in("partecipante_id", participantIds)
-      : Promise.resolve({ data: [] as ParticipantAssignmentRow[], error: null }),
+      ? Promise.all(
+          batchInFilterValues(participantIds).map((participantIdBatch) =>
+            service
+              .from("partecipanti_stanze")
+              .select(
+                "id,partecipante_id,stanza_id,gruppo_id,created_at,updated_at,created_by,updated_by"
+              )
+              .in("partecipante_id", participantIdBatch)
+          )
+        )
+      : Promise.resolve([]),
   ]);
 
-  if (assignmentsRes.error) {
-    throw new Error(assignmentsRes.error.message);
+  const assignmentRows: ParticipantAssignmentRow[] = [];
+  for (const response of assignmentResponses) {
+    if (response.error) {
+      throw new Error(response.error.message);
+    }
+    assignmentRows.push(...((response.data ?? []) as ParticipantAssignmentRow[]));
   }
 
-  const assignments = ((assignmentsRes.data ?? []) as ParticipantAssignmentRow[])
+  const assignments = assignmentRows
     .filter((row) => row.partecipante_id && row.stanza_id && row.gruppo_id)
     .map((row) => ({
       id: row.id,
