@@ -552,6 +552,7 @@ const it: TranslationDictionary = {
   "accommodation.hotelOverview.details.placement": "Assegnazione",
   "accommodation.hotelOverview.details.room": "Stanza {room}",
   "accommodation.hotelOverview.details.noAssignment": "Non assegnato",
+  "accommodation.hotelOverview.details.operatorHotel": "Hotel operatori",
   "accommodation.hotelOverview.details.empty": "Nessun partecipante è incluso in questa metrica.",
   "accommodation.hotelOverview.details.close": "Chiudi",
   "accommodation.hotelOverview.filters.search": "Cerca gruppo",

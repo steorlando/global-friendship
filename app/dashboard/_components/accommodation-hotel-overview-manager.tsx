@@ -44,6 +44,7 @@ type OverviewParticipant = {
   assignedHotelId: string | null;
   assignedHotelName: string | null;
   roomNumber: string | null;
+  assignmentType: "room" | "operator_hotel" | "unassigned";
 };
 
 type HotelAvailability = {
@@ -266,10 +267,14 @@ export function AccommodationHotelOverviewManager() {
   const isRomeGrouped = romeGroupingMode === "aggregate_rome";
   const selectedParticipants = useMemo(() => {
     if (selectedParticipantMetric === "assigned") {
-      return participants.filter((participant) => participant.assignedHotelId);
+      return participants.filter(
+        (participant) => participant.assignmentType !== "unassigned"
+      );
     }
     if (selectedParticipantMetric === "unassigned") {
-      return participants.filter((participant) => !participant.assignedHotelId);
+      return participants.filter(
+        (participant) => participant.assignmentType === "unassigned"
+      );
     }
     return participants;
   }, [participants, selectedParticipantMetric]);
@@ -678,7 +683,11 @@ export function AccommodationHotelOverviewManager() {
                           {participant.email || "-"}
                         </td>
                         <td className="px-4 py-3 text-slate-700 sm:pr-6">
-                          {participant.assignedHotelName ? (
+                          {participant.assignmentType === "operator_hotel" ? (
+                            <span className="font-medium text-emerald-700">
+                              {t("accommodation.hotelOverview.details.operatorHotel")}
+                            </span>
+                          ) : participant.assignedHotelName ? (
                             <>
                               <div>{participant.assignedHotelName}</div>
                               {participant.roomNumber ? (

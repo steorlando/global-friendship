@@ -63,6 +63,16 @@ test("buildAccommodationHotelOverview counts unassigned and hotel allocations by
         alloggio_short: "Provided by organization",
         citta: "Milano",
       },
+      {
+        id: "p5",
+        tipo_iscrizione: "Operator - Operatore",
+        preferenza_alloggio_operatore: "Hotel",
+        gruppo_id: "g2",
+        gruppo_label: null,
+        alloggio: null,
+        alloggio_short: "Provided by organization",
+        citta: "Milano",
+      },
     ],
     assignments: [
       { partecipante_id: "p1", stanza_id: "r1" },
@@ -103,7 +113,7 @@ test("buildAccommodationHotelOverview counts unassigned and hotel allocations by
   assert.equal(romaRow.hotelBedCounts.h2, 0);
   assert.equal(romaRow.isRomeGroup, true);
 
-  assert.equal(milanoRow.needsAccommodationCount, 1);
+  assert.equal(milanoRow.needsAccommodationCount, 2);
   assert.equal(milanoRow.unassignedCount, 0);
   assert.equal(milanoRow.hotelCounts.h1, 0);
   assert.equal(milanoRow.hotelCounts.h2, 1);
@@ -113,7 +123,7 @@ test("buildAccommodationHotelOverview counts unassigned and hotel allocations by
   assert.equal(milanoRow.hotelBedCounts.h2, 2);
   assert.equal(milanoRow.isRomeGroup, false);
 
-  assert.equal(overview.totals.needsAccommodationCount, 3);
+  assert.equal(overview.totals.needsAccommodationCount, 4);
   assert.equal(overview.totals.unassignedCount, 1);
   assert.equal(overview.totals.hotelCounts.h1, 1);
   assert.equal(overview.totals.hotelCounts.h2, 1);
@@ -122,7 +132,7 @@ test("buildAccommodationHotelOverview counts unassigned and hotel allocations by
   assert.equal(overview.totals.hotelBedCounts.h1, 7);
   assert.equal(overview.totals.hotelBedCounts.h2, 2);
 
-  assert.equal(overview.participants.length, 3);
+  assert.equal(overview.participants.length, 4);
   assert.deepEqual(
     overview.participants.find((participant) => participant.id === "p1"),
     {
@@ -136,11 +146,17 @@ test("buildAccommodationHotelOverview counts unassigned and hotel allocations by
       assignedHotelId: "h1",
       assignedHotelName: "Wombat's",
       roomNumber: "101",
+      assignmentType: "room",
     }
   );
   assert.equal(
     overview.participants.find((participant) => participant.id === "p2")
-      ?.assignedHotelId,
-    null
+      ?.assignmentType,
+    "unassigned"
+  );
+  assert.equal(
+    overview.participants.find((participant) => participant.id === "p5")
+      ?.assignmentType,
+    "operator_hotel"
   );
 });

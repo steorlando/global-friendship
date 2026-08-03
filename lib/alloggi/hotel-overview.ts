@@ -1,5 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { alloggioLongToShort } from "../partecipante/constants.ts";
+import {
+  alloggioLongToShort,
+  isOperatorRegistrationType,
+  normalizeOperatorAccommodationPreference,
+} from "../partecipante/constants.ts";
 import { loadAccommodationGroups, type AccommodationGroup } from "./group-allocations.ts";
 import {
   isOrganizationProvidedAccommodation,
@@ -15,6 +19,8 @@ type OverviewParticipantRow = {
   nome?: string | null;
   cognome?: string | null;
   email?: string | null;
+  tipo_iscrizione?: string | null;
+  preferenza_alloggio_operatore?: string | null;
   gruppo_id: string | null;
   gruppo_label: string | null;
   alloggio: string | null;
@@ -28,6 +34,8 @@ type RawOverviewParticipantRow = {
   nome?: string | null;
   cognome?: string | null;
   email?: string | null;
+  tipo_iscrizione?: string | null;
+  preferenza_alloggio_operatore?: string | null;
   gruppo_id?: string | null;
   gruppo_label?: string | null;
   alloggio?: string | null;
@@ -65,6 +73,7 @@ export type AccommodationHotelOverviewParticipant = {
   assignedHotelId: string | null;
   assignedHotelName: string | null;
   roomNumber: string | null;
+  assignmentType: "room" | "operator_hotel" | "unassigned";
 };
 
 export type AccommodationHotelAvailability = {
@@ -114,6 +123,15 @@ function normalizeForMatching(value: string | null | undefined): string {
 function isRomeCity(value: string | null | undefined): boolean {
   const normalized = normalizeForMatching(value);
   return normalized === "roma" || normalized === "rome";
+}
+
+function isOperatorHotelAccommodation(participant: OverviewParticipantRow): boolean {
+  return (
+    isOperatorRegistrationType(participant.tipo_iscrizione) &&
+    normalizeOperatorAccommodationPreference(
+      participant.preferenza_alloggio_operatore
+    ) === "Hotel"
+  );
 }
 
 function participantBelongsToGroup(
@@ -238,7 +256,7 @@ export function buildAccommodationHotelOverview(args: {
       const assignedHotelId = assignmentHotelByParticipantId.get(participant.id);
       if (assignedHotelId && assignedHotelId in hotelCounts) {
         hotelCounts[assignedHotelId] += 1;
-      } else {
+      } else if (!isOperatorHotelAccommodation(participant)) {
         unassignedCount += 1;
       }
     }
@@ -293,6 +311,12 @@ export function buildAccommodationHotelOverview(args: {
           ? rawAssignedHotelId
           : null;
       const assignedRoomId = assignmentRoomByParticipantId.get(participant.id) ?? null;
+      const assignmentType: AccommodationHotelOverviewParticipant["assignmentType"] =
+        assignedHotelId
+          ? "room"
+          : isOperatorHotelAccommodation(participant)
+            ? "operator_hotel"
+            : "unassigned";
       const groupId = group?.id ?? null;
       const groupName = group?.name ?? "";
 
@@ -314,6 +338,7 @@ export function buildAccommodationHotelOverview(args: {
         roomNumber: assignedRoomId
           ? roomLabelByRoomId.get(assignedRoomId) ?? null
           : null,
+        assignmentType,
       };
     })
     .sort((a, b) => {
@@ -362,6 +387,9 @@ export async function loadAccommodationHotelOverview(
       nome: row.nome ?? null,
       cognome: row.cognome ?? null,
       email: row.email ?? null,
+      tipo_iscrizione: row.tipo_iscrizione ?? null,
+      preferenza_alloggio_operatore:
+        row.preferenza_alloggio_operatore ?? null,
       gruppo_id: row.gruppo_id ?? null,
       gruppo_label: row.gruppo_label ?? null,
       alloggio: row.alloggio ?? null,

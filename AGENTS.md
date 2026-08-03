@@ -598,6 +598,9 @@ Recent state:
   they represent capacity rather than people.
 - The first matrix row shows, for each hotel, rooms with no active participant assignments
   and remaining empty beds calculated from room capacity minus active occupants.
+- Operators with organization-provided accommodation and
+  `preferenza_alloggio_operatore = 'Hotel'` count as assigned in the hotel overview even
+  without a hostel room assignment; participant drill-downs label them as operator hotel.
 
 ## Supabase / Database Notes
 
