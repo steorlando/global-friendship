@@ -160,3 +160,48 @@ test("buildAccommodationHotelOverview counts unassigned and hotel allocations by
     "operator_hotel"
   );
 });
+
+test("buildAccommodationHotelOverview excludes hotel operators from uncovered hostel beds", () => {
+  const overview = buildAccommodationHotelOverview({
+    groups: [{ id: "g1", name: "Germany" }],
+    hotels: [
+      {
+        id: "h1",
+        name: "Museum Street Dorm",
+        address: null,
+        googleMapsUrl: null,
+        createdAt: "",
+        roomCount: 1,
+      },
+    ],
+    participants: [
+      {
+        id: "p1",
+        gruppo_id: "g1",
+        gruppo_label: null,
+        alloggio: null,
+        alloggio_short: "Provided by organization",
+        citta: "Berlin",
+      },
+      {
+        id: "p2",
+        tipo_iscrizione: "Operator - Operatore",
+        preferenza_alloggio_operatore: "Hotel",
+        gruppo_id: "g1",
+        gruppo_label: null,
+        alloggio: null,
+        alloggio_short: "Provided by organization",
+        citta: "Berlin",
+      },
+    ],
+    assignments: [{ partecipante_id: "p1", stanza_id: "r1" }],
+    roomAllocations: [{ gruppo_id: "g1", stanza_id: "r1" }],
+    rooms: [{ id: "r1", albergo_id: "h1", capienza: 1 }],
+  });
+
+  assert.equal(overview.rows[0]?.needsAccommodationCount, 2);
+  assert.equal(overview.rows[0]?.unassignedCount, 0);
+  assert.equal(overview.rows[0]?.assignedBedCount, 1);
+  assert.equal(overview.rows[0]?.unassignedBedCount, 0);
+  assert.equal(overview.totals.unassignedBedCount, 0);
+});

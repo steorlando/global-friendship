@@ -636,6 +636,8 @@ Recent state:
 - Operators with organization-provided accommodation and
   `preferenza_alloggio_operatore = 'Hotel'` count as assigned in the hotel overview even
   without a hostel room assignment; participant drill-downs label them as operator hotel.
+  They are also excluded from the hostel-bed need used by the `Rooms` metric, so they do
+  not create false uncovered-bed counts for their group.
 
 ## Supabase / Database Notes
 

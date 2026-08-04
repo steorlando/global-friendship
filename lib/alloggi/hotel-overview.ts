@@ -222,6 +222,7 @@ export function buildAccommodationHotelOverview(args: {
     );
 
     let needsAccommodationCount = 0;
+    let hostelBedNeedCount = 0;
     let unassignedCount = 0;
     let assignedBedCount = 0;
     let hasRomeParticipant = false;
@@ -247,6 +248,10 @@ export function buildAccommodationHotelOverview(args: {
       }
 
       needsAccommodationCount += 1;
+      const isHotelOperator = isOperatorHotelAccommodation(participant);
+      if (!isHotelOperator) {
+        hostelBedNeedCount += 1;
+      }
       if (isRomeCity(participant.citta)) {
         hasRomeParticipant = true;
       } else {
@@ -256,7 +261,7 @@ export function buildAccommodationHotelOverview(args: {
       const assignedHotelId = assignmentHotelByParticipantId.get(participant.id);
       if (assignedHotelId && assignedHotelId in hotelCounts) {
         hotelCounts[assignedHotelId] += 1;
-      } else if (!isOperatorHotelAccommodation(participant)) {
+      } else if (!isHotelOperator) {
         unassignedCount += 1;
       }
     }
@@ -268,7 +273,7 @@ export function buildAccommodationHotelOverview(args: {
       unassignedCount,
       hotelCounts,
       assignedBedCount,
-      unassignedBedCount: Math.max(needsAccommodationCount - assignedBedCount, 0),
+      unassignedBedCount: Math.max(hostelBedNeedCount - assignedBedCount, 0),
       hotelBedCounts,
       isRomeGroup: hasRomeParticipant && !hasNonRomeParticipant,
     };
