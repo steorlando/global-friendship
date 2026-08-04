@@ -11,6 +11,7 @@ type StatisticsSectionsSidebarProps = {
     dailyPresence: string;
     staffAvailability: string;
     accessibility: string;
+    foodNeeds: string;
     duplicates: string;
     open: string;
     close: string;
@@ -73,6 +74,9 @@ export function StatisticsSectionsSidebar({
               </a>
               <a href="#accessibility" className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
                 {labels.accessibility}
+              </a>
+              <a href="#food-needs" className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
+                {labels.foodNeeds}
               </a>
             </>
           ) : null}

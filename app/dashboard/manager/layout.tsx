@@ -15,6 +15,7 @@ export default function ManagerLayout({ children }: { children: ReactNode }) {
       activePrefixes: [
         "/dashboard/manager/staff-availability",
         "/dashboard/manager/accessibility",
+        "/dashboard/manager/food-needs",
       ],
     },
     { href: "/dashboard/manager/participants", label: t("dashboard.manager.tab.participants") },

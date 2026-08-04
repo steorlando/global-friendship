@@ -344,6 +344,17 @@ Statistics currently implemented:
   `/dashboard/manager/accessibility` provides the complete filterable list and
   `app/api/manager/statistics/accessibility-export/route.ts` generates its Excel export.
   This section is not exposed on the public statistics page.
+- Authenticated food-needs summary for manager/admin, with clickable counts for vegetarian,
+  vegan, no-pork, other, meaningful allergy/intolerance reports, and recurring text-derived
+  categories for gluten/celiac, lactose/dairy, nuts/peanuts, and fish/shellfish.
+  `/dashboard/manager/food-needs` provides the complete filterable list and detected-category
+  badges; `app/api/manager/statistics/food-needs-export/route.ts` generates its Excel export.
+  The export includes the hostel resolved from the participant's current room assignment;
+  the hostel cell is blank when the participant has no assigned room.
+  Classification analyzes both the free text stored alongside `Other` and the allergy field,
+  using multilingual/spelling variants. The technical stored value `false` and multilingual
+  negative answers such as no/none/nothing/nessuna/nulla/niente are excluded from meaningful
+  allergy counts. This section is not exposed on the public statistics page.
 
 Registration type recoding used in stats:
 

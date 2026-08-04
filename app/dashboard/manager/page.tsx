@@ -26,6 +26,12 @@ import {
   buildAccessibilitySummary,
   type AccessibilityFilter,
 } from "@/lib/statistics/accessibility";
+import {
+  FOOD_NEEDS_FORM_FILTERS,
+  FOOD_NEEDS_TEXT_FILTERS,
+  buildFoodNeedsSummary,
+  type FoodNeedsFilter,
+} from "@/lib/statistics/food-needs";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +56,8 @@ type ParticipantStatRow = {
   deleted_at?: string | null;
   disabilita_accessibilita?: boolean | null;
   difficolta_accessibilita?: string | null;
+  esigenze_alimentari?: string | null;
+  allergie?: string | null;
 };
 
 type ProfileLinkRow = {
@@ -90,7 +98,7 @@ const ENROLLMENT_BUCKET_LABEL_KEYS: Record<EnrollmentBucket, string> = {
 };
 
 const SELECT_FIELDS_BASE =
-  "id,nome,cognome,email,tipo_iscrizione,preferenza_alloggio_operatore,paese_residenza,nazione,gruppo_label,gruppo_id,data_arrivo,data_partenza,alloggio_short,alloggio,created_at,deleted_at,dati_tally,disabilita_accessibilita,difficolta_accessibilita";
+  "id,nome,cognome,email,tipo_iscrizione,preferenza_alloggio_operatore,paese_residenza,nazione,gruppo_label,gruppo_id,data_arrivo,data_partenza,alloggio_short,alloggio,created_at,deleted_at,dati_tally,disabilita_accessibilita,difficolta_accessibilita,esigenze_alimentari,allergie";
 const SELECT_FIELDS_BASE_LEGACY =
   "id,nome,cognome,email,tipo_iscrizione,paese_residenza,nazione,gruppo_label,gruppo_id,data_arrivo,data_partenza,alloggio_short,alloggio,created_at";
 const SELECT_FIELDS_WITH_CITY = `${SELECT_FIELDS_BASE},citta:città`;
@@ -1200,6 +1208,113 @@ function AccessibilitySection({
   );
 }
 
+const FOOD_NEEDS_LABEL_KEYS: Record<FoodNeedsFilter, string> = {
+  vegetarian: "manager.foodNeeds.vegetarian",
+  vegan: "manager.foodNeeds.vegan",
+  no_pork: "manager.foodNeeds.noPork",
+  other: "manager.foodNeeds.other",
+  allergies: "manager.foodNeeds.allergies",
+  gluten_celiac: "manager.foodNeeds.glutenCeliac",
+  lactose_dairy: "manager.foodNeeds.lactoseDairy",
+  nuts_peanuts: "manager.foodNeeds.nutsPeanuts",
+  fish_shellfish: "manager.foodNeeds.fishShellfish",
+};
+
+function FoodNeedsMetrics({
+  filters,
+  summary,
+  t,
+}: {
+  filters: readonly FoodNeedsFilter[];
+  summary: Record<FoodNeedsFilter, number>;
+  t: (key: string, values?: Record<string, string | number>) => string;
+}) {
+  return filters.map((filter) => (
+    <Link
+      key={filter}
+      href={`/dashboard/manager/food-needs?filter=${filter}`}
+      aria-label={`${t(FOOD_NEEDS_LABEL_KEYS[filter])}: ${summary[filter]}`}
+      className="group block rounded-lg border border-slate-200 bg-slate-50 p-4 transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+    >
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+        {t(FOOD_NEEDS_LABEL_KEYS[filter])}
+      </p>
+      <p className="mt-2 text-3xl font-bold text-slate-950 group-hover:text-emerald-700">
+        {summary[filter]}
+      </p>
+    </Link>
+  ));
+}
+
+function FoodNeedsSection({
+  summary,
+  t,
+}: {
+  summary: Record<FoodNeedsFilter, number>;
+  t: (key: string, values?: Record<string, string | number>) => string;
+}) {
+  return (
+    <section
+      id="food-needs"
+      className="rounded-xl border border-emerald-200 bg-white p-6 shadow-sm"
+    >
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-slate-900">
+            {t("manager.foodNeeds.title")}
+          </h3>
+          <p className="mt-1 max-w-3xl text-sm text-slate-500">
+            {t("manager.foodNeeds.subtitle")}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/dashboard/manager/food-needs"
+            aria-label={t("foodNeedsList.open")}
+            title={t("foodNeedsList.open")}
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+          >
+            <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-5 w-5">
+              <path d="M3 4.5h14M3 10h14M3 15.5h14M6.5 3v14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </Link>
+          <a
+            href="/api/manager/statistics/food-needs-export"
+            aria-label={t("manager.foodNeeds.downloadExcel")}
+            title={t("manager.foodNeeds.downloadExcel")}
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+          >
+            <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-5 w-5">
+              <path d="M10 2.5v9m0 0 3.25-3.25M10 11.5 6.75 8.25M4 13.5v2A1.5 1.5 0 0 0 5.5 17h9a1.5 1.5 0 0 0 1.5-1.5v-2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </a>
+        </div>
+      </div>
+
+      <div className="mt-5">
+        <h4 className="text-sm font-semibold text-slate-900">
+          {t("manager.foodNeeds.formResponses")}
+        </h4>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <FoodNeedsMetrics filters={FOOD_NEEDS_FORM_FILTERS} summary={summary} t={t} />
+        </div>
+      </div>
+
+      <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50/50 p-4">
+        <h4 className="text-sm font-semibold text-slate-900">
+          {t("manager.foodNeeds.detectedCategories")}
+        </h4>
+        <p className="mt-1 text-xs leading-5 text-slate-600">
+          {t("manager.foodNeeds.detectedCategoriesHint")}
+        </p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <FoodNeedsMetrics filters={FOOD_NEEDS_TEXT_FILTERS} summary={summary} t={t} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function RegistrationTrendSection({
   series,
   t,
@@ -1447,6 +1562,7 @@ export async function StatisticsDashboard({
     (participant) => !participant.deleted_at
   );
   const accessibilitySummary = buildAccessibilitySummary(participants);
+  const foodNeedsSummary = buildFoodNeedsSummary(participants);
   let staffAvailabilitySummary = emptyStaffAvailabilitySummary();
   if (!publicView) {
     const { data: staffAvailabilityData, error: staffAvailabilityError } = await service
@@ -1632,6 +1748,7 @@ export async function StatisticsDashboard({
             dailyPresence: t("manager.statistics.dailyPresence"),
             staffAvailability: t("manager.statistics.staffAvailability"),
             accessibility: t("manager.statistics.accessibility"),
+            foodNeeds: t("manager.statistics.foodNeeds"),
             duplicates: t("manager.duplicates.section"),
             open: t("manager.statistics.openSections"),
             close: t("manager.statistics.closeSections"),
@@ -1677,6 +1794,10 @@ export async function StatisticsDashboard({
               <StaffAvailabilitySection summary={staffAvailabilitySummary} t={t} />
               <AccessibilitySection summary={accessibilitySummary} t={t} />
             </div>
+          )}
+
+          {!publicView && (
+            <FoodNeedsSection summary={foodNeedsSummary} t={t} />
           )}
 
           {!publicView && (
