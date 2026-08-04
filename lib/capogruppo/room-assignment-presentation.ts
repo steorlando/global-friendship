@@ -1,11 +1,11 @@
 import type { AccommodationRoom } from "../alloggi/inventory.ts";
-import type { GroupLeaderParticipant } from "./room-assignments.ts";
+import type {
+  GroupLeaderParticipant,
+  GroupLeaderVisibleRoomOccupant,
+} from "./room-assignments.ts";
 
 export function buildGroupLeaderRoomOptionLabel(room: AccommodationRoom): string {
-  const availability = formatGroupLeaderRoomAvailability(room);
-  return [room.internalCode, room.hotel?.name ?? "", availability === "-" ? "" : availability]
-    .filter(Boolean)
-    .join(" · ");
+  return [room.internalCode, room.hotel?.name ?? ""].filter(Boolean).join(" · ");
 }
 
 export function formatGroupLeaderRoomAvailability(room: AccommodationRoom): string {
@@ -38,4 +38,17 @@ export function matchesGroupLeaderParticipantSearch(
     .toLowerCase();
 
   return haystack.includes(normalized);
+}
+
+export function matchesGroupLeaderRoomOccupantSearch(
+  occupant: GroupLeaderVisibleRoomOccupant,
+  searchTerm: string
+): boolean {
+  const normalized = searchTerm.trim().toLowerCase();
+  if (!normalized) return true;
+
+  return [occupant.firstName ?? "", occupant.lastName ?? "", occupant.displayGroup]
+    .join(" ")
+    .toLowerCase()
+    .includes(normalized);
 }

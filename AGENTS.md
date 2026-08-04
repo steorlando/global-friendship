@@ -208,6 +208,24 @@ participant, contact, travel, accommodation, accessibility, and payment fields. 
 export uses the four-digit `personal_code` as its human-facing ID and never includes
 the internal participant UUID.
 
+The room-assignment page is organized as a room map rather than a participant table:
+
+- group leaders assigned to multiple groups default to one combined view, while retaining
+  a filter for each individual group;
+- every room card shows the names and stay details of the participants already assigned;
+- each occupant can be moved with the room selector or removed directly from the card;
+- only participants who still need a room appear in the separate assignment list below;
+- operators staying in a hotel and participants with autonomous accommodation are excluded
+  from room placement and appear in a separate read-only information section;
+- participant search brings matching occupied rooms to the top and highlights the person.
+- in the combined view, every person is labelled with their group and room selectors remain
+  restricted to rooms assigned to that participant's own group.
+- room cards include every active occupant of a visible room, including people from groups
+  the signed-in group leader does not manage; those external occupants are explicitly read-only
+  and the capogruppo PATCH authorization remains restricted to `profili_gruppi`.
+- both capogruppo and alloggi assignment APIs reject new hostel-room assignments for hotel
+  operators and autonomous participants, while still allowing an obsolete assignment to be removed.
+
 ### Partecipante
 
 Main files:

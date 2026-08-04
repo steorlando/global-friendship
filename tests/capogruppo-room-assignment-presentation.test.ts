@@ -4,10 +4,11 @@ import {
   buildGroupLeaderRoomOptionLabel,
   formatGroupLeaderRoomAvailability,
   matchesGroupLeaderParticipantSearch,
+  matchesGroupLeaderRoomOccupantSearch,
 } from "../lib/capogruppo/room-assignment-presentation.ts";
 import type { GroupLeaderParticipant } from "../lib/capogruppo/room-assignments.ts";
 
-test("buildGroupLeaderRoomOptionLabel uses code, hotel name, and availability", () => {
+test("buildGroupLeaderRoomOptionLabel keeps room selectors compact", () => {
   assert.equal(
     buildGroupLeaderRoomOptionLabel({
       id: "r1",
@@ -32,7 +33,7 @@ test("buildGroupLeaderRoomOptionLabel uses code, hotel name, and availability", 
       assignedGroupCount: 1,
       assignedParticipantCount: 0,
     }),
-    "WO-04-A · Wombat's · 2026-08-28 -> 2026-08-31"
+    "WO-04-A · Wombat's"
   );
 });
 
@@ -79,4 +80,24 @@ test("matchesGroupLeaderParticipantSearch matches name, email, and group", () =>
   assert.equal(matchesGroupLeaderParticipantSearch(participant, "example.com"), true);
   assert.equal(matchesGroupLeaderParticipantSearch(participant, "roma"), true);
   assert.equal(matchesGroupLeaderParticipantSearch(participant, "milano"), false);
+});
+
+test("matchesGroupLeaderRoomOccupantSearch finds read-only occupants and their group", () => {
+  const occupant = {
+    participantId: "p2",
+    roomId: "r1",
+    firstName: "Luca",
+    lastName: "Bianchi",
+    displayGroup: "Milano Centro",
+    arrivalDate: "2026-08-27",
+    departureDate: "2026-08-31",
+    sex: "Male",
+    sexCategory: "male" as const,
+    age: 24,
+    canManage: false,
+  };
+
+  assert.equal(matchesGroupLeaderRoomOccupantSearch(occupant, "luca"), true);
+  assert.equal(matchesGroupLeaderRoomOccupantSearch(occupant, "milano"), true);
+  assert.equal(matchesGroupLeaderRoomOccupantSearch(occupant, "roma"), false);
 });

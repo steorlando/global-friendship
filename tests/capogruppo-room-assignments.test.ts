@@ -1,10 +1,116 @@
 import { strict as assert } from "node:assert";
 import test from "node:test";
 import {
+  buildGroupLeaderVisibleRoomOccupants,
   buildLegacyParticipantRoomFields,
+  getGroupLeaderRoomAssignmentExclusionReason,
   normalizeParticipantSexCategory,
   validateGroupLeaderRoomAssignment,
 } from "../lib/capogruppo/room-assignments.ts";
+
+test("visible room occupants include external participants as read-only", () => {
+  const occupants = buildGroupLeaderVisibleRoomOccupants({
+    assignmentRows: [
+      {
+        id: "a1",
+        partecipante_id: "managed",
+        stanza_id: "room-1",
+        gruppo_id: "G1",
+        created_at: null,
+        updated_at: null,
+        created_by: null,
+        updated_by: null,
+      },
+      {
+        id: "a2",
+        partecipante_id: "external",
+        stanza_id: "room-1",
+        gruppo_id: "G2",
+        created_at: null,
+        updated_at: null,
+        created_by: null,
+        updated_by: null,
+      },
+    ],
+    participantRows: [
+      {
+        id: "managed",
+        nome: "Anna",
+        cognome: "Rossi",
+        email: null,
+        gruppo_id: "G1",
+        gruppo_label: "Gruppo Uno",
+        alloggio: "Provided by organization",
+        alloggio_short: "Provided by organization",
+        tipo_iscrizione: null,
+        preferenza_alloggio_operatore: null,
+        data_nascita: null,
+        data_arrivo: "2026-08-27",
+        data_partenza: "2026-08-31",
+        sesso: "Female",
+        eta: 23,
+      },
+      {
+        id: "external",
+        nome: "Luca",
+        cognome: "Bianchi",
+        email: null,
+        gruppo_id: "G2",
+        gruppo_label: "Gruppo Due",
+        alloggio: "Provided by organization",
+        alloggio_short: "Provided by organization",
+        tipo_iscrizione: null,
+        preferenza_alloggio_operatore: null,
+        data_nascita: null,
+        data_arrivo: "2026-08-27",
+        data_partenza: "2026-08-31",
+        sesso: "Male",
+        eta: 24,
+      },
+    ],
+    manageableParticipantIds: new Set(["managed"]),
+  });
+
+  assert.equal(occupants.length, 2);
+  assert.equal(occupants.find((occupant) => occupant.participantId === "managed")?.canManage, true);
+  assert.equal(occupants.find((occupant) => occupant.participantId === "external")?.canManage, false);
+  assert.equal(
+    occupants.find((occupant) => occupant.participantId === "external")?.displayGroup,
+    "Gruppo Due"
+  );
+});
+
+test("operator hotel and autonomous participants stay outside hostel room assignment", () => {
+  assert.equal(
+    getGroupLeaderRoomAssignmentExclusionReason({
+      alloggio: "Accommodation provided by the organization",
+      alloggio_short: "Provided by organization",
+      tipo_iscrizione: "Operator - Operatore",
+      preferenza_alloggio_operatore: "Hotel",
+    }),
+    "operator_hotel"
+  );
+
+  assert.equal(
+    getGroupLeaderRoomAssignmentExclusionReason({
+      alloggio: "Accommodation provided by the organization",
+      alloggio_short: "Provided by organization",
+      tipo_iscrizione: "Operator - Operatore",
+      preferenza_alloggio_operatore: "Hostel with group",
+    }),
+    null
+  );
+
+  assert.equal(
+    getGroupLeaderRoomAssignmentExclusionReason({
+      alloggio: "I arranged my own accommodation / Ho trovato un alloggio autonomamente",
+      alloggio_short: "Atonoumous",
+      tipo_iscrizione: "Operator - Operatore",
+      preferenza_alloggio_operatore: "Hotel",
+    }),
+    "autonomous"
+  );
+});
 
 test("normalizeParticipantSexCategory recognizes common male and female values", () => {
   assert.equal(normalizeParticipantSexCategory("Male"), "male");

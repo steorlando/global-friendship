@@ -4,6 +4,7 @@ import { requireAccommodationManagerContext } from "@/lib/alloggi/auth";
 import { loadAccommodationGroups } from "@/lib/alloggi/group-allocations";
 import { isOrganizationProvidedAccommodation } from "@/lib/alloggi/inventory";
 import {
+  getGroupLeaderRoomAssignmentExclusionReason,
   syncLegacyParticipantRoomFields,
   loadGroupLeaderRoomAssignmentData,
   normalizeParticipantSexCategory,
@@ -18,6 +19,8 @@ type ParticipantScopeRow = {
   gruppo_label: string | null;
   alloggio: string | null;
   alloggio_short: string | null;
+  tipo_iscrizione: string | null;
+  preferenza_alloggio_operatore: string | null;
   data_arrivo: string | null;
   data_partenza: string | null;
   sesso: string | null;
@@ -144,7 +147,7 @@ export async function PATCH(req: Request) {
   const { data: participant, error: participantError } = await auth.service
     .from("partecipanti")
     .select(
-      "id,nome,cognome,gruppo_id,gruppo_label,alloggio,alloggio_short,data_arrivo,data_partenza,sesso"
+      "id,nome,cognome,gruppo_id,gruppo_label,alloggio,alloggio_short,tipo_iscrizione,preferenza_alloggio_operatore,data_arrivo,data_partenza,sesso"
     )
     .eq("id", participantId)
     .is("deleted_at", null)
@@ -166,7 +169,15 @@ export async function PATCH(req: Request) {
     );
   }
 
+  if (roomId && getGroupLeaderRoomAssignmentExclusionReason(participantRow)) {
+    return NextResponse.json(
+      { error: "Participant does not require a hostel room assignment" },
+      { status: 400 }
+    );
+  }
+
   if (
+    roomId &&
     !isOrganizationProvidedAccommodation(
       participantRow.alloggio_short ?? participantRow.alloggio
     )

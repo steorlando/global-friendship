@@ -1,6 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { computeParticipantCalculatedFields } from "../tally/calculated-fields.ts";
-import { alloggioLongToShort } from "../partecipante/constants.ts";
+import {
+  alloggioLongToShort,
+  isAutonomousAccommodation,
+  isOperatorRegistrationType,
+  normalizeOperatorAccommodationPreference,
+} from "../partecipante/constants.ts";
 import {
   isOrganizationProvidedAccommodation,
   loadAccommodationRooms,
@@ -21,6 +26,8 @@ type ParticipantRow = {
   gruppo_label: string | null;
   alloggio: string | null;
   alloggio_short: string | null;
+  tipo_iscrizione: string | null;
+  preferenza_alloggio_operatore: string | null;
   data_nascita: string | null;
   data_arrivo: string | null;
   data_partenza: string | null;
@@ -44,6 +51,9 @@ type ParticipantAssignmentRow = {
   updated_by: string | null;
 };
 
+const ROOM_ASSIGNMENT_PARTICIPANT_SELECT_FIELDS =
+  "id,nome,cognome,email,gruppo_id,gruppo_label,alloggio,alloggio_short,tipo_iscrizione,preferenza_alloggio_operatore,data_nascita,data_arrivo,data_partenza,sesso,eta";
+
 export type GroupLeaderRoomAssignmentGroup = {
   id: string;
   name: string;
@@ -65,6 +75,12 @@ export type GroupLeaderParticipant = {
   age: number | null;
 };
 
+export type GroupLeaderNonRoomParticipantReason = "operator_hotel" | "autonomous";
+
+export type GroupLeaderNonRoomParticipant = GroupLeaderParticipant & {
+  reason: GroupLeaderNonRoomParticipantReason;
+};
+
 export type GroupLeaderRoomScope = {
   groupId: string;
   roomId: string;
@@ -81,6 +97,20 @@ export type GroupLeaderParticipantRoomAssignment = {
   updatedBy: string | null;
 };
 
+export type GroupLeaderVisibleRoomOccupant = {
+  participantId: string;
+  roomId: string;
+  firstName: string | null;
+  lastName: string | null;
+  displayGroup: string;
+  arrivalDate: string | null;
+  departureDate: string | null;
+  sex: string | null;
+  sexCategory: GroupLeaderParticipantSexCategory;
+  age: number | null;
+  canManage: boolean;
+};
+
 export type GroupLeaderRoomAssignmentData = {
   groups: GroupLeaderRoomAssignmentGroup[];
   showGroupColumn: boolean;
@@ -88,6 +118,8 @@ export type GroupLeaderRoomAssignmentData = {
   rooms: AccommodationRoom[];
   roomScopes: GroupLeaderRoomScope[];
   assignments: GroupLeaderParticipantRoomAssignment[];
+  roomOccupants: GroupLeaderVisibleRoomOccupant[];
+  nonRoomParticipants: GroupLeaderNonRoomParticipant[];
 };
 
 export type GroupLeaderParticipantSexCategory = "male" | "female" | null;
@@ -125,6 +157,29 @@ export type GroupLeaderRoomAssignmentValidationInput = {
     sex: string | null;
   }>;
 };
+
+export function getGroupLeaderRoomAssignmentExclusionReason(participant: {
+  alloggio: string | null;
+  alloggio_short: string | null;
+  tipo_iscrizione: string | null;
+  preferenza_alloggio_operatore: string | null;
+}): GroupLeaderNonRoomParticipantReason | null {
+  const accommodation = participant.alloggio_short ?? participant.alloggio;
+  if (isAutonomousAccommodation(accommodation)) {
+    return "autonomous";
+  }
+
+  if (
+    isOrganizationProvidedAccommodation(accommodation) &&
+    isOperatorRegistrationType(participant.tipo_iscrizione) &&
+    normalizeOperatorAccommodationPreference(participant.preferenza_alloggio_operatore) ===
+      "Hotel"
+  ) {
+    return "operator_hotel";
+  }
+
+  return null;
+}
 
 export type LegacyParticipantRoomFields = {
   stanza_id: string | null;
@@ -393,16 +448,12 @@ async function loadParticipantsForGroups(
     groupIdBatches.flatMap((groupIdBatch) => [
       service
         .from("partecipanti")
-        .select(
-          "id,nome,cognome,email,gruppo_id,gruppo_label,alloggio,alloggio_short,data_nascita,data_arrivo,data_partenza,sesso,eta"
-        )
+        .select(ROOM_ASSIGNMENT_PARTICIPANT_SELECT_FIELDS)
         .is("deleted_at", null)
         .in("gruppo_id", groupIdBatch),
       service
         .from("partecipanti")
-        .select(
-          "id,nome,cognome,email,gruppo_id,gruppo_label,alloggio,alloggio_short,data_nascita,data_arrivo,data_partenza,sesso,eta"
-        )
+        .select(ROOM_ASSIGNMENT_PARTICIPANT_SELECT_FIELDS)
         .is("deleted_at", null)
         .in("gruppo_label", groupIdBatch),
     ])
@@ -424,6 +475,36 @@ async function loadParticipantsForGroups(
     if (bySurname !== 0) return bySurname;
     return (a.nome ?? "").localeCompare(b.nome ?? "");
   });
+}
+
+async function loadParticipantsByIds(
+  service: ServiceClient,
+  participantIds: string[]
+): Promise<ParticipantRow[]> {
+  if (participantIds.length === 0) return [];
+
+  const responses = await Promise.all(
+    batchInFilterValues(participantIds).map((participantIdBatch) =>
+      service
+        .from("partecipanti")
+        .select(ROOM_ASSIGNMENT_PARTICIPANT_SELECT_FIELDS)
+        .is("deleted_at", null)
+        .in("id", participantIdBatch)
+    )
+  );
+
+  const merged = new Map<string, ParticipantRow>();
+  for (const response of responses) {
+    if (response.error) {
+      throw new Error(response.error.message);
+    }
+    for (const row of response.data ?? []) {
+      if (!row.id) continue;
+      merged.set(row.id, row as ParticipantRow);
+    }
+  }
+
+  return [...merged.values()];
 }
 
 function toGroupLeaderParticipant(row: ParticipantRow): GroupLeaderParticipant {
@@ -448,6 +529,53 @@ function toGroupLeaderParticipant(row: ParticipantRow): GroupLeaderParticipant {
     sexCategory: normalizeParticipantSexCategory(row.sesso),
     age: row.eta ?? calculated.eta,
   };
+}
+
+export function buildGroupLeaderVisibleRoomOccupants(input: {
+  assignmentRows: ParticipantAssignmentRow[];
+  participantRows: ParticipantRow[];
+  manageableParticipantIds: Set<string>;
+}): GroupLeaderVisibleRoomOccupant[] {
+  const participantById = new Map(input.participantRows.map((row) => [row.id, row]));
+
+  return input.assignmentRows
+    .flatMap((assignment) => {
+      const participantId = normalizeText(assignment.partecipante_id);
+      const roomId = normalizeText(assignment.stanza_id);
+      if (!participantId || !roomId) return [];
+
+      const row = participantById.get(participantId);
+      if (!row) return [];
+
+      const calculated = computeParticipantCalculatedFields({
+        arrival: parseDateOnly(row.data_arrivo),
+        departure: parseDateOnly(row.data_partenza),
+        dataNascita: row.data_nascita,
+      });
+
+      return [
+        {
+          participantId,
+          roomId,
+          firstName: row.nome,
+          lastName: row.cognome,
+          displayGroup: buildDisplayGroup(row),
+          arrivalDate: row.data_arrivo,
+          departureDate: row.data_partenza,
+          sex: normalizeText(row.sesso),
+          sexCategory: normalizeParticipantSexCategory(row.sesso),
+          age: row.eta ?? calculated.eta,
+          canManage: input.manageableParticipantIds.has(participantId),
+        },
+      ];
+    })
+    .sort((a, b) => {
+      const byRoom = a.roomId.localeCompare(b.roomId);
+      if (byRoom !== 0) return byRoom;
+      const bySurname = (a.lastName ?? "").localeCompare(b.lastName ?? "");
+      if (bySurname !== 0) return bySurname;
+      return (a.firstName ?? "").localeCompare(b.firstName ?? "");
+    });
 }
 
 export async function loadGroupLeaderRoomAssignmentData(
@@ -484,8 +612,16 @@ export async function loadGroupLeaderRoomAssignmentData(
 
   const groups = allGroups.filter((group) => scopedGroupIds.includes(group.id));
   const participants = participantRows
-    .filter((row) => isOrganizationProvidedAccommodation(getParticipantAccommodationShort(row)))
+    .filter(
+      (row) =>
+        isOrganizationProvidedAccommodation(getParticipantAccommodationShort(row)) &&
+        getGroupLeaderRoomAssignmentExclusionReason(row) === null
+    )
     .map(toGroupLeaderParticipant);
+  const nonRoomParticipants = participantRows.flatMap((row) => {
+    const reason = getGroupLeaderRoomAssignmentExclusionReason(row);
+    return reason ? [{ ...toGroupLeaderParticipant(row), reason }] : [];
+  });
 
   const roomScopes = roomScopeRows
     .filter((row) => row.stanza_id && row.gruppo_id)
@@ -502,7 +638,7 @@ export async function loadGroupLeaderRoomAssignmentData(
   const roomIds = [...new Set(roomScopes.map((row) => row.roomId))];
   const participantIds = participants.map((participant) => participant.id);
 
-  const [rooms, assignmentResponses] = await Promise.all([
+  const [rooms, assignmentResponses, visibleRoomAssignmentResponses] = await Promise.all([
     roomIds.length > 0 ? loadAccommodationRooms(service, { roomIds }) : Promise.resolve([]),
     participantIds.length > 0
       ? Promise.all(
@@ -516,6 +652,18 @@ export async function loadGroupLeaderRoomAssignmentData(
           )
         )
       : Promise.resolve([]),
+    roomIds.length > 0
+      ? Promise.all(
+          batchInFilterValues(roomIds).map((roomIdBatch) =>
+            service
+              .from("partecipanti_stanze")
+              .select(
+                "id,partecipante_id,stanza_id,gruppo_id,created_at,updated_at,created_by,updated_by"
+              )
+              .in("stanza_id", roomIdBatch)
+          )
+        )
+      : Promise.resolve([]),
   ]);
 
   const assignmentRows: ParticipantAssignmentRow[] = [];
@@ -525,6 +673,29 @@ export async function loadGroupLeaderRoomAssignmentData(
     }
     assignmentRows.push(...((response.data ?? []) as ParticipantAssignmentRow[]));
   }
+
+  const visibleRoomAssignmentRows: ParticipantAssignmentRow[] = [];
+  for (const response of visibleRoomAssignmentResponses) {
+    if (response.error) {
+      throw new Error(response.error.message);
+    }
+    visibleRoomAssignmentRows.push(...((response.data ?? []) as ParticipantAssignmentRow[]));
+  }
+
+  const manageableParticipantIds = new Set(participantIds);
+  const visibleOccupantIds = [
+    ...new Set(
+      visibleRoomAssignmentRows
+        .map((row) => normalizeText(row.partecipante_id))
+        .filter((value): value is string => Boolean(value))
+    ),
+  ];
+  const visibleOccupantRows = await loadParticipantsByIds(service, visibleOccupantIds);
+  const roomOccupants = buildGroupLeaderVisibleRoomOccupants({
+    assignmentRows: visibleRoomAssignmentRows,
+    participantRows: visibleOccupantRows,
+    manageableParticipantIds,
+  });
 
   const assignments = assignmentRows
     .filter((row) => row.partecipante_id && row.stanza_id && row.gruppo_id)
@@ -547,5 +718,7 @@ export async function loadGroupLeaderRoomAssignmentData(
     rooms,
     roomScopes,
     assignments,
+    roomOccupants,
+    nonRoomParticipants,
   };
 }
