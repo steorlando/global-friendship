@@ -15,6 +15,7 @@ import {
   type ParticipantTemplateData,
 } from "@/lib/email/participant-template";
 import {
+  GROUP_LEADER_CAMPAIGN_ROLES,
   renderGroupLeaderTemplateHtml,
   renderGroupLeaderTemplateText,
   type GroupLeaderTemplateData,
@@ -394,7 +395,7 @@ export async function POST(req: Request) {
         auth.service
           .from("profili")
           .select(GROUP_LEADER_SELECT_FIELDS)
-          .eq("ruolo", "capogruppo")
+          .in("ruolo", [...GROUP_LEADER_CAMPAIGN_ROLES])
           .in("id", batchIds) as unknown as Promise<{
           data: GroupLeaderRow[] | null;
           error: { message: string } | null;

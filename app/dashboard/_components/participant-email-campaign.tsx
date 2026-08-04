@@ -52,6 +52,7 @@ type ParticipantSortKey =
 type GroupLeaderSortKey =
   | "nome"
   | "cognome"
+  | "ruolo"
   | "gruppi"
   | "email"
   | "telefono"
@@ -595,7 +596,8 @@ export function ParticipantEmailCampaign() {
           safeIncludes(leader.nome, s) ||
           safeIncludes(leader.cognome, s) ||
           safeIncludes(leader.email, s) ||
-          safeIncludes(leader.telefono, s);
+          safeIncludes(leader.telefono, s) ||
+          safeIncludes(leader.ruolo, s);
         if (!matches) return false;
       }
 
@@ -1164,7 +1166,8 @@ export function ParticipantEmailCampaign() {
           <div>
             <h2 className="text-xl font-bold text-slate-900">Email Campaigns</h2>
             <p className="mt-2 text-sm text-slate-500">
-              Compose a personalized email and send it to selected participants or group leaders.
+              Compose a personalized email and send it to selected participants, group leaders,
+              or managers.
             </p>
           </div>
           <NextLink
@@ -1435,7 +1438,7 @@ export function ParticipantEmailCampaign() {
                 : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
             }`}
           >
-            Group leaders ({groupLeaders.length})
+            Group leaders &amp; managers ({groupLeaders.length})
           </button>
         </div>
 
@@ -1571,7 +1574,7 @@ export function ParticipantEmailCampaign() {
                 type="text"
                 value={groupLeaderSearch}
                 onChange={(event) => setGroupLeaderSearch(event.target.value)}
-                placeholder="Name, surname, email, phone"
+                placeholder="Name, surname, email, phone, role"
                 className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
               />
             </div>
@@ -1793,7 +1796,7 @@ export function ParticipantEmailCampaign() {
             </div>
           )
         ) : groupLeadersLoading ? (
-          <p className="mt-4 text-sm text-slate-500">Loading group leaders...</p>
+          <p className="mt-4 text-sm text-slate-500">Loading group leaders and managers...</p>
         ) : groupLeadersError ? (
           <p className="mt-4 text-sm text-red-700">{groupLeadersError}</p>
         ) : (
@@ -1806,7 +1809,7 @@ export function ParticipantEmailCampaign() {
                       type="checkbox"
                       checked={allVisibleSelected}
                       onChange={toggleVisibleSelection}
-                      aria-label="Select all visible group leaders"
+                      aria-label="Select all visible group leaders and managers"
                     />
                   </th>
                   <th className="px-4 py-3 font-semibold">
@@ -1814,6 +1817,9 @@ export function ParticipantEmailCampaign() {
                   </th>
                   <th className="px-4 py-3 font-semibold">
                     <button type="button" onClick={() => toggleGroupLeaderSort("cognome")}>Surname</button>
+                  </th>
+                  <th className="px-4 py-3 font-semibold">
+                    <button type="button" onClick={() => toggleGroupLeaderSort("ruolo")}>Role</button>
                   </th>
                   <th className="px-4 py-3 font-semibold">
                     <button type="button" onClick={() => toggleGroupLeaderSort("gruppi")}>Groups</button>
@@ -1835,8 +1841,8 @@ export function ParticipantEmailCampaign() {
               <tbody className="divide-y divide-slate-100">
                 {filteredSortedGroupLeaders.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-3 py-3 text-slate-500">
-                      No group leaders match current filters.
+                    <td colSpan={9} className="px-3 py-3 text-slate-500">
+                      No group leaders or managers match current filters.
                     </td>
                   </tr>
                 ) : (
@@ -1852,6 +1858,7 @@ export function ParticipantEmailCampaign() {
                       </td>
                       <td className="px-4 py-3 text-slate-900">{leader.nome || "-"}</td>
                       <td className="px-4 py-3 text-slate-900">{leader.cognome || "-"}</td>
+                      <td className="px-4 py-3 text-slate-700">{leader.ruolo || "-"}</td>
                       <td className="max-w-xs px-4 py-3 text-slate-700">
                         {formatGroupLeaderGroups(leader.gruppi) || "-"}
                       </td>

@@ -5,6 +5,7 @@ import {
   groupDisplayName,
   loadGroupDisplayNamesById,
 } from "@/lib/groups/display-names";
+import { GROUP_LEADER_CAMPAIGN_ROLES } from "@/lib/email/group-leader-template";
 
 type GroupLeaderRow = {
   id: string;
@@ -72,7 +73,7 @@ export async function GET() {
   const { data, error } = await auth.service
     .from("profili")
     .select(SELECT_FIELDS)
-    .eq("ruolo", "capogruppo")
+    .in("ruolo", [...GROUP_LEADER_CAMPAIGN_ROLES])
     .order("cognome", { ascending: true })
     .order("nome", { ascending: true });
 
