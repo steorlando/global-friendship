@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { requireAdminUser } from "@/lib/admin/auth";
 import {
+  deleteGroupLeaderProfiloById,
   listKnownGroups,
   listProfili,
+  ProfiloDeletionError,
   updateProfiloById,
   upsertProfiloByEmail,
 } from "@/lib/admin/profili";
@@ -100,6 +102,33 @@ export async function PATCH(req: Request) {
     return NextResponse.json(
       { error: (error as Error).message },
       { status: 400 }
+    );
+  }
+}
+
+export async function DELETE(req: Request) {
+  const auth = await requireAdminUser();
+  if ("errorResponse" in auth) return auth.errorResponse;
+
+  let body: Record<string, unknown>;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  try {
+    const supabase = createSupabaseServiceClient();
+    const data = await deleteGroupLeaderProfiloById(
+      supabase,
+      String(body.id ?? "")
+    );
+
+    return NextResponse.json({ ok: true, data });
+  } catch (error) {
+    return NextResponse.json(
+      { error: (error as Error).message },
+      { status: error instanceof ProfiloDeletionError ? error.status : 500 }
     );
   }
 }

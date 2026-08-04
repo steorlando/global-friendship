@@ -2,6 +2,11 @@ import { type SupabaseClient } from "@supabase/supabase-js";
 import { isAppRole } from "@/lib/auth/roles";
 import { groupDisplayName, loadGroupDisplayNamesById } from "@/lib/groups/display-names";
 
+export {
+  deleteGroupLeaderProfiloById,
+  ProfiloDeletionError,
+} from "./profile-deletion";
+
 export type ProfiloInput = {
   email: string;
   nome: string | null;

@@ -151,6 +151,10 @@ Current behavior:
 - In row edit mode, admins can set `capogruppo_host` through a checkbox.
 - The host checkbox is enabled only when role is `capogruppo`; for other roles it is forced to `false`.
 - Backend profile upsert/update logic enforces the same rule server-side.
+- In row edit mode, admins can delete profiles whose current role is `capogruppo` after
+  an explicit confirmation. The action is intentionally unavailable for other roles.
+- Deleting a group-leader profile removes its `profili_gruppi` links through the database
+  cascade, but does not delete groups, participants, or the shared Supabase Auth user.
 
 ### Manager
 

@@ -64,6 +64,7 @@ export default function AdminUsersProfilesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDrafts, setEditDrafts] = useState<Record<string, EditDraft>>({});
   const [newProfile, setNewProfile] = useState<NewProfileDraft>(EMPTY_NEW_PROFILE);
@@ -301,6 +302,34 @@ export default function AdminUsersProfilesPage() {
     }
   }
 
+  async function deleteGroupLeader(profile: Profilo) {
+    const displayName = [profile.nome, profile.cognome].filter(Boolean).join(" ");
+    const confirmed = window.confirm(
+      `Delete the group leader profile for ${displayName || profile.email}?\n\n` +
+        "This removes their group-leader access and group associations. " +
+        "Groups and participants will not be deleted."
+    );
+    if (!confirmed) return;
+
+    setDeletingId(profile.id);
+    setError(null);
+    try {
+      const response = await fetch("/api/admin/profili", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: profile.id }),
+      });
+      const json = await response.json();
+      if (!response.ok) throw new Error(json.error || "Delete error");
+      cancelEdit(profile.id);
+      await loadProfiles();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   async function handleCsvUpload(event: React.FormEvent) {
     event.preventDefault();
     if (!csvFile) return;
@@ -335,7 +364,7 @@ export default function AdminUsersProfilesPage() {
       <header>
         <h1 className="text-2xl font-bold">Users & Profiles</h1>
         <p className="mt-2 text-sm text-slate-500">
-          Manage users/profiles: view, edit, add new users, or import from CSV.
+          Manage users/profiles: view, edit, add or remove group leaders, or import from CSV.
         </p>
       </header>
 
@@ -858,11 +887,11 @@ export default function AdminUsersProfilesPage() {
                     </td>
                     <td className="px-4 py-3">
                       {editingId === profile.id ? (
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2">
                           <button
                             type="button"
                             onClick={() => saveRow(profile.id)}
-                            disabled={savingId === profile.id}
+                            disabled={savingId === profile.id || deletingId === profile.id}
                             className="rounded bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
                           >
                             {savingId === profile.id ? "Saving..." : "Save"}
@@ -870,11 +899,23 @@ export default function AdminUsersProfilesPage() {
                           <button
                             type="button"
                             onClick={() => cancelEdit(profile.id)}
-                            disabled={savingId === profile.id}
+                            disabled={savingId === profile.id || deletingId === profile.id}
                             className="rounded border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700"
                           >
                             Cancel
                           </button>
+                          {profile.ruolo === "capogruppo" && (
+                            <button
+                              type="button"
+                              onClick={() => deleteGroupLeader(profile)}
+                              disabled={savingId === profile.id || deletingId === profile.id}
+                              className="rounded border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 disabled:opacity-60"
+                            >
+                              {deletingId === profile.id
+                                ? "Deleting..."
+                                : "Delete group leader"}
+                            </button>
+                          )}
                         </div>
                       ) : (
                         <button
