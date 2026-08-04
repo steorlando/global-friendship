@@ -16,7 +16,10 @@ export default async function AccommodationRoomAssignmentPage() {
       </section>
 
       <div className="mt-6">
-        <GroupLeaderRoomAssignmentManager apiBasePath="/api/alloggi/room-assignments" />
+        <GroupLeaderRoomAssignmentManager
+          apiBasePath="/api/alloggi/room-assignments"
+          showHostelFilter
+        />
       </div>
     </>
   );

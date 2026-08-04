@@ -1,5 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { alloggioLongToShort } from "../partecipante/constants.ts";
+import {
+  alloggioLongToShort,
+  isOperatorRegistrationType,
+  normalizeOperatorAccommodationPreference,
+} from "../partecipante/constants.ts";
 import {
   isOrganizationProvidedAccommodation,
   loadAccommodationRoomById,
@@ -32,6 +36,8 @@ type SummaryParticipantRow = {
   gruppo_label: string | null;
   alloggio: string | null;
   alloggio_short: string | null;
+  tipo_iscrizione?: string | null;
+  preferenza_alloggio_operatore?: string | null;
   sesso: string | null;
   data_arrivo: string | null;
   data_partenza: string | null;
@@ -187,6 +193,18 @@ function roomIsAvailableOnDate(room: GroupSummaryRoomInput, date: string): boole
 
 function getParticipantAccommodationShort(row: SummaryParticipantRow): string | null {
   return row.alloggio_short ?? alloggioLongToShort(row.alloggio);
+}
+
+function participantNeedsHostelRoom(row: SummaryParticipantRow): boolean {
+  if (!isOrganizationProvidedAccommodation(getParticipantAccommodationShort(row))) {
+    return false;
+  }
+
+  return !(
+    isOperatorRegistrationType(row.tipo_iscrizione) &&
+    normalizeOperatorAccommodationPreference(row.preferenza_alloggio_operatore) ===
+      "Hotel"
+  );
 }
 
 function participantBelongsToGroup(
@@ -393,7 +411,7 @@ export function buildAccommodationGroupSummaries(args: {
       .filter(
         (participant) =>
           participantBelongsToGroup(participant, group) &&
-          isOrganizationProvidedAccommodation(getParticipantAccommodationShort(participant))
+          participantNeedsHostelRoom(participant)
       )
       .map((participant) => ({
         id: participant.id,
@@ -617,7 +635,9 @@ export async function loadAccommodationGroupSummaries(
     loadAccommodationGroupRoomAllocations(service, filters),
     service
       .from("partecipanti")
-      .select("id,gruppo_id,gruppo_label,alloggio,alloggio_short,sesso,data_arrivo,data_partenza")
+      .select(
+        "id,gruppo_id,gruppo_label,alloggio,alloggio_short,tipo_iscrizione,preferenza_alloggio_operatore,sesso,data_arrivo,data_partenza"
+      )
       .is("deleted_at", null),
   ]);
 

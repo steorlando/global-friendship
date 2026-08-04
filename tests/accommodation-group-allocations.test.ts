@@ -63,6 +63,92 @@ test("buildAccommodationGroupSummaries reports exact allocation without warnings
   assert.deepEqual(summaries[0]?.warnings, []);
 });
 
+test("buildAccommodationGroupSummaries excludes hotel operators and autonomous stays from hostel need", () => {
+  const summaries = buildAccommodationGroupSummaries({
+    groups: [{ id: "Germany", name: "Germany" }],
+    allocations: [
+      {
+        groupId: "Germany",
+        roomId: "room-1",
+        createdAt: null,
+        createdBy: null,
+        room: {
+          id: "room-1",
+          hotelId: "hostel-1",
+          hotel: null,
+          legacyName: "MU-02-A",
+          internalCode: "MU-02-A",
+          realRoomNumber: null,
+          capacity: 2,
+          genderPolicy: "mixed",
+          availableFrom: "2026-08-27",
+          availableTo: "2026-08-31",
+          createdAt: "",
+          updatedAt: "",
+          assignedGroupCount: 1,
+          assignedParticipantCount: 2,
+        },
+      },
+    ],
+    participants: [
+      {
+        id: "hostel-male",
+        gruppo_id: "Germany",
+        gruppo_label: null,
+        alloggio: null,
+        alloggio_short: "Provided by organization",
+        tipo_iscrizione: "Worker - lavoratore (18-25 years old)",
+        preferenza_alloggio_operatore: null,
+        sesso: "Male",
+        data_arrivo: "2026-08-27",
+        data_partenza: "2026-08-29",
+      },
+      {
+        id: "hostel-female",
+        gruppo_id: "Germany",
+        gruppo_label: null,
+        alloggio: null,
+        alloggio_short: "Provided by organization",
+        tipo_iscrizione: "Undergraduate - universitario(18-25 years old)",
+        preferenza_alloggio_operatore: null,
+        sesso: "Female",
+        data_arrivo: "2026-08-27",
+        data_partenza: "2026-08-29",
+      },
+      {
+        id: "hotel-operator",
+        gruppo_id: "Germany",
+        gruppo_label: null,
+        alloggio: null,
+        alloggio_short: "Provided by organization",
+        tipo_iscrizione: "Operator - Operatore",
+        preferenza_alloggio_operatore: "Hotel",
+        sesso: "Female",
+        data_arrivo: null,
+        data_partenza: null,
+      },
+      {
+        id: "autonomous",
+        gruppo_id: "Germany",
+        gruppo_label: null,
+        alloggio: "I arranged my own accommodation / Ho trovato un alloggio autonomamente",
+        alloggio_short: "Atonoumous",
+        tipo_iscrizione: "Operator - Operatore",
+        preferenza_alloggio_operatore: "Hotel",
+        sesso: "Male",
+        data_arrivo: null,
+        data_partenza: null,
+      },
+    ],
+  });
+
+  assert.equal(summaries[0]?.needsAccommodationCount, 2);
+  assert.equal(summaries[0]?.maleNeedCount, 1);
+  assert.equal(summaries[0]?.femaleNeedCount, 1);
+  assert.equal(summaries[0]?.status, "exactly_allocated");
+  assert.deepEqual(summaries[0]?.warnings, []);
+});
+
 test("buildAccommodationGroupSummaries flags late room start and daily shortage", () => {
   const summaries = buildAccommodationGroupSummaries({
     groups: [{ id: "G1", name: "Group One" }],

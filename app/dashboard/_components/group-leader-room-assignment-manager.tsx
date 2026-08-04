@@ -24,6 +24,7 @@ type RoomScope = {
 };
 
 const ALL_GROUPS_ID = "__all_groups__";
+const ALL_HOSTELS_ID = "__all_hostels__";
 
 type RoomAssignmentResponse = {
   groups?: GroupLeaderRoomAssignmentGroup[];
@@ -108,10 +109,12 @@ function buildParticipantInitials(participant: {
 
 export type GroupLeaderRoomAssignmentManagerProps = {
   apiBasePath?: string;
+  showHostelFilter?: boolean;
 };
 
 export function GroupLeaderRoomAssignmentManager({
   apiBasePath = "/api/capogruppo/room-assignments",
+  showHostelFilter = false,
 }: GroupLeaderRoomAssignmentManagerProps = {}) {
   const { t, formatNumber, formatDate } = useI18n();
   const [groups, setGroups] = useState<GroupLeaderRoomAssignmentGroup[]>([]);
@@ -125,6 +128,7 @@ export function GroupLeaderRoomAssignmentManager({
   >([]);
   const [showGroupColumn, setShowGroupColumn] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState("");
+  const [selectedHostelId, setSelectedHostelId] = useState(ALL_HOSTELS_ID);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -261,16 +265,6 @@ export function GroupLeaderRoomAssignmentManager({
     [deferredSearchTerm, roomOccupants]
   );
 
-  const matchingSearchResultIds = useMemo(
-    () =>
-      new Set([
-        ...matchingParticipantIds,
-        ...matchingRoomOccupantIds,
-        ...matchingNonRoomParticipantIds,
-      ]),
-    [matchingNonRoomParticipantIds, matchingParticipantIds, matchingRoomOccupantIds]
-  );
-
   const scopedRoomIds = useMemo(
     () =>
       new Set(
@@ -281,14 +275,40 @@ export function GroupLeaderRoomAssignmentManager({
     [isCombinedView, roomScopes, selectedGroupId]
   );
 
+  const hostelsForSelectedGroup = useMemo(() => {
+    const hostelsById = new Map<string, string>();
+
+    for (const room of rooms) {
+      if (!scopedRoomIds.has(room.id)) continue;
+      hostelsById.set(room.hotelId, room.hotel?.name?.trim() || room.hotelId);
+    }
+
+    return [...hostelsById.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [rooms, scopedRoomIds]);
+
+  const selectedHostelIsAvailable = hostelsForSelectedGroup.some(
+    (hostel) => hostel.id === selectedHostelId
+  );
+  const activeHostelId =
+    showHostelFilter &&
+    (selectedHostelId === ALL_HOSTELS_ID || selectedHostelIsAvailable)
+      ? selectedHostelId
+      : ALL_HOSTELS_ID;
+
   const roomsForSelectedGroup = useMemo(
     () =>
       rooms
-        .filter((room) => scopedRoomIds.has(room.id))
+        .filter(
+          (room) =>
+            scopedRoomIds.has(room.id) &&
+            (activeHostelId === ALL_HOSTELS_ID || room.hotelId === activeHostelId)
+        )
         .sort((a, b) =>
           buildGroupLeaderRoomOptionLabel(a).localeCompare(buildGroupLeaderRoomOptionLabel(b))
         ),
-    [rooms, scopedRoomIds]
+    [activeHostelId, rooms, scopedRoomIds]
   );
 
   const assignmentByParticipantId = useMemo(
@@ -355,15 +375,55 @@ export function GroupLeaderRoomAssignmentManager({
       participantsForSelectedGroup.filter(
         (participant) =>
           !assignmentByParticipantId.has(participant.id) &&
+          (activeHostelId === ALL_HOSTELS_ID ||
+            (roomsByParticipantId.get(participant.id)?.length ?? 0) > 0) &&
           matchingParticipantIds.has(participant.id)
       ),
-    [assignmentByParticipantId, matchingParticipantIds, participantsForSelectedGroup]
+    [
+      assignmentByParticipantId,
+      matchingParticipantIds,
+      participantsForSelectedGroup,
+      roomsByParticipantId,
+      activeHostelId,
+    ]
   );
 
-  const assignedCount = participantsForSelectedGroup.filter((participant) =>
-    assignmentByParticipantId.has(participant.id)
+  const visibleRoomIds = useMemo(
+    () => new Set(roomsForSelectedGroup.map((room) => room.id)),
+    [roomsForSelectedGroup]
+  );
+  const assignedCount = participantsForSelectedGroup.filter((participant) => {
+    const assignment = assignmentByParticipantId.get(participant.id);
+    return assignment ? visibleRoomIds.has(assignment.roomId) : false;
+  }).length;
+  const unassignedCount = participantsForSelectedGroup.filter(
+    (participant) =>
+      !assignmentByParticipantId.has(participant.id) &&
+      (activeHostelId === ALL_HOSTELS_ID ||
+        (roomsByParticipantId.get(participant.id)?.length ?? 0) > 0)
   ).length;
-  const unassignedCount = participantsForSelectedGroup.length - assignedCount;
+  const matchingVisibleRoomOccupantIds = useMemo(
+    () =>
+      new Set(
+        roomOccupants
+          .filter(
+            (occupant) =>
+              visibleRoomIds.has(occupant.roomId) &&
+              matchingRoomOccupantIds.has(occupant.participantId)
+          )
+          .map((occupant) => occupant.participantId)
+      ),
+    [matchingRoomOccupantIds, roomOccupants, visibleRoomIds]
+  );
+  const matchingSearchResultIds = useMemo(
+    () =>
+      new Set([
+        ...unassignedParticipants.map((participant) => participant.id),
+        ...matchingVisibleRoomOccupantIds,
+        ...matchingNonRoomParticipantIds,
+      ]),
+    [matchingNonRoomParticipantIds, matchingVisibleRoomOccupantIds, unassignedParticipants]
+  );
 
   async function handleAssignmentChange(participantId: string, nextRoomId: string) {
     setSavingParticipantId(participantId);
@@ -447,13 +507,22 @@ export function GroupLeaderRoomAssignmentManager({
       ) : null}
 
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <div className="grid gap-5 xl:grid-cols-[minmax(14rem,18rem)_minmax(18rem,1fr)_auto] xl:items-end">
+        <div
+          className={`grid gap-5 xl:items-end ${
+            showHostelFilter
+              ? "xl:grid-cols-[minmax(12rem,16rem)_minmax(12rem,16rem)_minmax(16rem,1fr)_auto]"
+              : "xl:grid-cols-[minmax(14rem,18rem)_minmax(18rem,1fr)_auto]"
+          }`}
+        >
           <label className="block text-sm font-medium text-slate-700">
             {t("groupLeader.roomAssignment.filters.group")}
             <select
               data-testid="group-room-view-filter"
               value={selectedGroupId}
-              onChange={(event) => setSelectedGroupId(event.target.value)}
+              onChange={(event) => {
+                setSelectedGroupId(event.target.value);
+                setSelectedHostelId(ALL_HOSTELS_ID);
+              }}
               className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900"
             >
               {groups.length > 1 ? (
@@ -470,6 +539,29 @@ export function GroupLeaderRoomAssignmentManager({
               ))}
             </select>
           </label>
+
+          {showHostelFilter ? (
+            <label className="block text-sm font-medium text-slate-700">
+              {t("groupLeader.roomAssignment.filters.hostel")}
+              <select
+                data-testid="hostel-room-view-filter"
+                value={activeHostelId}
+                onChange={(event) => setSelectedHostelId(event.target.value)}
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900"
+              >
+                <option value={ALL_HOSTELS_ID}>
+                  {t("groupLeader.roomAssignment.filters.allHostels", {
+                    count: formatNumber(hostelsForSelectedGroup.length),
+                  })}
+                </option>
+                {hostelsForSelectedGroup.map((hostel) => (
+                  <option key={hostel.id} value={hostel.id}>
+                    {hostel.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
 
           <label className="block text-sm font-medium text-slate-700">
             {t("groupLeader.roomAssignment.filters.search")}
@@ -563,6 +655,7 @@ export function GroupLeaderRoomAssignmentManager({
                   key={room.id}
                   data-testid="room-card"
                   data-room-id={room.id}
+                  data-hostel-id={room.hotelId}
                   className={`overflow-hidden rounded-xl border bg-white ${
                     hasMatchingOccupant
                       ? "border-indigo-400 ring-2 ring-indigo-100"

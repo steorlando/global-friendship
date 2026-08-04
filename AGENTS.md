@@ -225,6 +225,12 @@ The room-assignment page is organized as a room map rather than a participant ta
   and the capogruppo PATCH authorization remains restricted to `profili_gruppi`.
 - both capogruppo and alloggi assignment APIs reject new hostel-room assignments for hotel
   operators and autonomous participants, while still allowing an obsolete assignment to be removed.
+- the Alloggi/Manager room-assignment page enables an additional hostel filter that intersects
+  with the group filter and scopes room cards, counts, and assignment choices; the shared
+  capogruppo page intentionally does not render this control.
+- group-allocation need, gender breakdown, status, and warnings count only participants who
+  actually require a hostel bed: autonomous stays and operators with Hotel preference are
+  excluded before nominal and day-by-day capacity checks.
 
 ### Partecipante
 

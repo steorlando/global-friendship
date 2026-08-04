@@ -665,6 +665,8 @@ const en: TranslationDictionary = {
   "groupLeader.roomAssignment.summary.title": "Assignment summary",
   "groupLeader.roomAssignment.filters.group": "Group",
   "groupLeader.roomAssignment.filters.allGroups": "All my groups ({count})",
+  "groupLeader.roomAssignment.filters.hostel": "Hostel",
+  "groupLeader.roomAssignment.filters.allHostels": "All hostels ({count})",
   "groupLeader.roomAssignment.filters.search": "Search participant",
   "groupLeader.roomAssignment.filters.searchPlaceholder": "Find someone in the room map",
   "groupLeader.roomAssignment.filters.searchResults": "Results found: {count}",

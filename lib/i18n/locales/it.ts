@@ -637,6 +637,8 @@ const it: TranslationDictionary = {
   "groupLeader.roomAssignment.summary.title": "Riepilogo assegnazioni",
   "groupLeader.roomAssignment.filters.group": "Gruppo",
   "groupLeader.roomAssignment.filters.allGroups": "Tutti i miei gruppi ({count})",
+  "groupLeader.roomAssignment.filters.hostel": "Ostello",
+  "groupLeader.roomAssignment.filters.allHostels": "Tutti gli ostelli ({count})",
   "groupLeader.roomAssignment.filters.search": "Cerca partecipante",
   "groupLeader.roomAssignment.filters.searchPlaceholder": "Cerca una persona nella mappa",
   "groupLeader.roomAssignment.filters.searchResults": "Risultati trovati: {count}",
