@@ -4,6 +4,36 @@ import type {
   GroupLeaderVisibleRoomOccupant,
 } from "./room-assignments.ts";
 
+export type RoomAvailabilityFilter = "all" | "available" | "empty";
+
+export function getGroupLeaderRoomOccupancy(
+  room: AccommodationRoom,
+  visibleOccupantCount: number
+): number {
+  return Math.max(room.assignedParticipantCount, visibleOccupantCount);
+}
+
+export function matchesGroupLeaderRoomAvailabilityFilter(
+  room: AccommodationRoom,
+  visibleOccupantCount: number,
+  filter: RoomAvailabilityFilter
+): boolean {
+  if (filter === "all") return true;
+
+  const occupancy = getGroupLeaderRoomOccupancy(room, visibleOccupantCount);
+  if (filter === "empty") return occupancy === 0;
+  return occupancy < room.capacity;
+}
+
+export function matchesGroupLeaderRoomCodeFilter(
+  room: AccommodationRoom,
+  searchTerm: string
+): boolean {
+  const normalized = searchTerm.trim().toLocaleLowerCase();
+  if (!normalized) return true;
+  return room.internalCode.toLocaleLowerCase().includes(normalized);
+}
+
 export function buildGroupLeaderRoomOptionLabel(room: AccommodationRoom): string {
   return [room.internalCode, room.hotel?.name ?? ""].filter(Boolean).join(" · ");
 }

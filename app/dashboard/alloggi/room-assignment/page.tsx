@@ -19,6 +19,8 @@ export default async function AccommodationRoomAssignmentPage() {
         <GroupLeaderRoomAssignmentManager
           apiBasePath="/api/alloggi/room-assignments"
           showHostelFilter
+          showRoomAvailabilityFilter
+          showRoomCodeFilter
         />
       </div>
     </>

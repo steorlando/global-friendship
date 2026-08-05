@@ -14,8 +14,12 @@ import type {
 import {
   buildGroupLeaderRoomOptionLabel,
   formatGroupLeaderRoomAvailability,
+  getGroupLeaderRoomOccupancy,
   matchesGroupLeaderParticipantSearch,
+  matchesGroupLeaderRoomAvailabilityFilter,
+  matchesGroupLeaderRoomCodeFilter,
   matchesGroupLeaderRoomOccupantSearch,
+  type RoomAvailabilityFilter,
 } from "@/lib/capogruppo/room-assignment-presentation";
 
 type RoomScope = {
@@ -111,11 +115,15 @@ function buildParticipantInitials(participant: {
 export type GroupLeaderRoomAssignmentManagerProps = {
   apiBasePath?: string;
   showHostelFilter?: boolean;
+  showRoomAvailabilityFilter?: boolean;
+  showRoomCodeFilter?: boolean;
 };
 
 export function GroupLeaderRoomAssignmentManager({
   apiBasePath = "/api/capogruppo/room-assignments",
   showHostelFilter = false,
+  showRoomAvailabilityFilter = false,
+  showRoomCodeFilter = false,
 }: GroupLeaderRoomAssignmentManagerProps = {}) {
   const { t, formatNumber, formatDate } = useI18n();
   const [groups, setGroups] = useState<GroupLeaderRoomAssignmentGroup[]>([]);
@@ -131,12 +139,16 @@ export function GroupLeaderRoomAssignmentManager({
   const [canAssignAcrossGroups, setCanAssignAcrossGroups] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState("");
   const [selectedHostelId, setSelectedHostelId] = useState(ALL_HOSTELS_ID);
+  const [roomAvailabilityFilter, setRoomAvailabilityFilter] =
+    useState<RoomAvailabilityFilter>("all");
+  const [roomCodeFilter, setRoomCodeFilter] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [savingParticipantId, setSavingParticipantId] = useState<string | null>(null);
   const [rowFeedback, setRowFeedback] = useState<Record<string, RowFeedback>>({});
   const deferredSearchTerm = useDeferredValue(searchTerm);
+  const deferredRoomCodeFilter = useDeferredValue(roomCodeFilter);
   const hasSearch = deferredSearchTerm.trim().length > 0;
 
   const loadData = useCallback(async () => {
@@ -368,10 +380,38 @@ export function GroupLeaderRoomAssignmentManager({
     roomsForSelectedGroup,
   ]);
 
-  const roomsForDisplay = useMemo(() => {
-    if (!hasSearch) return roomsForSelectedGroup;
+  const roomsMatchingAvailability = useMemo(
+    () =>
+      roomsForSelectedGroup.filter((room) =>
+        matchesGroupLeaderRoomAvailabilityFilter(
+          room,
+          roomOccupantsByRoomId.get(room.id)?.length ?? 0,
+          showRoomAvailabilityFilter ? roomAvailabilityFilter : "all"
+        )
+      ),
+    [
+      roomAvailabilityFilter,
+      roomOccupantsByRoomId,
+      roomsForSelectedGroup,
+      showRoomAvailabilityFilter,
+    ]
+  );
 
-    return [...roomsForSelectedGroup].sort((a, b) => {
+  const roomsMatchingRoomCode = useMemo(
+    () =>
+      roomsMatchingAvailability.filter((room) =>
+        matchesGroupLeaderRoomCodeFilter(
+          room,
+          showRoomCodeFilter ? deferredRoomCodeFilter : ""
+        )
+      ),
+    [deferredRoomCodeFilter, roomsMatchingAvailability, showRoomCodeFilter]
+  );
+
+  const roomsForDisplay = useMemo(() => {
+    if (!hasSearch) return roomsMatchingRoomCode;
+
+    return [...roomsMatchingRoomCode].sort((a, b) => {
       const roomAHasMatch = (roomOccupantsByRoomId.get(a.id) ?? []).some((participant) =>
         matchingRoomOccupantIds.has(participant.participantId)
       );
@@ -381,7 +421,7 @@ export function GroupLeaderRoomAssignmentManager({
 
       return Number(roomBHasMatch) - Number(roomAHasMatch);
     });
-  }, [hasSearch, matchingRoomOccupantIds, roomOccupantsByRoomId, roomsForSelectedGroup]);
+  }, [hasSearch, matchingRoomOccupantIds, roomOccupantsByRoomId, roomsMatchingRoomCode]);
 
   const unassignedParticipants = useMemo(
     () =>
@@ -402,8 +442,8 @@ export function GroupLeaderRoomAssignmentManager({
   );
 
   const visibleRoomIds = useMemo(
-    () => new Set(roomsForSelectedGroup.map((room) => room.id)),
-    [roomsForSelectedGroup]
+    () => new Set(roomsMatchingRoomCode.map((room) => room.id)),
+    [roomsMatchingRoomCode]
   );
   const assignedCount = participantsForSelectedGroup.filter((participant) => {
     const assignment = assignmentByParticipantId.get(participant.id);
@@ -522,7 +562,11 @@ export function GroupLeaderRoomAssignmentManager({
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <div
           className={`grid gap-5 xl:items-end ${
-            showHostelFilter
+            showHostelFilter && showRoomAvailabilityFilter && showRoomCodeFilter
+              ? "md:grid-cols-2 2xl:grid-cols-4"
+              : showHostelFilter && showRoomAvailabilityFilter
+              ? "xl:grid-cols-2 2xl:grid-cols-[minmax(11rem,15rem)_minmax(11rem,15rem)_minmax(11rem,15rem)_minmax(15rem,1fr)_auto]"
+              : showHostelFilter
               ? "xl:grid-cols-[minmax(12rem,16rem)_minmax(12rem,16rem)_minmax(16rem,1fr)_auto]"
               : "xl:grid-cols-[minmax(14rem,18rem)_minmax(18rem,1fr)_auto]"
           }`}
@@ -576,7 +620,51 @@ export function GroupLeaderRoomAssignmentManager({
             </label>
           ) : null}
 
-          <label className="block text-sm font-medium text-slate-700">
+          {showRoomAvailabilityFilter ? (
+            <label className="block text-sm font-medium text-slate-700">
+              {t("groupLeader.roomAssignment.filters.availability")}
+              <select
+                data-testid="room-availability-filter"
+                value={roomAvailabilityFilter}
+                onChange={(event) =>
+                  setRoomAvailabilityFilter(event.target.value as RoomAvailabilityFilter)
+                }
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900"
+              >
+                <option value="all">
+                  {t("groupLeader.roomAssignment.filters.allRooms")}
+                </option>
+                <option value="available">
+                  {t("groupLeader.roomAssignment.filters.availableRooms")}
+                </option>
+                <option value="empty">
+                  {t("groupLeader.roomAssignment.filters.emptyRooms")}
+                </option>
+              </select>
+            </label>
+          ) : null}
+
+          {showRoomCodeFilter ? (
+            <label className="block text-sm font-medium text-slate-700">
+              {t("groupLeader.roomAssignment.filters.roomCode")}
+              <input
+                data-testid="room-code-filter"
+                type="search"
+                value={roomCodeFilter}
+                onChange={(event) => setRoomCodeFilter(event.target.value)}
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900"
+                placeholder={t("groupLeader.roomAssignment.filters.roomCodePlaceholder")}
+              />
+            </label>
+          ) : null}
+
+          <label
+            className={`block text-sm font-medium text-slate-700 ${
+              showHostelFilter && showRoomAvailabilityFilter && showRoomCodeFilter
+                ? "2xl:col-span-2"
+                : ""
+            }`}
+          >
             {t("groupLeader.roomAssignment.filters.search")}
             <input
               type="search"
@@ -587,13 +675,22 @@ export function GroupLeaderRoomAssignmentManager({
             />
           </label>
 
-          <div className="grid grid-cols-3 gap-2 sm:gap-3" aria-label={t("groupLeader.roomAssignment.summary.title")}>
+          <div
+            className={`grid grid-cols-3 gap-2 sm:gap-3 ${
+              showHostelFilter && showRoomAvailabilityFilter && showRoomCodeFilter
+                ? "2xl:col-span-2"
+                : showHostelFilter && showRoomAvailabilityFilter
+                ? "xl:col-span-2 2xl:col-span-1"
+                : ""
+            }`}
+            aria-label={t("groupLeader.roomAssignment.summary.title")}
+          >
             <article className="rounded-lg bg-slate-100 px-3 py-2.5 text-center">
               <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-slate-500">
                 {t("groupLeader.roomAssignment.summary.rooms")}
               </p>
               <p className="mt-1 text-xl font-bold text-slate-900">
-                {formatNumber(roomsForSelectedGroup.length)}
+                {formatNumber(roomsMatchingRoomCode.length)}
               </p>
             </article>
             <article className="rounded-lg bg-emerald-50 px-3 py-2.5 text-center">
@@ -646,13 +743,19 @@ export function GroupLeaderRoomAssignmentManager({
           <p className="mt-5 text-sm text-slate-500">{t("common.loading")}</p>
         ) : roomsForDisplay.length === 0 ? (
           <p className="mt-5 rounded-lg border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500">
-            {t("groupLeader.roomAssignment.rooms.empty")}
+            {(showRoomAvailabilityFilter && roomAvailabilityFilter !== "all") ||
+            (showRoomCodeFilter && deferredRoomCodeFilter.trim())
+              ? t("groupLeader.roomAssignment.rooms.noFilterMatches")
+              : t("groupLeader.roomAssignment.rooms.empty")}
           </p>
         ) : (
           <div className="mt-5 grid gap-4 xl:grid-cols-2">
             {roomsForDisplay.map((room) => {
               const roomOccupants = roomOccupantsByRoomId.get(room.id) ?? [];
-              const totalOccupancy = Math.max(room.assignedParticipantCount, roomOccupants.length);
+              const totalOccupancy = getGroupLeaderRoomOccupancy(
+                room,
+                roomOccupants.length
+              );
               const occupancyPercentage = Math.min(
                 100,
                 room.capacity > 0 ? (totalOccupancy / room.capacity) * 100 : 0

@@ -3,9 +3,56 @@ import test from "node:test";
 import {
   buildGroupLeaderRoomOptionLabel,
   formatGroupLeaderRoomAvailability,
+  getGroupLeaderRoomOccupancy,
   matchesGroupLeaderParticipantSearch,
+  matchesGroupLeaderRoomAvailabilityFilter,
+  matchesGroupLeaderRoomCodeFilter,
   matchesGroupLeaderRoomOccupantSearch,
 } from "../lib/capogruppo/room-assignment-presentation.ts";
+
+const room = {
+  id: "room-1",
+  hotelId: "hotel-1",
+  internalCode: "ROOM-1",
+  legacyName: "Room 1",
+  realRoomNumber: null,
+  capacity: 4,
+  genderPolicy: "mixed" as const,
+  availableFrom: null,
+  availableTo: null,
+  notes: null,
+  active: true,
+  assignedParticipantCount: 0,
+  assignedGroupCount: 0,
+  createdAt: "2026-08-05T00:00:00.000Z",
+  updatedAt: "2026-08-05T00:00:00.000Z",
+  hotel: null,
+};
+
+test("room availability filters distinguish free beds from completely empty rooms", () => {
+  assert.equal(matchesGroupLeaderRoomAvailabilityFilter(room, 0, "all"), true);
+  assert.equal(matchesGroupLeaderRoomAvailabilityFilter(room, 0, "available"), true);
+  assert.equal(matchesGroupLeaderRoomAvailabilityFilter(room, 0, "empty"), true);
+
+  assert.equal(matchesGroupLeaderRoomAvailabilityFilter(room, 2, "available"), true);
+  assert.equal(matchesGroupLeaderRoomAvailabilityFilter(room, 2, "empty"), false);
+  assert.equal(matchesGroupLeaderRoomAvailabilityFilter(room, 4, "available"), false);
+});
+
+test("room occupancy uses the most complete active-occupant count", () => {
+  assert.equal(getGroupLeaderRoomOccupancy({ ...room, assignedParticipantCount: 3 }, 2), 3);
+  assert.equal(getGroupLeaderRoomOccupancy(room, 2), 2);
+});
+
+test("room code filter supports partial, case-insensitive matches", () => {
+  const maverickDouble = { ...room, internalCode: "MA-02-A" };
+
+  assert.equal(matchesGroupLeaderRoomCodeFilter(maverickDouble, "MA-02"), true);
+  assert.equal(matchesGroupLeaderRoomCodeFilter(maverickDouble, "ma-02"), true);
+  assert.equal(matchesGroupLeaderRoomCodeFilter(maverickDouble, " 02 "), true);
+  assert.equal(matchesGroupLeaderRoomCodeFilter(maverickDouble, "06"), false);
+  assert.equal(matchesGroupLeaderRoomCodeFilter(maverickDouble, ""), true);
+});
 import type { GroupLeaderParticipant } from "../lib/capogruppo/room-assignments.ts";
 
 test("buildGroupLeaderRoomOptionLabel keeps room selectors compact", () => {
