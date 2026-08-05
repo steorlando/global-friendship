@@ -133,7 +133,7 @@ export type GroupLeaderRoomAssignmentWarning = {
 
 export type GroupLeaderRoomAssignmentValidationInput = {
   allowedGroupIds: string[];
-  allowCrossGroupAssignment?: boolean;
+  managerAdminOverride?: boolean;
   participant: {
     id: string;
     groupId: string | null;
@@ -181,6 +181,24 @@ export function getGroupLeaderRoomAssignmentExclusionReason(participant: {
   }
 
   return null;
+}
+
+export function participantCanUseRoomAssignment(
+  participant: {
+    alloggio: string | null;
+    alloggio_short: string | null;
+    tipo_iscrizione: string | null;
+    preferenza_alloggio_operatore: string | null;
+  },
+  managerAdminOverride = false
+): boolean {
+  if (managerAdminOverride) return true;
+
+  return (
+    isOrganizationProvidedAccommodation(
+      getParticipantAccommodationShort(participant)
+    ) && getGroupLeaderRoomAssignmentExclusionReason(participant) === null
+  );
 }
 
 export function canManageRoomAssignmentsAcrossGroups(
@@ -346,19 +364,18 @@ export function validateGroupLeaderRoomAssignment(
     throw new Error("Participant is outside the authorized groups");
   }
 
-  if (
-    !isOrganizationProvidedAccommodation(
-      input.participant.accommodationShort ?? input.participant.accommodation
-    )
-  ) {
-    throw new Error("Participant is not eligible for organization-provided accommodation");
-  }
+  if (!input.managerAdminOverride) {
+    if (
+      !isOrganizationProvidedAccommodation(
+        input.participant.accommodationShort ?? input.participant.accommodation
+      )
+    ) {
+      throw new Error("Participant is not eligible for organization-provided accommodation");
+    }
 
-  if (
-    !input.allowCrossGroupAssignment &&
-    !input.roomScopeGroupIds.includes(resolvedGroupId)
-  ) {
-    throw new Error("Room is not assigned to the participant group");
+    if (!input.roomScopeGroupIds.includes(resolvedGroupId)) {
+      throw new Error("Room is not assigned to the participant group");
+    }
   }
 
   const stayDates = eachStayDate(
@@ -381,6 +398,13 @@ export function validateGroupLeaderRoomAssignment(
   }
   if (input.room.availableTo && lastStayDate >= input.room.availableTo) {
     throw new Error("Room availability ends before the participant departure");
+  }
+
+  if (input.managerAdminOverride) {
+    return {
+      warnings: [],
+      resolvedGroupId,
+    };
   }
 
   const warnings: GroupLeaderRoomAssignmentWarning[] = [];
@@ -627,16 +651,14 @@ export async function loadGroupLeaderRoomAssignmentData(
 
   const groups = allGroups.filter((group) => scopedGroupIds.includes(group.id));
   const participants = participantRows
-    .filter(
-      (row) =>
-        isOrganizationProvidedAccommodation(getParticipantAccommodationShort(row)) &&
-        getGroupLeaderRoomAssignmentExclusionReason(row) === null
-    )
+    .filter((row) => participantCanUseRoomAssignment(row, canAssignAcrossGroups))
     .map(toGroupLeaderParticipant);
-  const nonRoomParticipants = participantRows.flatMap((row) => {
-    const reason = getGroupLeaderRoomAssignmentExclusionReason(row);
-    return reason ? [{ ...toGroupLeaderParticipant(row), reason }] : [];
-  });
+  const nonRoomParticipants = canAssignAcrossGroups
+    ? []
+    : participantRows.flatMap((row) => {
+        const reason = getGroupLeaderRoomAssignmentExclusionReason(row);
+        return reason ? [{ ...toGroupLeaderParticipant(row), reason }] : [];
+      });
 
   const roomScopes = roomScopeRows
     .filter((row) => row.stanza_id && row.gruppo_id)

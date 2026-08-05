@@ -6,10 +6,11 @@ import {
   canManageRoomAssignmentsAcrossGroups,
   getGroupLeaderRoomAssignmentExclusionReason,
   normalizeParticipantSexCategory,
+  participantCanUseRoomAssignment,
   validateGroupLeaderRoomAssignment,
 } from "../lib/capogruppo/room-assignments.ts";
 
-test("only manager and admin can bypass room group scope", () => {
+test("only manager and admin receive the privileged room-assignment override", () => {
   assert.equal(canManageRoomAssignmentsAcrossGroups("manager"), true);
   assert.equal(canManageRoomAssignmentsAcrossGroups("admin"), true);
   assert.equal(canManageRoomAssignmentsAcrossGroups("alloggi"), false);
@@ -121,6 +122,18 @@ test("operator hotel and autonomous participants stay outside hostel room assign
   );
 });
 
+test("manager and admin can assign participants regardless of accommodation choice", () => {
+  const autonomousParticipant = {
+    alloggio: "I arranged my own accommodation / Ho trovato un alloggio autonomamente",
+    alloggio_short: "Atonoumous",
+    tipo_iscrizione: "Operator - Operatore",
+    preferenza_alloggio_operatore: "Hotel",
+  };
+
+  assert.equal(participantCanUseRoomAssignment(autonomousParticipant), false);
+  assert.equal(participantCanUseRoomAssignment(autonomousParticipant, true), true);
+});
+
 test("normalizeParticipantSexCategory recognizes common male and female values", () => {
   assert.equal(normalizeParticipantSexCategory("Male"), "male");
   assert.equal(normalizeParticipantSexCategory("maschio"), "male");
@@ -211,24 +224,24 @@ test("validateGroupLeaderRoomAssignment blocks room-date incompatibility", () =>
   );
 });
 
-test("validateGroupLeaderRoomAssignment lets privileged managers bypass only room group scope", () => {
+test("manager and admin bypass group, accommodation, gender, and capacity constraints", () => {
   const result = validateGroupLeaderRoomAssignment({
     allowedGroupIds: ["G1"],
-    allowCrossGroupAssignment: true,
+    managerAdminOverride: true,
     participant: {
       id: "p1",
       groupId: "G1",
       groupLabel: null,
-      accommodation: "Provided by organization",
-      accommodationShort: "Provided by organization",
+      accommodation: "Autonomous",
+      accommodationShort: "Atonoumous",
       arrivalDate: "2026-08-28",
       departureDate: "2026-08-31",
       sex: "Female",
     },
     room: {
       id: "r1",
-      capacity: 2,
-      genderPolicy: "female_only",
+      capacity: 1,
+      genderPolicy: "male_only",
       availableFrom: "2026-08-28",
       availableTo: "2026-08-31",
     },
@@ -238,13 +251,43 @@ test("validateGroupLeaderRoomAssignment lets privileged managers bypass only roo
         participantId: "p2",
         arrivalDate: "2026-08-28",
         departureDate: "2026-08-31",
-        sex: "Female",
+        sex: "Male",
       },
     ],
   });
 
   assert.equal(result.resolvedGroupId, "G1");
   assert.deepEqual(result.warnings, []);
+});
+
+test("manager and admin still cannot assign outside room availability dates", () => {
+  assert.throws(
+    () =>
+      validateGroupLeaderRoomAssignment({
+        allowedGroupIds: ["G1"],
+        managerAdminOverride: true,
+        participant: {
+          id: "p1",
+          groupId: "G1",
+          groupLabel: null,
+          accommodation: "Autonomous",
+          accommodationShort: "Atonoumous",
+          arrivalDate: "2026-08-27",
+          departureDate: "2026-08-31",
+          sex: "Female",
+        },
+        room: {
+          id: "r1",
+          capacity: 1,
+          genderPolicy: "male_only",
+          availableFrom: "2026-08-28",
+          availableTo: "2026-08-31",
+        },
+        roomScopeGroupIds: ["G2"],
+        existingOccupants: [],
+      }),
+    /starts after the participant arrival/i
+  );
 });
 
 test("validateGroupLeaderRoomAssignment still blocks group scope for capogruppo", () => {
