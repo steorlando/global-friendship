@@ -230,14 +230,13 @@ The room-assignment page is organized as a room map rather than a participant ta
 - room occupancy counters include only active participants, so they match the visible occupant
   list for every role. Soft-deleting a participant removes the `partecipanti_stanze` assignment
   and clears the legacy `stanza_id` / `albergo_id` fields in the same database transaction.
-- manager and admin profiles can assign any active participant to any room from the Alloggi
-  room-assignment page. Their only business-rule block is date compatibility between the
-  participant stay and room availability; group scope, accommodation choice, operator-hotel
-  preference, room gender policy, and capacity do not block them. A cross-group assignment
-  automatically adds the participant group to the room scope so the database foreign key and
-  later capogruppo visibility remain consistent. The `alloggi` and `capogruppo` roles remain
-  group-scoped; capogruppo users manage only their own participants in assigned rooms while
-  seeing every active occupant of those rooms, including external read-only occupants.
+- manager and admin profiles can assign any hostel-eligible participant to any room from the
+  Alloggi room-assignment page, regardless of the room's current `stanze_gruppi` scope. A
+  cross-group assignment automatically adds the participant group to the room scope so the
+  database foreign key and later capogruppo visibility remain consistent. The `alloggi` and
+  `capogruppo` roles remain group-scoped, and every role still enforces dates, capacity, gender
+  policy, and hostel eligibility. Capogruppo users manage only their own participants in assigned
+  rooms while seeing every active occupant of those rooms, including external read-only occupants.
 - both capogruppo and alloggi assignment APIs reject new hostel-room assignments for hotel
   operators and autonomous participants, while still allowing an obsolete assignment to be removed.
 - the Alloggi/Manager room-assignment page enables an additional hostel filter that intersects

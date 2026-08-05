@@ -104,12 +104,10 @@ export async function GET(req: Request) {
   const auth = await requireAccommodationManagerContext();
   if ("errorResponse" in auth) return auth.errorResponse;
 
-  const managerAdminOverride = canManageRoomAssignmentsAcrossGroups(
+  const allowedGroupIds = await loadEligibleAccommodationGroupIds(auth.service);
+  const allowCrossGroupAssignment = canManageRoomAssignmentsAcrossGroups(
     auth.profile.ruolo
   );
-  const allowedGroupIds = managerAdminOverride
-    ? (await loadAccommodationGroups(auth.service)).map((group) => group.id)
-    : await loadEligibleAccommodationGroupIds(auth.service);
 
   const url = new URL(req.url);
   const groupId = normalizeText(url.searchParams.get("groupId"));
@@ -120,7 +118,7 @@ export async function GET(req: Request) {
   try {
     const data = await loadGroupLeaderRoomAssignmentData(auth.service, allowedGroupIds, {
       groupId,
-      canAssignAcrossGroups: managerAdminOverride,
+      canAssignAcrossGroups: allowCrossGroupAssignment,
     });
 
     return NextResponse.json(data);
@@ -149,12 +147,10 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "participantId is required" }, { status: 400 });
   }
 
-  const managerAdminOverride = canManageRoomAssignmentsAcrossGroups(
+  const allowedGroupIds = await loadEligibleAccommodationGroupIds(auth.service);
+  const allowCrossGroupAssignment = canManageRoomAssignmentsAcrossGroups(
     auth.profile.ruolo
   );
-  const allowedGroupIds = managerAdminOverride
-    ? (await loadAccommodationGroups(auth.service)).map((group) => group.id)
-    : await loadEligibleAccommodationGroupIds(auth.service);
 
   const { data: participant, error: participantError } = await auth.service
     .from("partecipanti")
@@ -183,7 +179,6 @@ export async function PATCH(req: Request) {
 
   if (
     roomId &&
-    !managerAdminOverride &&
     getGroupLeaderRoomAssignmentExclusionReason(participantRow)
   ) {
     return NextResponse.json(
@@ -194,7 +189,6 @@ export async function PATCH(req: Request) {
 
   if (
     roomId &&
-    !managerAdminOverride &&
     !isOrganizationProvidedAccommodation(
       participantRow.alloggio_short ?? participantRow.alloggio
     )
@@ -241,7 +235,7 @@ export async function PATCH(req: Request) {
   const [roomData, roomScopeRes, sameRoomAssignmentsRes] = await Promise.all([
     loadGroupLeaderRoomAssignmentData(auth.service, allowedGroupIds, {
       groupId: resolvedGroupId,
-      canAssignAcrossGroups: managerAdminOverride,
+      canAssignAcrossGroups: allowCrossGroupAssignment,
     }),
     auth.service.from("stanze_gruppi").select("gruppo_id").eq("stanza_id", roomId),
     auth.service.from("partecipanti_stanze").select("partecipante_id").eq("stanza_id", roomId),
@@ -285,7 +279,7 @@ export async function PATCH(req: Request) {
   try {
     const validation = validateGroupLeaderRoomAssignment({
       allowedGroupIds,
-      managerAdminOverride,
+      allowCrossGroupAssignment,
       participant: {
         id: participantRow.id,
         groupId: participantRow.gruppo_id,
@@ -320,7 +314,7 @@ export async function PATCH(req: Request) {
     });
 
     if (
-      managerAdminOverride &&
+      allowCrossGroupAssignment &&
       !(roomScopeRes.data ?? []).some(
         (row) => String(row.gruppo_id ?? "").trim() === validation.resolvedGroupId
       )
