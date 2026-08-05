@@ -1,6 +1,7 @@
 import { strict as assert } from "node:assert";
 import test from "node:test";
 import {
+  buildActiveAssignmentCountByRoomId,
   buildHotelRoomCodePrefix,
   buildNextInternalRoomCode,
   chunkQueryValues,
@@ -10,6 +11,22 @@ import {
   isOrganizationProvidedAccommodation,
   normalizeAccommodationRoomInput,
 } from "../lib/alloggi/inventory.ts";
+
+test("room occupancy counts only active participants", () => {
+  const counts = buildActiveAssignmentCountByRoomId(
+    [
+      { partecipante_id: "active-1", stanza_id: "room-1" },
+      { partecipante_id: "active-2", stanza_id: "room-1" },
+      { partecipante_id: "deleted-1", stanza_id: "room-1" },
+      { partecipante_id: "active-3", stanza_id: "room-2" },
+      { partecipante_id: null, stanza_id: "room-2" },
+    ],
+    new Set(["active-1", "active-2", "active-3"])
+  );
+
+  assert.equal(counts.get("room-1"), 2);
+  assert.equal(counts.get("room-2"), 1);
+});
 
 test("chunkQueryValues keeps large Supabase filters below the URL limit", () => {
   const roomIds = Array.from({ length: 226 }, (_, index) => `room-${index + 1}`);

@@ -227,6 +227,9 @@ The room-assignment page is organized as a room map rather than a participant ta
 - room cards include every active occupant of a visible room, including people from groups
   the signed-in group leader does not manage; those external occupants are explicitly read-only
   and the capogruppo PATCH authorization remains restricted to `profili_gruppi`.
+- room occupancy counters include only active participants, so they match the visible occupant
+  list for every role. Soft-deleting a participant removes the `partecipanti_stanze` assignment
+  and clears the legacy `stanza_id` / `albergo_id` fields in the same database transaction.
 - manager and admin profiles can assign any hostel-eligible participant to any room from the
   Alloggi room-assignment page, regardless of the room's current `stanze_gruppi` scope. A
   cross-group assignment automatically adds the participant group to the room scope so the

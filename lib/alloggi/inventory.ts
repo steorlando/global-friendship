@@ -101,6 +101,10 @@ type ParticipantRoomAssignmentRow = {
   stanza_id: string | null;
 };
 
+type ActiveParticipantIdRow = {
+  id: string;
+};
+
 type OccupantParticipantRow = {
   id: string;
   nome: string | null;
@@ -129,6 +133,25 @@ export function chunkQueryValues<T>(
     batches.push(values.slice(index, index + batchSize));
   }
   return batches;
+}
+
+export function buildActiveAssignmentCountByRoomId(
+  assignments: Array<{
+    partecipante_id?: string | null;
+    stanza_id: string | null;
+  }>,
+  activeParticipantIds: ReadonlySet<string>
+): Map<string, number> {
+  const counts = new Map<string, number>();
+
+  for (const assignment of assignments) {
+    const participantId = normalizeText(assignment.partecipante_id);
+    const roomId = normalizeText(assignment.stanza_id);
+    if (!participantId || !roomId || !activeParticipantIds.has(participantId)) continue;
+    counts.set(roomId, (counts.get(roomId) ?? 0) + 1);
+  }
+
+  return counts;
 }
 
 function normalizeText(value: unknown): string | null {
@@ -749,7 +772,7 @@ export async function loadAccommodationRooms(
       chunkQueryValues(roomIds).map(async (roomIdBatch) => {
         const { data, error } = await service
           .from("partecipanti_stanze")
-          .select("stanza_id")
+          .select("partecipante_id,stanza_id")
           .in("stanza_id", roomIdBatch);
         if (error) {
           throw new Error(error.message);
@@ -794,12 +817,35 @@ export async function loadAccommodationRooms(
     groupCountByRoomId.set(roomId, current.size);
   }
 
-  const assignmentCountByRoomId = new Map<string, number>();
-  for (const row of assignmentRows) {
-    const roomId = (row.stanza_id ?? "").trim();
-    if (!roomId) continue;
-    assignmentCountByRoomId.set(roomId, (assignmentCountByRoomId.get(roomId) ?? 0) + 1);
+  const assignedParticipantIds = [
+    ...new Set(
+      assignmentRows
+        .map((row) => normalizeText(row.partecipante_id))
+        .filter((value): value is string => Boolean(value))
+    ),
+  ];
+  const activeParticipantResponses = await Promise.all(
+    chunkQueryValues(assignedParticipantIds).map((participantIdBatch) =>
+      service
+        .from("partecipanti")
+        .select("id")
+        .is("deleted_at", null)
+        .in("id", participantIdBatch)
+    )
+  );
+  const activeParticipantIds = new Set<string>();
+  for (const response of activeParticipantResponses) {
+    if (response.error) {
+      throw new Error(response.error.message);
+    }
+    for (const row of (response.data ?? []) as ActiveParticipantIdRow[]) {
+      if (row.id) activeParticipantIds.add(row.id);
+    }
   }
+  const assignmentCountByRoomId = buildActiveAssignmentCountByRoomId(
+    assignmentRows,
+    activeParticipantIds
+  );
 
   return roomRows
     .map((row) =>
