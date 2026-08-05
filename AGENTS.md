@@ -32,7 +32,7 @@ Keep it updated when major routes, data structures, or business rules change.
 
 Notes:
 - `npm test` runs the core email-recipient, bank-import, participant staff-availability,
-  and staff-questionnaire translation tests.
+  staff-questionnaire translation, and participant-badge PDF tests.
 - There are many additional `tests/*.test.ts` files in the repo; run them explicitly with `node --test --experimental-strip-types <file>` if needed.
 
 ## Environment Variables
@@ -369,6 +369,12 @@ Statistics currently implemented:
   using multilingual/spelling variants. The technical stored value `false` and multilingual
   negative answers such as no/none/nothing/nessuna/nulla/niente are excluded from meaningful
   allergy counts. This section is not exposed on the public statistics page.
+- Authenticated participant-badge generation for manager/admin. The Statistics page exposes
+  a download button backed by `app/api/manager/statistics/participant-badges/route.ts`; it
+  creates one 100 x 150 mm page at 300 dpi for every active participant, fills name and community
+  (country, city), preserves international characters, and reuses one compressed 300 dpi
+  background so the complete PDF remains compact. The public statistics page does not expose
+  this control.
 
 Registration type recoding used in stats:
 

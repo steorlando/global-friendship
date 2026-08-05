@@ -8,6 +8,7 @@ import { DailyPresenceSection } from "./daily-presence-section";
 import { RegistrationsTabsSection } from "./registrations-tabs-section";
 import { StatisticsSectionsSidebar } from "./statistics-sections-sidebar";
 import { StatisticsParticipantEditModal } from "./statistics-participant-edit-modal";
+import { ParticipantBadgesDownloadButton } from "./participant-badges-download-button";
 import { getServerTranslator } from "@/lib/i18n/server";
 import {
   isOperatorRegistrationType,
@@ -963,6 +964,40 @@ function OperatorAccommodationPreferenceSection({
   );
 }
 
+function ParticipantBadgesSection({
+  participantCount,
+  t,
+}: {
+  participantCount: number;
+  t: (key: string, values?: Record<string, string | number>) => string;
+}) {
+  return (
+    <section
+      id="participant-badges"
+      className="rounded-xl border border-blue-200 bg-white p-6 shadow-sm"
+    >
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-slate-900">
+            {t("manager.participantBadges.title")}
+          </h3>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">
+            {t("manager.participantBadges.subtitle", { count: participantCount })}
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            {t("manager.participantBadges.printFormat")}
+          </p>
+        </div>
+        <ParticipantBadgesDownloadButton
+          idleLabel={t("manager.participantBadges.download")}
+          loadingLabel={t("manager.participantBadges.preparing")}
+          errorLabel={t("manager.participantBadges.retry")}
+        />
+      </div>
+    </section>
+  );
+}
+
 function StaffAvailabilityMetric({
   label,
   value,
@@ -1746,6 +1781,7 @@ export async function StatisticsDashboard({
             registrations: t("manager.statistics.registrations"),
             trend: t("manager.statistics.trend"),
             dailyPresence: t("manager.statistics.dailyPresence"),
+            participantBadges: t("manager.statistics.participantBadges"),
             staffAvailability: t("manager.statistics.staffAvailability"),
             accessibility: t("manager.statistics.accessibility"),
             foodNeeds: t("manager.statistics.foodNeeds"),
@@ -1788,6 +1824,13 @@ export async function StatisticsDashboard({
 
             <DailyPresenceSection participants={participants} />
           </div>
+
+          {!publicView && (
+            <ParticipantBadgesSection
+              participantCount={participants.length}
+              t={t}
+            />
+          )}
 
           {!publicView && (
             <div className="grid gap-6 xl:grid-cols-2 xl:items-start">

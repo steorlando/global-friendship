@@ -9,6 +9,7 @@ type StatisticsSectionsSidebarProps = {
     registrations: string;
     trend: string;
     dailyPresence: string;
+    participantBadges: string;
     staffAvailability: string;
     accessibility: string;
     foodNeeds: string;
@@ -69,6 +70,9 @@ export function StatisticsSectionsSidebar({
           </a>
           {includePrivateSections ? (
             <>
+              <a href="#participant-badges" className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
+                {labels.participantBadges}
+              </a>
               <a href="#staff-availability" className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
                 {labels.staffAvailability}
               </a>

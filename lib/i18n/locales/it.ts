@@ -263,9 +263,18 @@ const it: TranslationDictionary = {
   "manager.statistics.registrations": "Registrazioni",
   "manager.statistics.trend": "Andamento",
   "manager.statistics.dailyPresence": "Presenze giornaliere",
+  "manager.statistics.participantBadges": "Badge partecipanti",
   "manager.statistics.staffAvailability": "Disponibilità team evento",
   "manager.statistics.accessibility": "Disabilità / accessibilità",
   "manager.statistics.foodNeeds": "Esigenze alimentari",
+  "manager.participantBadges.title": "Badge partecipanti",
+  "manager.participantBadges.subtitle":
+    "Crea un unico PDF pronto per la stampa con tutti i {count} partecipanti attivi, compilando automaticamente nome, paese e città.",
+  "manager.participantBadges.printFormat":
+    "Un badge da 100 x 150 mm per pagina a 300 dpi.",
+  "manager.participantBadges.download": "Scarica tutti i badge (PDF)",
+  "manager.participantBadges.preparing": "Preparazione PDF...",
+  "manager.participantBadges.retry": "Generazione non riuscita - riprova",
   "manager.staffAvailability.title": "Disponibilità per il team dell'evento",
   "manager.staffAvailability.subtitle":
     "Numeri dei partecipanti che hanno comunicato la propria disponibilità. Ogni partecipante può scegliere più attività.",
