@@ -29,6 +29,7 @@ const ALL_HOSTELS_ID = "__all_hostels__";
 type RoomAssignmentResponse = {
   groups?: GroupLeaderRoomAssignmentGroup[];
   showGroupColumn?: boolean;
+  canAssignAcrossGroups?: boolean;
   participants?: GroupLeaderParticipant[];
   rooms?: AccommodationRoom[];
   roomScopes?: RoomScope[];
@@ -127,6 +128,7 @@ export function GroupLeaderRoomAssignmentManager({
     GroupLeaderNonRoomParticipant[]
   >([]);
   const [showGroupColumn, setShowGroupColumn] = useState(false);
+  const [canAssignAcrossGroups, setCanAssignAcrossGroups] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState("");
   const [selectedHostelId, setSelectedHostelId] = useState(ALL_HOSTELS_ID);
   const [searchTerm, setSearchTerm] = useState("");
@@ -167,6 +169,7 @@ export function GroupLeaderRoomAssignmentManager({
       setRoomOccupants(nextRoomOccupants);
       setNonRoomParticipants(nextNonRoomParticipants);
       setShowGroupColumn(Boolean(json.showGroupColumn));
+      setCanAssignAcrossGroups(Boolean(json.canAssignAcrossGroups));
       setSelectedGroupId((current) => {
         const currentIsValid =
           (current === ALL_GROUPS_ID && nextGroups.length > 1) ||
@@ -268,11 +271,13 @@ export function GroupLeaderRoomAssignmentManager({
   const scopedRoomIds = useMemo(
     () =>
       new Set(
-        roomScopes
-          .filter((scope) => isCombinedView || scope.groupId === selectedGroupId)
-          .map((scope) => scope.roomId)
+        canAssignAcrossGroups
+          ? rooms.map((room) => room.id)
+          : roomScopes
+              .filter((scope) => isCombinedView || scope.groupId === selectedGroupId)
+              .map((scope) => scope.roomId)
       ),
-    [isCombinedView, roomScopes, selectedGroupId]
+    [canAssignAcrossGroups, isCombinedView, roomScopes, rooms, selectedGroupId]
   );
 
   const hostelsForSelectedGroup = useMemo(() => {
@@ -347,13 +352,21 @@ export function GroupLeaderRoomAssignmentManager({
 
         return [
           participant.id,
-          participantRoomIds
+          canAssignAcrossGroups
+            ? roomsForSelectedGroup
+            : participantRoomIds
             ? roomsForSelectedGroup.filter((room) => participantRoomIds.has(room.id))
             : [],
         ];
       })
     );
-  }, [groups, participantsForSelectedGroup, roomScopes, roomsForSelectedGroup]);
+  }, [
+    canAssignAcrossGroups,
+    groups,
+    participantsForSelectedGroup,
+    roomScopes,
+    roomsForSelectedGroup,
+  ]);
 
   const roomsForDisplay = useMemo(() => {
     if (!hasSearch) return roomsForSelectedGroup;

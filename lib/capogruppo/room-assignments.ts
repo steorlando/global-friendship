@@ -114,6 +114,7 @@ export type GroupLeaderVisibleRoomOccupant = {
 export type GroupLeaderRoomAssignmentData = {
   groups: GroupLeaderRoomAssignmentGroup[];
   showGroupColumn: boolean;
+  canAssignAcrossGroups: boolean;
   participants: GroupLeaderParticipant[];
   rooms: AccommodationRoom[];
   roomScopes: GroupLeaderRoomScope[];
@@ -132,6 +133,7 @@ export type GroupLeaderRoomAssignmentWarning = {
 
 export type GroupLeaderRoomAssignmentValidationInput = {
   allowedGroupIds: string[];
+  allowCrossGroupAssignment?: boolean;
   participant: {
     id: string;
     groupId: string | null;
@@ -179,6 +181,12 @@ export function getGroupLeaderRoomAssignmentExclusionReason(participant: {
   }
 
   return null;
+}
+
+export function canManageRoomAssignmentsAcrossGroups(
+  role: string | null | undefined
+): boolean {
+  return role === "admin" || role === "manager";
 }
 
 export type LegacyParticipantRoomFields = {
@@ -346,7 +354,10 @@ export function validateGroupLeaderRoomAssignment(
     throw new Error("Participant is not eligible for organization-provided accommodation");
   }
 
-  if (!input.roomScopeGroupIds.includes(resolvedGroupId)) {
+  if (
+    !input.allowCrossGroupAssignment &&
+    !input.roomScopeGroupIds.includes(resolvedGroupId)
+  ) {
     throw new Error("Room is not assigned to the participant group");
   }
 
@@ -581,8 +592,12 @@ export function buildGroupLeaderVisibleRoomOccupants(input: {
 export async function loadGroupLeaderRoomAssignmentData(
   service: ServiceClient,
   allowedGroupIds: string[],
-  filters: { groupId?: string | null } = {}
+  filters: {
+    groupId?: string | null;
+    canAssignAcrossGroups?: boolean;
+  } = {}
 ): Promise<GroupLeaderRoomAssignmentData> {
+  const canAssignAcrossGroups = Boolean(filters.canAssignAcrossGroups);
   const scopedGroupIds = filters.groupId
     ? allowedGroupIds.filter((groupId) => groupId === filters.groupId)
     : allowedGroupIds;
@@ -635,11 +650,17 @@ export async function loadGroupLeaderRoomAssignmentData(
       return a.roomId.localeCompare(b.roomId);
     });
 
-  const roomIds = [...new Set(roomScopes.map((row) => row.roomId))];
+  const scopedRoomIds = [...new Set(roomScopes.map((row) => row.roomId))];
   const participantIds = participants.map((participant) => participant.id);
 
-  const [rooms, assignmentResponses, visibleRoomAssignmentResponses] = await Promise.all([
-    roomIds.length > 0 ? loadAccommodationRooms(service, { roomIds }) : Promise.resolve([]),
+  const rooms = canAssignAcrossGroups
+    ? await loadAccommodationRooms(service)
+    : scopedRoomIds.length > 0
+      ? await loadAccommodationRooms(service, { roomIds: scopedRoomIds })
+      : [];
+  const roomIds = rooms.map((room) => room.id);
+
+  const [assignmentResponses, visibleRoomAssignmentResponses] = await Promise.all([
     participantIds.length > 0
       ? Promise.all(
           batchInFilterValues(participantIds).map((participantIdBatch) =>
@@ -714,6 +735,7 @@ export async function loadGroupLeaderRoomAssignmentData(
   return {
     groups,
     showGroupColumn: groups.length > 1,
+    canAssignAcrossGroups,
     participants,
     rooms,
     roomScopes,

@@ -4,6 +4,7 @@ import { requireAccommodationManagerContext } from "@/lib/alloggi/auth";
 import { loadAccommodationGroups } from "@/lib/alloggi/group-allocations";
 import { isOrganizationProvidedAccommodation } from "@/lib/alloggi/inventory";
 import {
+  canManageRoomAssignmentsAcrossGroups,
   getGroupLeaderRoomAssignmentExclusionReason,
   syncLegacyParticipantRoomFields,
   loadGroupLeaderRoomAssignmentData,
@@ -104,6 +105,9 @@ export async function GET(req: Request) {
   if ("errorResponse" in auth) return auth.errorResponse;
 
   const allowedGroupIds = await loadEligibleAccommodationGroupIds(auth.service);
+  const allowCrossGroupAssignment = canManageRoomAssignmentsAcrossGroups(
+    auth.profile.ruolo
+  );
 
   const url = new URL(req.url);
   const groupId = normalizeText(url.searchParams.get("groupId"));
@@ -114,6 +118,7 @@ export async function GET(req: Request) {
   try {
     const data = await loadGroupLeaderRoomAssignmentData(auth.service, allowedGroupIds, {
       groupId,
+      canAssignAcrossGroups: allowCrossGroupAssignment,
     });
 
     return NextResponse.json(data);
@@ -143,6 +148,9 @@ export async function PATCH(req: Request) {
   }
 
   const allowedGroupIds = await loadEligibleAccommodationGroupIds(auth.service);
+  const allowCrossGroupAssignment = canManageRoomAssignmentsAcrossGroups(
+    auth.profile.ruolo
+  );
 
   const { data: participant, error: participantError } = await auth.service
     .from("partecipanti")
@@ -222,7 +230,10 @@ export async function PATCH(req: Request) {
   }
 
   const [roomData, roomScopeRes, sameRoomAssignmentsRes] = await Promise.all([
-    loadGroupLeaderRoomAssignmentData(auth.service, allowedGroupIds, { groupId: resolvedGroupId }),
+    loadGroupLeaderRoomAssignmentData(auth.service, allowedGroupIds, {
+      groupId: resolvedGroupId,
+      canAssignAcrossGroups: allowCrossGroupAssignment,
+    }),
     auth.service.from("stanze_gruppi").select("gruppo_id").eq("stanza_id", roomId),
     auth.service.from("partecipanti_stanze").select("partecipante_id").eq("stanza_id", roomId),
   ]);
@@ -265,6 +276,7 @@ export async function PATCH(req: Request) {
   try {
     const validation = validateGroupLeaderRoomAssignment({
       allowedGroupIds,
+      allowCrossGroupAssignment,
       participant: {
         id: participantRow.id,
         groupId: participantRow.gruppo_id,
@@ -297,6 +309,29 @@ export async function PATCH(req: Request) {
         sex: row.sesso,
       })),
     });
+
+    if (
+      allowCrossGroupAssignment &&
+      !(roomScopeRes.data ?? []).some(
+        (row) => String(row.gruppo_id ?? "").trim() === validation.resolvedGroupId
+      )
+    ) {
+      const { error: roomScopeError } = await auth.service.from("stanze_gruppi").upsert(
+        {
+          stanza_id: roomId,
+          gruppo_id: validation.resolvedGroupId,
+          created_by: auth.user.id,
+        },
+        {
+          onConflict: "stanza_id,gruppo_id",
+          ignoreDuplicates: true,
+        }
+      );
+
+      if (roomScopeError) {
+        return NextResponse.json({ error: roomScopeError.message }, { status: 500 });
+      }
+    }
 
     if (currentAssignment?.id) {
       const { error: updateError } = await auth.service
