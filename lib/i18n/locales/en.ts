@@ -728,6 +728,8 @@ const en: TranslationDictionary = {
   "groupLeader.roomAssignment.status.loadError": "Unable to load room assignment data.",
   "groupLeader.roomAssignment.status.saveError": "Unable to save the room assignment.",
   "groupLeader.roomAssignment.status.saved": "Room assignment saved.",
+  "groupLeader.roomAssignment.status.savedWithAvailabilityWarning":
+    "Assignment saved. Warning: the room is available only from {date}.",
   "groupLeader.roomAssignment.status.unassigned": "Participant removed from the room.",
   "groupLeader.roomAssignment.rooms.title": "Rooms available for the group",
   "groupLeader.roomAssignment.rooms.subtitle": "Rooms currently linked to the group {group}.",
@@ -741,6 +743,12 @@ const en: TranslationDictionary = {
   "groupLeader.roomAssignment.rooms.mapSubtitle": "See where everyone in {group} is staying. Shared rooms also show occupants from other groups as read-only.",
   "groupLeader.roomAssignment.rooms.combinedMapSubtitle": "One view of the rooms and people in your {count} groups. Shared rooms also show occupants from other groups without edit controls.",
   "groupLeader.roomAssignment.rooms.searchMatch": "Person found",
+  "groupLeader.roomAssignment.rooms.availabilityWarningBadge": "Availability to verify",
+  "groupLeader.roomAssignment.rooms.availabilityWarningSingular":
+    "Warning: 1 person arrives before the room becomes available on {date}. Consider another solution or ask the hostel to extend availability.",
+  "groupLeader.roomAssignment.rooms.availabilityWarningPlural":
+    "Warning: {count} people arrive before the room becomes available on {date}. Consider another solution or ask the hostel to extend availability.",
+  "groupLeader.roomAssignment.rooms.earlyArrivalBadge": "Arrives before availability",
   "groupLeader.roomAssignment.rooms.occupants": "Assigned people",
   "groupLeader.roomAssignment.rooms.groupOccupancy": "{count} from the group",
   "groupLeader.roomAssignment.rooms.groupsOccupancy": "{count} from your groups",

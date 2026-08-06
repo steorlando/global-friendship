@@ -14,6 +14,7 @@ import type {
 import {
   buildGroupLeaderRoomOptionLabel,
   formatGroupLeaderRoomAvailability,
+  getGroupLeaderRoomEarlyArrivalOccupants,
   getGroupLeaderRoomOccupancy,
   matchesGroupLeaderParticipantSearch,
   matchesGroupLeaderRoomAvailabilityFilter,
@@ -503,13 +504,24 @@ export function GroupLeaderRoomAssignmentManager({
       }
 
       await loadData();
+      const warningMessages = (json.warnings ?? []).map((warning) => {
+        if (warning.code !== "room_availability_starts_after_arrival") {
+          return warning.message;
+        }
+
+        const availableFrom = warning.meta?.availableFrom;
+        return t("groupLeader.roomAssignment.status.savedWithAvailabilityWarning", {
+          date:
+            typeof availableFrom === "string" ? formatDate(availableFrom) : "-",
+        });
+      });
       setRowFeedback((current) => ({
         ...current,
         [participantId]:
-          json.warnings && json.warnings.length > 0
+          warningMessages.length > 0
             ? {
                 tone: "warning",
-                message: json.warnings.map((warning) => warning.message).join(" "),
+                message: warningMessages.join(" "),
               }
             : {
                 tone: "success",
@@ -752,6 +764,14 @@ export function GroupLeaderRoomAssignmentManager({
           <div className="mt-5 grid gap-4 xl:grid-cols-2">
             {roomsForDisplay.map((room) => {
               const roomOccupants = roomOccupantsByRoomId.get(room.id) ?? [];
+              const earlyArrivalOccupants = getGroupLeaderRoomEarlyArrivalOccupants(
+                room,
+                roomOccupants
+              );
+              const earlyArrivalOccupantIds = new Set(
+                earlyArrivalOccupants.map((occupant) => occupant.participantId)
+              );
+              const hasAvailabilityWarning = earlyArrivalOccupants.length > 0;
               const totalOccupancy = getGroupLeaderRoomOccupancy(
                 room,
                 roomOccupants.length
@@ -772,13 +792,18 @@ export function GroupLeaderRoomAssignmentManager({
                   data-testid="room-card"
                   data-room-id={room.id}
                   data-hostel-id={room.hotelId}
+                  data-availability-warning={hasAvailabilityWarning ? "true" : "false"}
                   className={`overflow-hidden rounded-xl border bg-white ${
-                    hasMatchingOccupant
-                      ? "border-indigo-400 ring-2 ring-indigo-100"
-                      : "border-slate-200"
-                  }`}
+                    hasAvailabilityWarning ? "border-amber-400" : "border-slate-200"
+                  } ${hasMatchingOccupant ? "ring-2 ring-indigo-100" : ""}`}
                 >
-                  <div className="border-b border-slate-200 bg-slate-50 p-4">
+                  <div
+                    className={`border-b p-4 ${
+                      hasAvailabilityWarning
+                        ? "border-amber-200 bg-amber-50"
+                        : "border-slate-200 bg-slate-50"
+                    }`}
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
@@ -786,6 +811,16 @@ export function GroupLeaderRoomAssignmentManager({
                           {hasMatchingOccupant ? (
                             <span className="rounded-full bg-indigo-100 px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-indigo-700">
                               {t("groupLeader.roomAssignment.rooms.searchMatch")}
+                            </span>
+                          ) : null}
+                          {hasAvailabilityWarning ? (
+                            <span
+                              data-testid="room-availability-warning-badge"
+                              className="rounded-full bg-amber-200 px-2 py-1 text-[0.65rem] font-bold uppercase tracking-wide text-amber-900"
+                            >
+                              {t(
+                                "groupLeader.roomAssignment.rooms.availabilityWarningBadge"
+                              )}
                             </span>
                           ) : null}
                         </div>
@@ -820,6 +855,25 @@ export function GroupLeaderRoomAssignmentManager({
                         })}
                       </span>
                     </div>
+                    {hasAvailabilityWarning ? (
+                      <div
+                        role="status"
+                        data-testid="room-availability-warning"
+                        className="mt-3 rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-950 shadow-sm"
+                      >
+                        {t(
+                          earlyArrivalOccupants.length === 1
+                            ? "groupLeader.roomAssignment.rooms.availabilityWarningSingular"
+                            : "groupLeader.roomAssignment.rooms.availabilityWarningPlural",
+                          {
+                            count: formatNumber(earlyArrivalOccupants.length),
+                            date: room.availableFrom
+                              ? formatDate(room.availableFrom)
+                              : "-",
+                          }
+                        )}
+                      </div>
+                    ) : null}
                   </div>
 
                   <div className="p-4">
@@ -896,6 +950,13 @@ export function GroupLeaderRoomAssignmentManager({
                                       ? formatDate(participant.departureDate)
                                       : "-"}
                                   </p>
+                                  {earlyArrivalOccupantIds.has(participant.participantId) ? (
+                                    <span className="mt-1 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[0.65rem] font-semibold text-amber-900 ring-1 ring-inset ring-amber-300">
+                                      {t(
+                                        "groupLeader.roomAssignment.rooms.earlyArrivalBadge"
+                                      )}
+                                    </span>
+                                  ) : null}
                                 </div>
                               </div>
 

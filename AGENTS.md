@@ -234,9 +234,11 @@ The room-assignment page is organized as a room map rather than a participant ta
   Alloggi room-assignment page, regardless of the room's current `stanze_gruppi` scope. A
   cross-group assignment automatically adds the participant group to the room scope so the
   database foreign key and later capogruppo visibility remain consistent. The `alloggi` and
-  `capogruppo` roles remain group-scoped, and every role still enforces dates, capacity, gender
-  policy, and hostel eligibility. Capogruppo users manage only their own participants in assigned
-  rooms while seeing every active occupant of those rooms, including external read-only occupants.
+  `capogruppo` roles remain group-scoped. Every role still enforces valid stay dates, room end
+  availability, capacity, gender policy, and hostel eligibility; an arrival before a room's
+  `available_from` is allowed but produces a persistent amber warning on the room card and on the
+  affected occupant. Capogruppo users manage only their own participants in assigned rooms while
+  seeing every active occupant of those rooms, including external read-only occupants.
 - both capogruppo and alloggi assignment APIs reject new hostel-room assignments for hotel
   operators and autonomous participants, while still allowing an obsolete assignment to be removed.
 - the Alloggi/Manager room-assignment page enables an additional hostel filter that intersects

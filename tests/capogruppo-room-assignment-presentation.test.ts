@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   buildGroupLeaderRoomOptionLabel,
   formatGroupLeaderRoomAvailability,
+  getGroupLeaderRoomEarlyArrivalOccupants,
   getGroupLeaderRoomOccupancy,
   matchesGroupLeaderParticipantSearch,
   matchesGroupLeaderRoomAvailabilityFilter,
@@ -103,6 +104,65 @@ test("formatGroupLeaderRoomAvailability handles bounded and open ranges", () => 
       assignedParticipantCount: 0,
     }),
     "2026-08-27 -> 2026-08-31"
+  );
+});
+
+test("early-arrival warning identifies only occupants arriving before room availability", () => {
+  const earlyArrivals = getGroupLeaderRoomEarlyArrivalOccupants(
+    { availableFrom: "2026-08-28" },
+    [
+      {
+        participantId: "early",
+        roomId: "r1",
+        firstName: "Anna",
+        lastName: "Rossi",
+        displayGroup: "Roma",
+        arrivalDate: "2026-08-27",
+        departureDate: "2026-08-31",
+        sex: "Female",
+        sexCategory: "female",
+        age: 22,
+        canManage: true,
+      },
+      {
+        participantId: "on-time",
+        roomId: "r1",
+        firstName: "Luca",
+        lastName: "Bianchi",
+        displayGroup: "Milano",
+        arrivalDate: "2026-08-28",
+        departureDate: "2026-08-31",
+        sex: "Male",
+        sexCategory: "male",
+        age: 24,
+        canManage: false,
+      },
+      {
+        participantId: "missing-date",
+        roomId: "r1",
+        firstName: "Marta",
+        lastName: "Verdi",
+        displayGroup: "Napoli",
+        arrivalDate: null,
+        departureDate: "2026-08-31",
+        sex: "Female",
+        sexCategory: "female",
+        age: 21,
+        canManage: true,
+      },
+    ]
+  );
+
+  assert.deepEqual(
+    earlyArrivals.map((occupant) => occupant.participantId),
+    ["early"]
+  );
+  assert.deepEqual(
+    getGroupLeaderRoomEarlyArrivalOccupants(
+      { availableFrom: null },
+      earlyArrivals
+    ),
+    []
   );
 });
 

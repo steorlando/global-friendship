@@ -126,7 +126,10 @@ export type GroupLeaderRoomAssignmentData = {
 export type GroupLeaderParticipantSexCategory = "male" | "female" | null;
 
 export type GroupLeaderRoomAssignmentWarning = {
-  code: "participant_sex_unknown" | "existing_occupant_sex_unknown";
+  code:
+    | "participant_sex_unknown"
+    | "existing_occupant_sex_unknown"
+    | "room_availability_starts_after_arrival";
   message: string;
   meta?: Record<string, string | number | null>;
 };
@@ -376,14 +379,23 @@ export function validateGroupLeaderRoomAssignment(
     throw new Error("Participant must have valid arrival and departure dates");
   }
 
+  const warnings: GroupLeaderRoomAssignmentWarning[] = [];
   if (input.room.availableFrom && firstStayDate < input.room.availableFrom) {
-    throw new Error("Room availability starts after the participant arrival");
+    warnings.push({
+      code: "room_availability_starts_after_arrival",
+      message:
+        "Assignment saved, but the participant arrives before the room becomes available.",
+      meta: {
+        participantId: input.participant.id,
+        arrivalDate: firstStayDate,
+        availableFrom: input.room.availableFrom,
+      },
+    });
   }
   if (input.room.availableTo && lastStayDate >= input.room.availableTo) {
     throw new Error("Room availability ends before the participant departure");
   }
 
-  const warnings: GroupLeaderRoomAssignmentWarning[] = [];
   const participantSexCategory = normalizeParticipantSexCategory(input.participant.sex);
   if (!participantSexCategory) {
     warnings.push({

@@ -700,6 +700,8 @@ const it: TranslationDictionary = {
   "groupLeader.roomAssignment.status.loadError": "Impossibile caricare i dati di assegnazione stanze.",
   "groupLeader.roomAssignment.status.saveError": "Impossibile salvare l'assegnazione stanza.",
   "groupLeader.roomAssignment.status.saved": "Assegnazione stanza salvata.",
+  "groupLeader.roomAssignment.status.savedWithAvailabilityWarning":
+    "Assegnazione salvata. Attenzione: la stanza è disponibile solo dal {date}.",
   "groupLeader.roomAssignment.status.unassigned": "Partecipante rimosso dalla stanza.",
   "groupLeader.roomAssignment.rooms.title": "Stanze disponibili per il gruppo",
   "groupLeader.roomAssignment.rooms.subtitle": "Stanze attualmente collegate al gruppo {group}.",
@@ -713,6 +715,12 @@ const it: TranslationDictionary = {
   "groupLeader.roomAssignment.rooms.mapSubtitle": "Vedi subito dove sono le persone del gruppo {group}. Nelle stanze condivise compaiono anche gli occupanti degli altri gruppi, in sola visualizzazione.",
   "groupLeader.roomAssignment.rooms.combinedMapSubtitle": "Vista unica delle stanze e delle persone appartenenti ai tuoi {count} gruppi. Nelle stanze condivise compaiono anche gli occupanti degli altri gruppi, senza comandi di modifica.",
   "groupLeader.roomAssignment.rooms.searchMatch": "Persona trovata",
+  "groupLeader.roomAssignment.rooms.availabilityWarningBadge": "Disponibilità da verificare",
+  "groupLeader.roomAssignment.rooms.availabilityWarningSingular":
+    "Attenzione: 1 persona arriva prima che la stanza sia disponibile, dal {date}. Valutare un'altra soluzione oppure chiedere all'ostello di estendere la disponibilità.",
+  "groupLeader.roomAssignment.rooms.availabilityWarningPlural":
+    "Attenzione: {count} persone arrivano prima che la stanza sia disponibile, dal {date}. Valutare un'altra soluzione oppure chiedere all'ostello di estendere la disponibilità.",
+  "groupLeader.roomAssignment.rooms.earlyArrivalBadge": "Arrivo prima della disponibilità",
   "groupLeader.roomAssignment.rooms.occupants": "Persone assegnate",
   "groupLeader.roomAssignment.rooms.groupOccupancy": "{count} del gruppo",
   "groupLeader.roomAssignment.rooms.groupsOccupancy": "{count} dei tuoi gruppi",
