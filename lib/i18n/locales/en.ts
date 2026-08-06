@@ -290,7 +290,7 @@ const en: TranslationDictionary = {
   "manager.statistics.foodNeeds": "Food needs",
   "manager.participantBadges.title": "Participant badges",
   "manager.participantBadges.subtitle":
-    "Create one print-ready PDF containing all {count} active participants, with name, country, and city filled in automatically.",
+    "Create one print-ready PDF containing all {count} active participants except drivers, with name, country, and city filled in automatically.",
   "manager.participantBadges.printFormat":
     "One 100 x 150 mm finished badge per page at 300 dpi, with 3 mm bleed on every side.",
   "manager.participantBadges.download": "Download PDF",

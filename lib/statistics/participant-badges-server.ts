@@ -1,7 +1,10 @@
 import "server-only";
 
 import { requireStaffAvailabilityManagerOrAdmin } from "@/lib/statistics/staff-availability-server";
-import type { ParticipantBadgeRow } from "@/lib/statistics/participant-badges";
+import {
+  isParticipantBadgeEligible,
+  type ParticipantBadgeRow,
+} from "@/lib/statistics/participant-badges";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
 export {
@@ -17,7 +20,7 @@ export async function loadParticipantBadgeRows(
 
   for (let offset = 0; ; offset += PAGE_SIZE) {
     const selectFields: string =
-      "id,nome,cognome,paese_residenza,nazione,citta:città,deleted_at";
+      "id,nome,cognome,tipo_iscrizione,paese_residenza,nazione,citta:città,deleted_at";
     const { data, error } = await service
       .from("partecipanti")
       .select(selectFields)
@@ -30,7 +33,7 @@ export async function loadParticipantBadgeRows(
     const page = (data ?? []) as unknown as Array<ParticipantBadgeRow & {
       deleted_at: string | null;
     }>;
-    participants.push(...page);
+    participants.push(...page.filter(isParticipantBadgeEligible));
     if (page.length < PAGE_SIZE) break;
   }
 

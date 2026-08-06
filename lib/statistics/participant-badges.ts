@@ -20,6 +20,7 @@ export type ParticipantBadgeRow = {
   id: string;
   nome: string | null;
   cognome: string | null;
+  tipo_iscrizione?: string | null;
   paese_residenza: string | null;
   nazione: string | null;
   citta: string | null;
@@ -33,6 +34,14 @@ export type ParticipantBadgeContent = {
 
 function normalizeText(value: string | null | undefined): string {
   return (value ?? "").replace(/\s+/g, " ").trim();
+}
+
+export function isParticipantBadgeEligible(
+  participant: Pick<ParticipantBadgeRow, "tipo_iscrizione">,
+): boolean {
+  return !normalizeText(participant.tipo_iscrizione)
+    .toLocaleLowerCase("it")
+    .includes("driver - autista");
 }
 
 export function toParticipantBadgeContent(
@@ -168,7 +177,11 @@ export function buildParticipantBadgesPdf(args: {
   backgroundJpeg: Uint8Array;
   fontTtf: Uint8Array;
 }): Uint8Array {
-  if (args.participants.length === 0) {
+  const eligibleParticipants = args.participants.filter(
+    isParticipantBadgeEligible,
+  );
+
+  if (eligibleParticipants.length === 0) {
     throw new Error("No active participants found");
   }
 
@@ -193,7 +206,7 @@ export function buildParticipantBadgesPdf(args: {
   );
   doc.addFont(FONT_FILE_NAME, FONT_FAMILY, "bold");
 
-  const badges = sortParticipantBadges(args.participants).map(
+  const badges = sortParticipantBadges(eligibleParticipants).map(
     toParticipantBadgeContent,
   );
 

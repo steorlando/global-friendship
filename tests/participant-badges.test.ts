@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   buildParticipantBadgesPdf,
+  isParticipantBadgeEligible,
   sortParticipantBadges,
   toParticipantBadgeContent,
   type ParticipantBadgeRow,
@@ -51,6 +52,16 @@ const participants: ParticipantBadgeRow[] = [
   },
 ];
 
+const driver: ParticipantBadgeRow = {
+  id: "driver-1",
+  nome: "Mario",
+  cognome: "Autista",
+  tipo_iscrizione: "Driver - Autista",
+  paese_residenza: "Italy",
+  nazione: null,
+  citta: "Roma",
+};
+
 test("formats badge name and community without changing diacritics", () => {
   assert.deepEqual(toParticipantBadgeContent(participants[0]), {
     id: "2",
@@ -66,13 +77,18 @@ test("sorts badges by country, city, first name, and surname", () => {
   );
 });
 
+test("excludes drivers from participant badges", () => {
+  assert.equal(isParticipantBadgeEligible(driver), false);
+  assert.equal(isParticipantBadgeEligible(participants[0]), true);
+});
+
 test("builds one compact PDF page per participant", async () => {
   const [backgroundJpeg, fontTtf] = await Promise.all([
     readFile("data/badges/badge-v3-print-background.jpg"),
     readFile("node_modules/dejavu-fonts-ttf/ttf/DejaVuSansCondensed-Bold.ttf"),
   ]);
   const pdf = buildParticipantBadgesPdf({
-    participants,
+    participants: [...participants, driver],
     backgroundJpeg,
     fontTtf,
   });

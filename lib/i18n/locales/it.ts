@@ -269,7 +269,7 @@ const it: TranslationDictionary = {
   "manager.statistics.foodNeeds": "Esigenze alimentari",
   "manager.participantBadges.title": "Badge partecipanti",
   "manager.participantBadges.subtitle":
-    "Crea un unico PDF pronto per la stampa con tutti i {count} partecipanti attivi, compilando automaticamente nome, paese e città.",
+    "Crea un unico PDF pronto per la stampa con tutti i {count} partecipanti attivi esclusi gli autisti, compilando automaticamente nome, paese e città.",
   "manager.participantBadges.printFormat":
     "Un badge finito da 100 x 150 mm per pagina a 300 dpi, con 3 mm di abbondanza per lato.",
   "manager.participantBadges.download": "Scarica PDF",

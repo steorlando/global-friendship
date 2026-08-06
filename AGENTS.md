@@ -377,11 +377,11 @@ Statistics currently implemented:
   allergy counts. This section is not exposed on the public statistics page.
 - Authenticated participant-badge generation for manager/admin. The Statistics page exposes
   a download button backed by `app/api/manager/statistics/participant-badges/route.ts`; it
-  creates one 100 x 150 mm finished badge at 300 dpi for every active participant on a
-  106 x 156 mm page with 3 mm bleed on every side, fills name and community (country, city),
-  preserves international characters, and reuses one compressed 300 dpi background so the
-  complete PDF remains compact. The top-center lanyard-hole area remains clear. The public
-  statistics page does not expose this control.
+  creates one 100 x 150 mm finished badge at 300 dpi for every active non-driver participant
+  on a 106 x 156 mm page with 3 mm bleed on every side, fills name and community (country,
+  city), preserves international characters, and reuses one compressed 300 dpi background so
+  the complete PDF remains compact. The title is positioned for the top-center lanyard hole.
+  The public statistics page does not expose this control.
 
 Registration type recoding used in stats:
 

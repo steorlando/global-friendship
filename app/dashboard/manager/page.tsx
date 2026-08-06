@@ -34,6 +34,7 @@ import {
   type FoodNeedsFilter,
 } from "@/lib/statistics/food-needs";
 import { STATISTICS_GROUP_LEADER_ROLES } from "@/lib/statistics/group-leader-associations";
+import { isParticipantBadgeEligible } from "@/lib/statistics/participant-badges";
 
 export const dynamic = "force-dynamic";
 
@@ -1793,7 +1794,7 @@ export async function StatisticsDashboard({
               <h3 className="text-lg font-semibold text-slate-900">{t("manager.statistics.topCounters")}</h3>
               {!publicView && (
                 <ParticipantBadgesControl
-                  participantCount={participants.length}
+                  participantCount={participants.filter(isParticipantBadgeEligible).length}
                   t={t}
                 />
               )}
