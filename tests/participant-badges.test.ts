@@ -68,7 +68,7 @@ test("sorts badges by country, city, first name, and surname", () => {
 
 test("builds one compact PDF page per participant", async () => {
   const [backgroundJpeg, fontTtf] = await Promise.all([
-    readFile("data/badges/badge-v2-background.jpg"),
+    readFile("data/badges/badge-v3-print-background.jpg"),
     readFile("node_modules/dejavu-fonts-ttf/ttf/DejaVuSansCondensed-Bold.ttf"),
   ]);
   const pdf = buildParticipantBadgesPdf({
@@ -79,7 +79,10 @@ test("builds one compact PDF page per participant", async () => {
   const text = Buffer.from(pdf).toString("latin1");
 
   assert.equal(Buffer.from(pdf.subarray(0, 4)).toString("ascii"), "%PDF");
-  assert.equal((text.match(/\/Type \/Page\b/g) ?? []).length, participants.length);
-  assert.match(text, /\/MediaBox \[0 0 283\.4646 425\.1969\]/);
+  assert.equal(
+    (text.match(/\/Type \/Page\b/g) ?? []).length,
+    participants.length,
+  );
+  assert.match(text, /\/MediaBox \[0 0 300\.4724 442\.2047\]/);
   assert.ok(pdf.byteLength < 1_500_000);
 });

@@ -14,7 +14,7 @@ const BADGE_BACKGROUND_PATH = path.join(
   process.cwd(),
   "data",
   "badges",
-  "badge-v2-background.jpg",
+  "badge-v3-print-background.jpg",
 );
 const BADGE_FONT_PATH = path.join(
   process.cwd(),
@@ -50,15 +50,16 @@ export async function GET() {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition":
-          `attachment; filename="badge-partecipanti-global-friendship-${dateStamp}.pdf"`,
+        "Content-Disposition": `attachment; filename="badge-partecipanti-global-friendship-${dateStamp}.pdf"`,
         "Cache-Control": "private, no-store",
         "X-Participant-Count": String(participants.length),
       },
     });
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Unable to generate participant badges";
+      error instanceof Error
+        ? error.message
+        : "Unable to generate participant badges";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

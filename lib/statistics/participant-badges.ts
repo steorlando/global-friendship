@@ -1,13 +1,18 @@
 import { Buffer } from "node:buffer";
 import { jsPDF } from "jspdf";
 
-export const PARTICIPANT_BADGE_WIDTH_MM = 100;
-export const PARTICIPANT_BADGE_HEIGHT_MM = 150;
+export const PARTICIPANT_BADGE_FINISHED_WIDTH_MM = 100;
+export const PARTICIPANT_BADGE_FINISHED_HEIGHT_MM = 150;
+export const PARTICIPANT_BADGE_BLEED_MM = 3;
+export const PARTICIPANT_BADGE_WIDTH_MM =
+  PARTICIPANT_BADGE_FINISHED_WIDTH_MM + PARTICIPANT_BADGE_BLEED_MM * 2;
+export const PARTICIPANT_BADGE_HEIGHT_MM =
+  PARTICIPANT_BADGE_FINISHED_HEIGHT_MM + PARTICIPANT_BADGE_BLEED_MM * 2;
 
 const FONT_FAMILY = "DejaVuSansCondensed";
 const FONT_FILE_NAME = "DejaVuSansCondensed-Bold.ttf";
-const BACKGROUND_ALIAS = "global-friendship-badge-v2";
-const TEXT_X_MM = 17.2;
+const BACKGROUND_ALIAS = "global-friendship-badge-v3-print";
+const TEXT_X_MM = PARTICIPANT_BADGE_BLEED_MM + 17.2;
 const TEXT_MAX_WIDTH_MM = 65.6;
 const TEXT_COLOR: [number, number, number] = [25, 49, 85];
 
@@ -132,7 +137,7 @@ function drawBadgeText(doc: jsPDF, badge: ParticipantBadgeContent) {
       maxLines: 1,
     });
     doc.setFontSize(fittedName.fontSize);
-    doc.text(fittedName.lines[0], TEXT_X_MM, 52);
+    doc.text(fittedName.lines[0], TEXT_X_MM, PARTICIPANT_BADGE_BLEED_MM + 52);
   } else {
     const fittedName = fitText(doc, badge.fullName, {
       preferredFontSize: 14,
@@ -140,7 +145,7 @@ function drawBadgeText(doc: jsPDF, badge: ParticipantBadgeContent) {
       maxLines: 2,
     });
     doc.setFontSize(fittedName.fontSize);
-    doc.text(fittedName.lines, TEXT_X_MM, 49.1, {
+    doc.text(fittedName.lines, TEXT_X_MM, PARTICIPANT_BADGE_BLEED_MM + 49.1, {
       lineHeightFactor: 1,
     });
   }
@@ -151,7 +156,11 @@ function drawBadgeText(doc: jsPDF, badge: ParticipantBadgeContent) {
     maxLines: 1,
   });
   doc.setFontSize(fittedCommunity.fontSize);
-  doc.text(fittedCommunity.lines[0], TEXT_X_MM, 66);
+  doc.text(
+    fittedCommunity.lines[0],
+    TEXT_X_MM,
+    PARTICIPANT_BADGE_BLEED_MM + 66,
+  );
 }
 
 export function buildParticipantBadgesPdf(args: {
@@ -178,7 +187,10 @@ export function buildParticipantBadgesPdf(args: {
     author: "Global Friendship",
     creator: "Global Friendship App",
   });
-  doc.addFileToVFS(FONT_FILE_NAME, Buffer.from(args.fontTtf).toString("base64"));
+  doc.addFileToVFS(
+    FONT_FILE_NAME,
+    Buffer.from(args.fontTtf).toString("base64"),
+  );
   doc.addFont(FONT_FILE_NAME, FONT_FAMILY, "bold");
 
   const badges = sortParticipantBadges(args.participants).map(

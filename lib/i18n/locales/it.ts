@@ -271,7 +271,7 @@ const it: TranslationDictionary = {
   "manager.participantBadges.subtitle":
     "Crea un unico PDF pronto per la stampa con tutti i {count} partecipanti attivi, compilando automaticamente nome, paese e città.",
   "manager.participantBadges.printFormat":
-    "Un badge da 100 x 150 mm per pagina a 300 dpi.",
+    "Un badge finito da 100 x 150 mm per pagina a 300 dpi, con 3 mm di abbondanza per lato.",
   "manager.participantBadges.download": "Scarica tutti i badge (PDF)",
   "manager.participantBadges.preparing": "Preparazione PDF...",
   "manager.participantBadges.retry": "Generazione non riuscita - riprova",
