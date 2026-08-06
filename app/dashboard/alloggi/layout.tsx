@@ -8,6 +8,9 @@ import { useI18n } from "@/lib/i18n/provider";
 export default function AlloggiLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { t } = useI18n();
+  const isDesktopRoomAssignment = pathname.startsWith(
+    "/dashboard/alloggi/room-assignment"
+  );
 
   const tabs = [
     {
@@ -43,7 +46,11 @@ export default function AlloggiLayout({ children }: { children: ReactNode }) {
   ];
 
   return (
-    <main className="mx-auto max-w-7xl px-6 py-10">
+    <main
+      className={`mx-auto px-4 py-6 sm:px-6 sm:py-10 ${
+        isDesktopRoomAssignment ? "max-w-[1800px]" : "max-w-7xl"
+      }`}
+    >
       <aside className="mb-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
           {t("dashboard.accommodation.sections")}

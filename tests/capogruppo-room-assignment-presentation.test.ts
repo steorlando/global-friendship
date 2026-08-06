@@ -3,8 +3,11 @@ import test from "node:test";
 import {
   buildGroupLeaderRoomOptionLabel,
   formatGroupLeaderRoomAvailability,
+  getGroupLeaderRoomBedRowCount,
   getGroupLeaderRoomEarlyArrivalOccupants,
+  getGroupLeaderRoomFreeBedCount,
   getGroupLeaderRoomOccupancy,
+  getGroupLeaderRoomRequiredAvailableFrom,
   matchesGroupLeaderParticipantSearch,
   matchesGroupLeaderRoomAvailabilityFilter,
   matchesGroupLeaderRoomCodeFilter,
@@ -43,6 +46,20 @@ test("room availability filters distinguish free beds from completely empty room
 test("room occupancy uses the most complete active-occupant count", () => {
   assert.equal(getGroupLeaderRoomOccupancy({ ...room, assignedParticipantCount: 3 }, 2), 3);
   assert.equal(getGroupLeaderRoomOccupancy(room, 2), 2);
+});
+
+test("desktop room rack exposes one row per bed without marking unresolved occupants as free", () => {
+  assert.equal(getGroupLeaderRoomFreeBedCount(room, 0), 4);
+  assert.equal(getGroupLeaderRoomFreeBedCount(room, 3), 1);
+  assert.equal(getGroupLeaderRoomFreeBedCount(room, 5), 0);
+  assert.equal(
+    getGroupLeaderRoomFreeBedCount({ ...room, assignedParticipantCount: 3 }, 2),
+    1
+  );
+
+  assert.equal(getGroupLeaderRoomBedRowCount(room, 0), 4);
+  assert.equal(getGroupLeaderRoomBedRowCount(room, 5), 5);
+  assert.equal(getGroupLeaderRoomBedRowCount({ ...room, capacity: 0 }, 0), 1);
 });
 
 test("room code filter supports partial, case-insensitive matches", () => {
@@ -163,6 +180,52 @@ test("early-arrival warning identifies only occupants arriving before room avail
       earlyArrivals
     ),
     []
+  );
+});
+
+test("room availability extension uses the earliest assigned arrival", () => {
+  const occupants = [
+    {
+      participantId: "arrival-27",
+      roomId: "r1",
+      firstName: "Anna",
+      lastName: "Rossi",
+      displayGroup: "Roma",
+      arrivalDate: "2026-08-27",
+      departureDate: "2026-08-31",
+      sex: "Female",
+      sexCategory: "female" as const,
+      age: 22,
+      canManage: true,
+    },
+    {
+      participantId: "arrival-26",
+      roomId: "r1",
+      firstName: "Luca",
+      lastName: "Bianchi",
+      displayGroup: "Milano",
+      arrivalDate: "2026-08-26",
+      departureDate: "2026-08-31",
+      sex: "Male",
+      sexCategory: "male" as const,
+      age: 24,
+      canManage: true,
+    },
+  ];
+
+  assert.equal(
+    getGroupLeaderRoomRequiredAvailableFrom(
+      { availableFrom: "2026-08-28" },
+      occupants
+    ),
+    "2026-08-26"
+  );
+  assert.equal(
+    getGroupLeaderRoomRequiredAvailableFrom(
+      { availableFrom: "2026-08-26" },
+      occupants
+    ),
+    null
   );
 });
 

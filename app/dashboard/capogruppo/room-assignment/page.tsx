@@ -1,4 +1,4 @@
-import { GroupLeaderRoomAssignmentManager } from "../../_components/group-leader-room-assignment-manager";
+import { DesktopRoomAssignmentWorkspace } from "../../_components/desktop-room-assignment-workspace";
 import { getServerTranslator } from "@/lib/i18n/server";
 
 export default async function GroupLeaderRoomAssignmentPage() {
@@ -15,8 +15,8 @@ export default async function GroupLeaderRoomAssignmentPage() {
         </p>
       </section>
 
-      <div className="mt-6">
-        <GroupLeaderRoomAssignmentManager />
+      <div className="mt-4">
+        <DesktopRoomAssignmentWorkspace apiBasePath="/api/capogruppo/room-assignments" />
       </div>
     </>
   );

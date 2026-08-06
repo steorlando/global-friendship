@@ -212,19 +212,20 @@ participant, contact, travel, accommodation, accessibility, and payment fields. 
 export uses the four-digit `personal_code` as its human-facing ID and never includes
 the internal participant UUID.
 
-The room-assignment page is organized as a room map rather than a participant table:
+The room-assignment page is a compact desktop operational workspace shared by
+Alloggi/Manager/Admin and Capogruppo:
 
 - group leaders assigned to multiple groups default to one combined view, while retaining
   a filter for each individual group;
-- every room card shows the names and stay details of the participants already assigned;
-- each occupant can be moved with the room selector or removed directly from the card;
-- only participants who still need a room appear in the separate assignment list below;
+- the main table exposes one row per physical bed, including the room, current occupant,
+  stay dates, empty beds, and direct move/remove actions;
+- only participants who still need a room appear in the assignment queue beside the table;
 - operators staying in a hotel and participants with autonomous accommodation are excluded
-  from room placement and appear in a separate read-only information section;
+  from room placement and appear in a separate read-only dialog;
 - participant search brings matching occupied rooms to the top and highlights the person.
 - in the combined view, every person is labelled with their group and room selectors remain
   restricted to rooms assigned to that participant's own group.
-- room cards include every active occupant of a visible room, including people from groups
+- room rows include every active occupant of a visible room, including people from groups
   the signed-in group leader does not manage; those external occupants are explicitly read-only
   and the capogruppo PATCH authorization remains restricted to `profili_gruppi`.
 - room occupancy counters include only active participants, so they match the visible occupant
@@ -236,14 +237,15 @@ The room-assignment page is organized as a room map rather than a participant ta
   database foreign key and later capogruppo visibility remain consistent. The `alloggi` and
   `capogruppo` roles remain group-scoped. Every role still enforces valid stay dates, room end
   availability, capacity, gender policy, and hostel eligibility; an arrival before a room's
-  `available_from` is allowed but produces a persistent amber warning on the room card and on the
-  affected occupant. Capogruppo users manage only their own participants in assigned rooms while
+  `available_from` is allowed but produces a persistent amber warning in the room cell and on the
+  affected occupant. The room warning shows the earliest date to which availability must be
+  extended. Capogruppo users manage only their own participants in assigned rooms while
   seeing every active occupant of those rooms, including external read-only occupants.
 - both capogruppo and alloggi assignment APIs reject new hostel-room assignments for hotel
   operators and autonomous participants, while still allowing an obsolete assignment to be removed.
-- the Alloggi/Manager room-assignment page enables an additional hostel filter that intersects
-  with the group filter and scopes room cards, counts, and assignment choices; the shared
-  capogruppo page intentionally does not render this control.
+- the desktop workspace keeps group, hostel, room-availability, internal-code, and participant
+  search filters. On the Capogruppo route they operate only on the groups, rooms, and participants
+  returned by the capogruppo-scoped API.
 - group-allocation need, gender breakdown, status, and warnings count only participants who
   actually require a hostel bed: autonomous stays and operators with Hotel preference are
   excluded before nominal and day-by-day capacity checks.

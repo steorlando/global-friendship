@@ -13,6 +13,27 @@ export function getGroupLeaderRoomOccupancy(
   return Math.max(room.assignedParticipantCount, visibleOccupantCount);
 }
 
+export function getGroupLeaderRoomFreeBedCount(
+  room: AccommodationRoom,
+  visibleOccupantCount: number
+): number {
+  return Math.max(
+    0,
+    room.capacity - getGroupLeaderRoomOccupancy(room, visibleOccupantCount)
+  );
+}
+
+export function getGroupLeaderRoomBedRowCount(
+  room: AccommodationRoom,
+  visibleOccupantCount: number
+): number {
+  return Math.max(
+    1,
+    room.capacity,
+    getGroupLeaderRoomOccupancy(room, visibleOccupantCount)
+  );
+}
+
 export function matchesGroupLeaderRoomAvailabilityFilter(
   room: AccommodationRoom,
   visibleOccupantCount: number,
@@ -66,6 +87,25 @@ export function getGroupLeaderRoomEarlyArrivalOccupants(
     (occupant) =>
       isDateOnly(occupant.arrivalDate) && occupant.arrivalDate < availableFrom
   );
+}
+
+export function getGroupLeaderRoomRequiredAvailableFrom(
+  room: Pick<AccommodationRoom, "availableFrom">,
+  occupants: GroupLeaderVisibleRoomOccupant[]
+): string | null {
+  const earlyArrivals = getGroupLeaderRoomEarlyArrivalOccupants(room, occupants);
+  let requiredAvailableFrom: string | null = null;
+
+  for (const occupant of earlyArrivals) {
+    if (
+      isDateOnly(occupant.arrivalDate) &&
+      (requiredAvailableFrom === null || occupant.arrivalDate < requiredAvailableFrom)
+    ) {
+      requiredAvailableFrom = occupant.arrivalDate;
+    }
+  }
+
+  return requiredAvailableFrom;
 }
 
 export function matchesGroupLeaderParticipantSearch(
