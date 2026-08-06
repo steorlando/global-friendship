@@ -33,6 +33,7 @@ import {
   buildFoodNeedsSummary,
   type FoodNeedsFilter,
 } from "@/lib/statistics/food-needs";
+import { STATISTICS_GROUP_LEADER_ROLES } from "@/lib/statistics/group-leader-associations";
 
 export const dynamic = "force-dynamic";
 
@@ -1628,7 +1629,7 @@ export async function StatisticsDashboard({
     const { data: leaderProfiles, error: leaderProfilesError } = await service
       .from("profili")
       .select("id")
-      .in("ruolo", ["capogruppo", "manager"]);
+      .in("ruolo", [...STATISTICS_GROUP_LEADER_ROLES]);
 
     if (leaderProfilesError) {
       return (
