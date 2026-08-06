@@ -220,6 +220,8 @@ Alloggi/Manager/Admin and Capogruppo:
 - the main table exposes one row per physical bed, including the room, current occupant,
   stay dates, empty beds, and direct move/remove actions;
 - only participants who still need a room appear in the assignment queue beside the table;
+- the `Unassigned` summary box opens a searchable read-only dialog with first name,
+  last name, group, arrival, and departure for the exact currently counted participants;
 - operators staying in a hotel and participants with autonomous accommodation are excluded
   from room placement and appear in a separate read-only dialog;
 - participant search brings matching occupied rooms to the top and highlights the person.
