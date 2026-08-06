@@ -774,6 +774,10 @@ export function DesktopRoomAssignmentWorkspace({
                         isFree &&
                         Boolean(selectedParticipant) &&
                         selectedParticipantRooms.some((candidate) => candidate.id === room.id);
+                      const roomRowBorderClass =
+                        bedIndex === rowCount - 1
+                          ? "border-b-2 border-slate-400"
+                          : "border-b border-slate-200";
 
                       return (
                         <tr
@@ -785,10 +789,10 @@ export function DesktopRoomAssignmentWorkspace({
                         >
                           {bedIndex === 0 ? (
                             <>
-                              <td rowSpan={rowCount} className={`border-b border-r border-slate-200 px-3 py-2 align-top ${roomHasSearchMatch ? "bg-indigo-50" : "bg-white"}`}>
+                              <td rowSpan={rowCount} className={`border-b-2 border-r border-slate-400 px-3 py-2 align-top ${roomHasSearchMatch ? "bg-indigo-50" : "bg-white"}`}>
                                 <p className="font-semibold text-slate-800">{room.hotel?.name ?? "-"}</p>
                               </td>
-                              <td rowSpan={rowCount} className={`border-b border-r border-slate-200 px-3 py-2 align-top ${roomHasSearchMatch ? "bg-indigo-50" : "bg-white"}`}>
+                              <td rowSpan={rowCount} className={`border-b-2 border-r border-slate-400 px-3 py-2 align-top ${roomHasSearchMatch ? "bg-indigo-50" : "bg-white"}`}>
                                 <div className="flex items-center justify-between gap-2">
                                   <span className="font-black text-slate-900">{room.internalCode}</span>
                                   <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${roomTone}`}>{occupancy}/{room.capacity}</span>
@@ -827,8 +831,8 @@ export function DesktopRoomAssignmentWorkspace({
                             </>
                           ) : null}
 
-                          <td className="border-b border-r border-slate-200 px-2 py-1.5 text-center font-mono text-[10px] text-slate-500">{bedIndex + 1}</td>
-                          <td className="border-b border-r border-slate-200 px-3 py-1.5">
+                          <td className={`${roomRowBorderClass} border-r px-2 py-1.5 text-center font-mono text-[10px] text-slate-500`}>{bedIndex + 1}</td>
+                          <td className={`${roomRowBorderClass} border-r px-3 py-1.5`}>
                             {occupant ? (
                               <div className="flex items-center gap-2">
                                 <span className={`h-2 w-2 shrink-0 rounded-full ${occupant.sexCategory === "male" ? "bg-sky-400" : occupant.sexCategory === "female" ? "bg-pink-400" : "bg-slate-400"}`} />
@@ -851,10 +855,10 @@ export function DesktopRoomAssignmentWorkspace({
                               </span>
                             )}
                           </td>
-                          <td className="border-b border-r border-slate-200 px-3 py-1.5 text-slate-600">
+                          <td className={`${roomRowBorderClass} border-r px-3 py-1.5 text-slate-600`}>
                             {occupant ? occupant.displayGroup : "—"}
                           </td>
-                          <td className="border-b border-r border-slate-200 px-3 py-1.5 text-[10px] text-slate-600">
+                          <td className={`${roomRowBorderClass} border-r px-3 py-1.5 text-[10px] text-slate-600`}>
                             {occupant ? (
                               <>
                                 <span className="whitespace-nowrap">{occupant.arrivalDate ? formatDate(occupant.arrivalDate) : "-"} → {occupant.departureDate ? formatDate(occupant.departureDate) : "-"}</span>
@@ -864,7 +868,7 @@ export function DesktopRoomAssignmentWorkspace({
                               </>
                             ) : "—"}
                           </td>
-                          <td className="border-b border-slate-200 px-3 py-1.5">
+                          <td className={`${roomRowBorderClass} px-3 py-1.5`}>
                             {occupant?.canManage ? (
                               editingParticipantId === occupant.participantId ? (
                                 <div className="flex items-center gap-1">
@@ -984,7 +988,12 @@ export function DesktopRoomAssignmentWorkspace({
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <p className={`truncate text-[11px] font-bold ${isSelected ? "text-indigo-950" : "text-slate-900"}`}>{buildParticipantName(participant)}</p>
+                            <p className={`truncate text-[11px] font-bold ${isSelected ? "text-indigo-950" : "text-slate-900"}`}>
+                              {buildParticipantName(participant)}
+                              {participant.age == null
+                                ? null
+                                : ` (${formatNumber(participant.age)})`}
+                            </p>
                             {(isCombinedView || showGroupColumn) ? <p className="truncate text-[9px] font-semibold text-sky-700">{participant.displayGroup}</p> : null}
                             <p className="mt-0.5 truncate text-[9px] text-slate-500">{buildSexLabel(participant.sex, participant.sexCategory, t)} · {participant.arrivalDate ? formatDate(participant.arrivalDate) : "-"} → {participant.departureDate ? formatDate(participant.departureDate) : "-"}</p>
                           </div>
