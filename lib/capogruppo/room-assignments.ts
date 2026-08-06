@@ -102,6 +102,8 @@ export type GroupLeaderVisibleRoomOccupant = {
   roomId: string;
   firstName: string | null;
   lastName: string | null;
+  groupId: string | null;
+  groupLabel: string | null;
   displayGroup: string;
   arrivalDate: string | null;
   departureDate: string | null;
@@ -582,6 +584,9 @@ export function buildGroupLeaderVisibleRoomOccupants(input: {
           roomId,
           firstName: row.nome,
           lastName: row.cognome,
+          groupId:
+            normalizeText(row.gruppo_id) ?? normalizeText(assignment.gruppo_id),
+          groupLabel: normalizeText(row.gruppo_label),
           displayGroup: buildDisplayGroup(row),
           arrivalDate: row.data_arrivo,
           departureDate: row.data_partenza,

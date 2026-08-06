@@ -19,9 +19,11 @@ import {
   getGroupLeaderRoomFreeBedCount,
   getGroupLeaderRoomOccupancy,
   getGroupLeaderRoomRequiredAvailableFrom,
+  getGroupLeaderSharedRooms,
   matchesGroupLeaderParticipantSearch,
   matchesGroupLeaderRoomAvailabilityFilter,
   matchesGroupLeaderRoomCodeFilter,
+  matchesGroupLeaderRoomOccupantGroup,
   matchesGroupLeaderRoomOccupantSearch,
   type RoomAvailabilityFilter,
 } from "@/lib/capogruppo/room-assignment-presentation";
@@ -125,10 +127,11 @@ export function DesktopRoomAssignmentWorkspace({
     useState<RoomAvailabilityFilter>("all");
   const [roomCodeFilter, setRoomCodeFilter] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(null);
+  const [selectedParticipantIds, setSelectedParticipantIds] = useState<string[]>([]);
   const [targetRoomId, setTargetRoomId] = useState("");
   const [editingParticipantId, setEditingParticipantId] = useState<string | null>(null);
   const [savingParticipantId, setSavingParticipantId] = useState<string | null>(null);
+  const [savingSelectedParticipants, setSavingSelectedParticipants] = useState(false);
   const [unassignedDialogOpen, setUnassignedDialogOpen] = useState(false);
   const [unassignedDialogSearch, setUnassignedDialogSearch] = useState("");
   const [nonRoomDialogOpen, setNonRoomDialogOpen] = useState(false);
@@ -292,6 +295,23 @@ export function DesktopRoomAssignmentWorkspace({
     return occupantsByRoomId;
   }, [roomOccupants]);
 
+  const roomsOccupiedBySelectedGroup = useMemo(
+    () =>
+      isCombinedView
+        ? roomsForSelectedGroup
+        : roomsForSelectedGroup.filter((room) =>
+            (roomOccupantsByRoomId.get(room.id) ?? []).some((occupant) =>
+              matchesGroupLeaderRoomOccupantGroup(occupant, selectedGroupId)
+            )
+          ),
+    [
+      isCombinedView,
+      roomOccupantsByRoomId,
+      roomsForSelectedGroup,
+      selectedGroupId,
+    ]
+  );
+
   const roomsByParticipantId = useMemo(() => {
     const scopedRoomIdsByGroupId = new Map<string, Set<string>>();
     for (const scope of roomScopes) {
@@ -329,7 +349,7 @@ export function DesktopRoomAssignmentWorkspace({
 
   const roomsMatchingFilters = useMemo(
     () =>
-      roomsForSelectedGroup.filter((room) => {
+      roomsOccupiedBySelectedGroup.filter((room) => {
         const occupantCount = roomOccupantsByRoomId.get(room.id)?.length ?? 0;
         return (
           matchesGroupLeaderRoomAvailabilityFilter(
@@ -343,7 +363,7 @@ export function DesktopRoomAssignmentWorkspace({
       deferredRoomCodeFilter,
       roomAvailabilityFilter,
       roomOccupantsByRoomId,
-      roomsForSelectedGroup,
+      roomsOccupiedBySelectedGroup,
     ]
   );
 
@@ -407,31 +427,50 @@ export function DesktopRoomAssignmentWorkspace({
     [deferredUnassignedDialogSearch, unassignedParticipantsInScope]
   );
 
-  const selectedParticipant =
-    unassignedParticipantsInScope.find(
-      (participant) => participant.id === selectedParticipantId
-    ) ?? null;
+  const selectedParticipantIdSet = useMemo(
+    () => new Set(selectedParticipantIds),
+    [selectedParticipantIds]
+  );
+  const selectedParticipants = useMemo(
+    () =>
+      unassignedParticipantsInScope.filter((participant) =>
+        selectedParticipantIdSet.has(participant.id)
+      ),
+    [selectedParticipantIdSet, unassignedParticipantsInScope]
+  );
   const selectedParticipantRooms = useMemo(
-    () => (selectedParticipant ? (roomsByParticipantId.get(selectedParticipant.id) ?? []) : []),
-    [roomsByParticipantId, selectedParticipant]
+    () =>
+      getGroupLeaderSharedRooms(
+        selectedParticipants.map((participant) => participant.id),
+        roomsByParticipantId
+      ),
+    [roomsByParticipantId, selectedParticipants]
   );
 
   useEffect(() => {
-    if (selectedParticipantId && !selectedParticipant) {
-      setSelectedParticipantId(null);
-      setTargetRoomId("");
-    }
-  }, [selectedParticipant, selectedParticipantId]);
+    const selectableParticipantIds = new Set(
+      unassignedParticipantsInScope.map((participant) => participant.id)
+    );
+    setSelectedParticipantIds((current) => {
+      const next = current.filter((participantId) =>
+        selectableParticipantIds.has(participantId)
+      );
+      return next.length === current.length ? current : next;
+    });
+  }, [unassignedParticipantsInScope]);
 
   useEffect(() => {
-    if (!selectedParticipant) return;
+    if (selectedParticipants.length === 0) {
+      setTargetRoomId("");
+      return;
+    }
     const targetRoomIsAvailable = selectedParticipantRooms.some(
       (room) =>
         room.id === targetRoomId &&
         getGroupLeaderRoomFreeBedCount(
           room,
           roomOccupantsByRoomId.get(room.id)?.length ?? 0
-        ) > 0
+        ) >= selectedParticipants.length
     );
     if (targetRoomIsAvailable) return;
     const firstRoomWithSpace = selectedParticipantRooms.find(
@@ -439,10 +478,15 @@ export function DesktopRoomAssignmentWorkspace({
         getGroupLeaderRoomFreeBedCount(
           room,
           roomOccupantsByRoomId.get(room.id)?.length ?? 0
-        ) > 0
+        ) >= selectedParticipants.length
     );
     setTargetRoomId(firstRoomWithSpace?.id ?? "");
-  }, [roomOccupantsByRoomId, selectedParticipant, selectedParticipantRooms, targetRoomId]);
+  }, [
+    roomOccupantsByRoomId,
+    selectedParticipantRooms,
+    selectedParticipants.length,
+    targetRoomId,
+  ]);
 
   const visibleRoomIds = useMemo(
     () => new Set(roomsMatchingFilters.map((room) => room.id)),
@@ -483,28 +527,32 @@ export function DesktopRoomAssignmentWorkspace({
     [deferredNonRoomSearch, nonRoomParticipantsForSelectedGroup]
   );
 
+  async function saveAssignment(participantId: string, roomId: string | null) {
+    const response = await fetch(apiBasePath, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ participantId, roomId }),
+    });
+    const json = (await response.json()) as RoomAssignmentMutationResponse;
+    if (!response.ok) {
+      throw new Error(json.error || t("groupLeader.roomAssignment.status.saveError"));
+    }
+    return json;
+  }
+
   async function handleAssignmentChange(participantId: string, roomId: string | null) {
     setSavingParticipantId(participantId);
     setError(null);
     setNotice(null);
 
     try {
-      const response = await fetch(apiBasePath, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ participantId, roomId }),
-      });
-      const json = (await response.json()) as RoomAssignmentMutationResponse;
-      if (!response.ok) {
-        throw new Error(json.error || t("groupLeader.roomAssignment.status.saveError"));
-      }
+      const json = await saveAssignment(participantId, roomId);
 
       await loadData(false);
       setEditingParticipantId(null);
-      if (selectedParticipantId === participantId) {
-        setSelectedParticipantId(null);
-        setTargetRoomId("");
-      }
+      setSelectedParticipantIds((current) =>
+        current.filter((selectedId) => selectedId !== participantId)
+      );
 
       const availabilityWarning = (json.warnings ?? []).find(
         (warning) => warning.code === "room_availability_starts_after_arrival"
@@ -537,17 +585,85 @@ export function DesktopRoomAssignmentWorkspace({
     }
   }
 
-  function selectParticipant(participant: GroupLeaderParticipant) {
-    setSelectedParticipantId(participant.id);
-    const participantRooms = roomsByParticipantId.get(participant.id) ?? [];
-    const firstRoomWithSpace = participantRooms.find(
-      (room) =>
-        getGroupLeaderRoomFreeBedCount(
-          room,
-          roomOccupantsByRoomId.get(room.id)?.length ?? 0
-        ) > 0
+  async function handleSelectedParticipantsAssignment(roomId: string) {
+    if (!roomId || selectedParticipants.length === 0) return;
+
+    setSavingSelectedParticipants(true);
+    setError(null);
+    setNotice(null);
+    const completedParticipantIds: string[] = [];
+    let availabilityWarningRequiredDate: string | null = null;
+
+    try {
+      for (const participant of selectedParticipants) {
+        try {
+          const json = await saveAssignment(participant.id, roomId);
+          completedParticipantIds.push(participant.id);
+          const availabilityWarning = (json.warnings ?? []).find(
+            (warning) => warning.code === "room_availability_starts_after_arrival"
+          );
+          if (
+            typeof availabilityWarning?.meta?.arrivalDate === "string" &&
+            (!availabilityWarningRequiredDate ||
+              availabilityWarning.meta.arrivalDate < availabilityWarningRequiredDate)
+          ) {
+            availabilityWarningRequiredDate = availabilityWarning.meta.arrivalDate;
+          }
+        } catch (assignmentError) {
+          throw new Error(
+            `${buildParticipantName(participant)}: ${(assignmentError as Error).message}`
+          );
+        }
+      }
+
+      setNotice(
+        availabilityWarningRequiredDate
+          ? {
+              tone: "warning",
+              message: t(
+                "accommodation.roomAssignmentTest.status.bulkSavedWithAvailabilityWarning",
+                {
+                  count: formatNumber(completedParticipantIds.length),
+                  date: formatDate(availabilityWarningRequiredDate),
+                }
+              ),
+            }
+          : {
+              tone: "success",
+              message: t("accommodation.roomAssignmentTest.status.bulkSaved", {
+                count: formatNumber(completedParticipantIds.length),
+              }),
+            }
+      );
+    } catch (assignmentError) {
+      setNotice({
+        tone: "error",
+        message:
+          completedParticipantIds.length > 0
+            ? t("accommodation.roomAssignmentTest.status.bulkPartial", {
+                count: formatNumber(completedParticipantIds.length),
+                error: (assignmentError as Error).message,
+              })
+            : (assignmentError as Error).message,
+      });
+    } finally {
+      if (completedParticipantIds.length > 0) {
+        await loadData(false);
+        const completedIds = new Set(completedParticipantIds);
+        setSelectedParticipantIds((current) =>
+          current.filter((participantId) => !completedIds.has(participantId))
+        );
+      }
+      setSavingSelectedParticipants(false);
+    }
+  }
+
+  function toggleParticipant(participant: GroupLeaderParticipant) {
+    setSelectedParticipantIds((current) =>
+      current.includes(participant.id)
+        ? current.filter((participantId) => participantId !== participant.id)
+        : [...current, participant.id]
     );
-    setTargetRoomId(firstRoomWithSpace?.id ?? "");
   }
 
   return (
@@ -585,7 +701,7 @@ export function DesktopRoomAssignmentWorkspace({
               onChange={(event) => {
                 setSelectedGroupId(event.target.value);
                 setSelectedHostelId(ALL_HOSTELS_ID);
-                setSelectedParticipantId(null);
+                setSelectedParticipantIds([]);
               }}
               className="mt-1 w-full rounded-md border border-slate-300 bg-white px-2.5 py-2 text-xs text-slate-900"
             >
@@ -609,7 +725,7 @@ export function DesktopRoomAssignmentWorkspace({
               value={activeHostelId}
               onChange={(event) => {
                 setSelectedHostelId(event.target.value);
-                setSelectedParticipantId(null);
+                setSelectedParticipantIds([]);
               }}
               className="mt-1 w-full rounded-md border border-slate-300 bg-white px-2.5 py-2 text-xs text-slate-900"
             >
@@ -704,10 +820,10 @@ export function DesktopRoomAssignmentWorkspace({
                 })}
               </p>
             </div>
-            {selectedParticipant ? (
+            {selectedParticipants.length > 0 ? (
               <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-800 ring-1 ring-inset ring-indigo-200">
-                {t("accommodation.roomAssignmentTest.rack.selectedPerson", {
-                  name: buildParticipantName(selectedParticipant),
+                {t("accommodation.roomAssignmentTest.rack.selectedPeople", {
+                  count: formatNumber(selectedParticipants.length),
                 })}
               </span>
             ) : null}
@@ -772,7 +888,8 @@ export function DesktopRoomAssignmentWorkspace({
                         matchingRoomOccupantIds.has(occupant.participantId);
                       const canAssignSelectedHere =
                         isFree &&
-                        Boolean(selectedParticipant) &&
+                        selectedParticipants.length > 0 &&
+                        freeBeds >= selectedParticipants.length &&
                         selectedParticipantRooms.some((candidate) => candidate.id === room.id);
                       const roomRowBorderClass =
                         bedIndex === rowCount - 1
@@ -893,20 +1010,37 @@ export function DesktopRoomAssignmentWorkspace({
                                   <button type="button" onClick={() => setEditingParticipantId(null)} className="rounded px-1.5 py-1 text-[10px] text-slate-500 hover:bg-slate-100">×</button>
                                 </div>
                               ) : (
-                                <button type="button" onClick={() => setEditingParticipantId(occupant.participantId)} className="rounded border border-slate-300 bg-white px-2 py-1 text-[10px] font-semibold text-slate-700 hover:bg-slate-50">{t("accommodation.roomAssignmentTest.actions.move")}</button>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingParticipantId(occupant.participantId)}
+                                    disabled={savingParticipantId === occupant.participantId || savingSelectedParticipants}
+                                    className="rounded border border-slate-300 bg-white px-2 py-1 text-[10px] font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                  >
+                                    {t("accommodation.roomAssignmentTest.actions.move")}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => void handleAssignmentChange(occupant.participantId, null)}
+                                    disabled={savingParticipantId === occupant.participantId || savingSelectedParticipants}
+                                    className="rounded border border-red-200 bg-red-50 px-2 py-1 text-[10px] font-semibold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                  >
+                                    {t("groupLeader.roomAssignment.rooms.remove")}
+                                  </button>
+                                </div>
                               )
                             ) : occupant ? (
                               <span className="text-[9px] font-semibold uppercase text-slate-400">{t("groupLeader.roomAssignment.rooms.readOnly")}</span>
                             ) : isFree ? (
                               <button
                                 type="button"
-                                disabled={!canAssignSelectedHere || savingParticipantId !== null}
+                                disabled={!canAssignSelectedHere || savingParticipantId !== null || savingSelectedParticipants}
                                 onClick={() => {
-                                  if (selectedParticipant) void handleAssignmentChange(selectedParticipant.id, room.id);
+                                  void handleSelectedParticipantsAssignment(room.id);
                                 }}
                                 className="rounded border border-emerald-300 bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-800 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-400"
                               >
-                                {selectedParticipant ? t("accommodation.roomAssignmentTest.actions.assignHere") : t("accommodation.roomAssignmentTest.actions.selectPerson")}
+                                {selectedParticipants.length > 0 ? t("accommodation.roomAssignmentTest.actions.assignHere") : t("accommodation.roomAssignmentTest.actions.selectPerson")}
                               </button>
                             ) : null}
                           </td>
@@ -932,32 +1066,46 @@ export function DesktopRoomAssignmentWorkspace({
           </div>
 
           <div className="border-b border-slate-200 p-3">
-            {selectedParticipant ? (
+            {selectedParticipants.length > 0 ? (
               <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-2.5">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="text-[9px] font-bold uppercase tracking-wide text-indigo-600">{t("accommodation.roomAssignmentTest.queue.selected")}</p>
-                    <p className="truncate text-xs font-bold text-indigo-950">{buildParticipantName(selectedParticipant)}</p>
-                    <p className="truncate text-[10px] text-indigo-700">{selectedParticipant.displayGroup}</p>
+                    <p className="text-[9px] font-bold uppercase tracking-wide text-indigo-600">
+                      {t("accommodation.roomAssignmentTest.queue.selectedPeople", {
+                        count: formatNumber(selectedParticipants.length),
+                      })}
+                    </p>
+                    <p className="mt-0.5 line-clamp-2 text-[10px] font-semibold leading-tight text-indigo-950">
+                      {selectedParticipants.map(buildParticipantName).join(", ")}
+                    </p>
                   </div>
-                  <button type="button" onClick={() => { setSelectedParticipantId(null); setTargetRoomId(""); }} className="rounded px-1.5 py-0.5 text-xs text-indigo-500 hover:bg-indigo-100" aria-label={t("accommodation.roomAssignmentTest.queue.clearSelection")}>×</button>
+                  <button type="button" onClick={() => { setSelectedParticipantIds([]); setTargetRoomId(""); }} className="rounded px-1.5 py-0.5 text-xs text-indigo-500 hover:bg-indigo-100" aria-label={t("accommodation.roomAssignmentTest.queue.clearSelection")}>×</button>
                 </div>
                 <label className="mt-2 block text-[10px] font-semibold text-indigo-900">
                   {t("groupLeader.roomAssignment.participants.assignment")}
-                  <select value={targetRoomId} onChange={(event) => setTargetRoomId(event.target.value)} className="mt-1 w-full rounded border border-indigo-200 bg-white px-2 py-1.5 text-[10px] text-slate-900">
+                  <select disabled={selectedParticipantRooms.length === 0} value={targetRoomId} onChange={(event) => setTargetRoomId(event.target.value)} className="mt-1 w-full rounded border border-indigo-200 bg-white px-2 py-1.5 text-[10px] text-slate-900 disabled:bg-indigo-100/60">
                     {selectedParticipantRooms.map((room) => {
                       const freeBeds = getGroupLeaderRoomFreeBedCount(room, roomOccupantsByRoomId.get(room.id)?.length ?? 0);
-                      return <option key={room.id} value={room.id} disabled={freeBeds === 0}>{room.internalCode} · {room.hotel?.name ?? ""} ({freeBeds})</option>;
+                      return <option key={room.id} value={room.id} disabled={freeBeds < selectedParticipants.length}>{room.internalCode} · {room.hotel?.name ?? ""} ({freeBeds})</option>;
                     })}
                   </select>
                 </label>
+                {selectedParticipantRooms.length === 0 ? (
+                  <p className="mt-1.5 text-[10px] font-semibold text-amber-800">
+                    {t("accommodation.roomAssignmentTest.queue.noSharedRooms")}
+                  </p>
+                ) : null}
                 <button
                   type="button"
-                  disabled={!targetRoomId || savingParticipantId === selectedParticipant.id}
-                  onClick={() => void handleAssignmentChange(selectedParticipant.id, targetRoomId)}
+                  disabled={!targetRoomId || savingParticipantId !== null || savingSelectedParticipants}
+                  onClick={() => void handleSelectedParticipantsAssignment(targetRoomId)}
                   className="mt-2 w-full rounded bg-indigo-600 px-2 py-1.5 text-[10px] font-bold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {savingParticipantId === selectedParticipant.id ? t("groupLeader.roomAssignment.participants.saving") : t("accommodation.roomAssignmentTest.actions.assign")}
+                  {savingSelectedParticipants
+                    ? t("groupLeader.roomAssignment.participants.saving")
+                    : t("accommodation.roomAssignmentTest.actions.assignPeople", {
+                        count: formatNumber(selectedParticipants.length),
+                      })}
                 </button>
               </div>
             ) : (
@@ -977,13 +1125,13 @@ export function DesktopRoomAssignmentWorkspace({
             ) : (
               <ul className="divide-y divide-slate-100">
                 {visibleUnassignedParticipants.map((participant) => {
-                  const isSelected = participant.id === selectedParticipantId;
+                  const isSelected = selectedParticipantIdSet.has(participant.id);
                   return (
                     <li key={participant.id}>
                       <button
                         type="button"
                         aria-pressed={isSelected}
-                        onClick={() => selectParticipant(participant)}
+                        onClick={() => toggleParticipant(participant)}
                         className={`w-full px-3 py-2 text-left transition ${isSelected ? "bg-indigo-50 ring-1 ring-inset ring-indigo-200" : "hover:bg-slate-50"}`}
                       >
                         <div className="flex items-start justify-between gap-2">
@@ -997,7 +1145,7 @@ export function DesktopRoomAssignmentWorkspace({
                             {(isCombinedView || showGroupColumn) ? <p className="truncate text-[9px] font-semibold text-sky-700">{participant.displayGroup}</p> : null}
                             <p className="mt-0.5 truncate text-[9px] text-slate-500">{buildSexLabel(participant.sex, participant.sexCategory, t)} · {participant.arrivalDate ? formatDate(participant.arrivalDate) : "-"} → {participant.departureDate ? formatDate(participant.departureDate) : "-"}</p>
                           </div>
-                          <span className={`mt-0.5 h-3 w-3 shrink-0 rounded-full border ${isSelected ? "border-indigo-600 bg-indigo-600 ring-2 ring-indigo-100" : "border-slate-300 bg-white"}`} />
+                          <span className={`mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border text-[9px] font-black ${isSelected ? "border-indigo-600 bg-indigo-600 text-white ring-2 ring-indigo-100" : "border-slate-300 bg-white text-transparent"}`}>✓</span>
                         </div>
                       </button>
                     </li>

@@ -87,6 +87,10 @@ test("visible room occupants include external participants as read-only", () => 
     occupants.find((occupant) => occupant.participantId === "external")?.displayGroup,
     "Gruppo Due"
   );
+  assert.equal(
+    occupants.find((occupant) => occupant.participantId === "external")?.groupId,
+    "G2"
+  );
 });
 
 test("operator hotel and autonomous participants stay outside hostel room assignment", () => {

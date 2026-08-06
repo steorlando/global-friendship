@@ -59,6 +59,26 @@ export function buildGroupLeaderRoomOptionLabel(room: AccommodationRoom): string
   return [room.internalCode, room.hotel?.name ?? ""].filter(Boolean).join(" · ");
 }
 
+export function getGroupLeaderSharedRooms(
+  participantIds: string[],
+  roomsByParticipantId: Map<string, AccommodationRoom[]>
+): AccommodationRoom[] {
+  const [firstParticipantId, ...otherParticipantIds] = participantIds;
+  if (!firstParticipantId) return [];
+
+  const firstParticipantRooms = roomsByParticipantId.get(firstParticipantId) ?? [];
+  if (otherParticipantIds.length === 0) return firstParticipantRooms;
+
+  const otherRoomIds = otherParticipantIds.map(
+    (participantId) =>
+      new Set((roomsByParticipantId.get(participantId) ?? []).map((room) => room.id))
+  );
+
+  return firstParticipantRooms.filter((room) =>
+    otherRoomIds.every((roomIds) => roomIds.has(room.id))
+  );
+}
+
 export function formatGroupLeaderRoomAvailability(room: AccommodationRoom): string {
   if (room.availableFrom && room.availableTo) {
     return `${room.availableFrom} -> ${room.availableTo}`;
@@ -138,4 +158,11 @@ export function matchesGroupLeaderRoomOccupantSearch(
     .join(" ")
     .toLowerCase()
     .includes(normalized);
+}
+
+export function matchesGroupLeaderRoomOccupantGroup(
+  occupant: Pick<GroupLeaderVisibleRoomOccupant, "groupId" | "groupLabel">,
+  groupId: string
+): boolean {
+  return occupant.groupId === groupId || occupant.groupLabel === groupId;
 }

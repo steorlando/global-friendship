@@ -8,9 +8,11 @@ import {
   getGroupLeaderRoomFreeBedCount,
   getGroupLeaderRoomOccupancy,
   getGroupLeaderRoomRequiredAvailableFrom,
+  getGroupLeaderSharedRooms,
   matchesGroupLeaderParticipantSearch,
   matchesGroupLeaderRoomAvailabilityFilter,
   matchesGroupLeaderRoomCodeFilter,
+  matchesGroupLeaderRoomOccupantGroup,
   matchesGroupLeaderRoomOccupantSearch,
 } from "../lib/capogruppo/room-assignment-presentation.ts";
 
@@ -60,6 +62,24 @@ test("desktop room rack exposes one row per bed without marking unresolved occup
   assert.equal(getGroupLeaderRoomBedRowCount(room, 0), 4);
   assert.equal(getGroupLeaderRoomBedRowCount(room, 5), 5);
   assert.equal(getGroupLeaderRoomBedRowCount({ ...room, capacity: 0 }, 0), 1);
+});
+
+test("multi-person assignment keeps only rooms shared by every selected participant", () => {
+  const secondRoom = { ...room, id: "room-2", internalCode: "ROOM-2" };
+  const thirdRoom = { ...room, id: "room-3", internalCode: "ROOM-3" };
+  const roomsByParticipantId = new Map([
+    ["p1", [room, secondRoom]],
+    ["p2", [secondRoom, thirdRoom]],
+    ["p3", [secondRoom]],
+  ]);
+
+  assert.deepEqual(
+    getGroupLeaderSharedRooms(["p1", "p2", "p3"], roomsByParticipantId).map(
+      (candidate) => candidate.id
+    ),
+    ["room-2"]
+  );
+  assert.deepEqual(getGroupLeaderSharedRooms([], roomsByParticipantId), []);
 });
 
 test("room code filter supports partial, case-insensitive matches", () => {
@@ -133,6 +153,8 @@ test("early-arrival warning identifies only occupants arriving before room avail
         roomId: "r1",
         firstName: "Anna",
         lastName: "Rossi",
+        groupId: "G1",
+        groupLabel: "Roma",
         displayGroup: "Roma",
         arrivalDate: "2026-08-27",
         departureDate: "2026-08-31",
@@ -146,6 +168,8 @@ test("early-arrival warning identifies only occupants arriving before room avail
         roomId: "r1",
         firstName: "Luca",
         lastName: "Bianchi",
+        groupId: "G2",
+        groupLabel: "Milano",
         displayGroup: "Milano",
         arrivalDate: "2026-08-28",
         departureDate: "2026-08-31",
@@ -159,6 +183,8 @@ test("early-arrival warning identifies only occupants arriving before room avail
         roomId: "r1",
         firstName: "Marta",
         lastName: "Verdi",
+        groupId: "G3",
+        groupLabel: "Napoli",
         displayGroup: "Napoli",
         arrivalDate: null,
         departureDate: "2026-08-31",
@@ -190,6 +216,8 @@ test("room availability extension uses the earliest assigned arrival", () => {
       roomId: "r1",
       firstName: "Anna",
       lastName: "Rossi",
+      groupId: "G1",
+      groupLabel: "Roma",
       displayGroup: "Roma",
       arrivalDate: "2026-08-27",
       departureDate: "2026-08-31",
@@ -203,6 +231,8 @@ test("room availability extension uses the earliest assigned arrival", () => {
       roomId: "r1",
       firstName: "Luca",
       lastName: "Bianchi",
+      groupId: "G2",
+      groupLabel: "Milano",
       displayGroup: "Milano",
       arrivalDate: "2026-08-26",
       departureDate: "2026-08-31",
@@ -258,6 +288,8 @@ test("matchesGroupLeaderRoomOccupantSearch finds read-only occupants and their g
     roomId: "r1",
     firstName: "Luca",
     lastName: "Bianchi",
+    groupId: "G2",
+    groupLabel: "Milano Centro",
     displayGroup: "Milano Centro",
     arrivalDate: "2026-08-27",
     departureDate: "2026-08-31",
@@ -270,4 +302,15 @@ test("matchesGroupLeaderRoomOccupantSearch finds read-only occupants and their g
   assert.equal(matchesGroupLeaderRoomOccupantSearch(occupant, "luca"), true);
   assert.equal(matchesGroupLeaderRoomOccupantSearch(occupant, "milano"), true);
   assert.equal(matchesGroupLeaderRoomOccupantSearch(occupant, "roma"), false);
+});
+
+test("matchesGroupLeaderRoomOccupantGroup filters rooms by their actual occupants", () => {
+  const occupant = {
+    groupId: "G2",
+    groupLabel: "Milano Centro",
+  };
+
+  assert.equal(matchesGroupLeaderRoomOccupantGroup(occupant, "G2"), true);
+  assert.equal(matchesGroupLeaderRoomOccupantGroup(occupant, "Milano Centro"), true);
+  assert.equal(matchesGroupLeaderRoomOccupantGroup(occupant, "G1"), false);
 });
