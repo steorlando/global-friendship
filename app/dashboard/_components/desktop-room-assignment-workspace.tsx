@@ -19,13 +19,17 @@ import {
   getGroupLeaderRoomFreeBedCount,
   getGroupLeaderRoomOccupancy,
   getGroupLeaderRoomRequiredAvailableFrom,
+  getGroupLeaderRoomShorteningSuggestion,
   getGroupLeaderSharedRooms,
+  isGroupLeaderRomeCity,
   matchesGroupLeaderParticipantSearch,
   matchesGroupLeaderRoomAvailabilityFilter,
+  matchesGroupLeaderRoomAvailabilityWarningFilter,
   matchesGroupLeaderRoomCodeFilter,
   matchesGroupLeaderRoomOccupantGroup,
   matchesGroupLeaderRoomOccupantSearch,
   type RoomAvailabilityFilter,
+  type RoomAvailabilityWarningFilter,
 } from "@/lib/capogruppo/room-assignment-presentation";
 
 type RoomScope = {
@@ -59,6 +63,7 @@ type Notice = {
 };
 
 const ALL_GROUPS_ID = "__all_groups__";
+const ROME_GROUPS_ID = "__rome_groups__";
 const ALL_HOSTELS_ID = "__all_hostels__";
 
 function participantBelongsToGroup(
@@ -66,6 +71,16 @@ function participantBelongsToGroup(
   groupId: string
 ): boolean {
   return participant.groupId === groupId || participant.groupLabel === groupId;
+}
+
+function resolveParticipantGroupId(
+  participant: GroupLeaderParticipant,
+  groups: GroupLeaderRoomAssignmentGroup[]
+): string | null {
+  return (
+    groups.find((group) => participantBelongsToGroup(participant, group.id))?.id ??
+    null
+  );
 }
 
 function buildParticipantName(participant: {
@@ -125,6 +140,8 @@ export function DesktopRoomAssignmentWorkspace({
   const [selectedHostelId, setSelectedHostelId] = useState(ALL_HOSTELS_ID);
   const [roomAvailabilityFilter, setRoomAvailabilityFilter] =
     useState<RoomAvailabilityFilter>("all");
+  const [roomAvailabilityWarningFilter, setRoomAvailabilityWarningFilter] =
+    useState<RoomAvailabilityWarningFilter>("all");
   const [roomCodeFilter, setRoomCodeFilter] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedParticipantIds, setSelectedParticipantIds] = useState<string[]>([]);
@@ -159,8 +176,15 @@ export function DesktopRoomAssignmentWorkspace({
         }
 
         const nextGroups = json.groups ?? [];
+        const nextParticipants = json.participants ?? [];
+        const nextRomeGroupIds = new Set(
+          nextParticipants
+            .filter((participant) => isGroupLeaderRomeCity(participant.city))
+            .map((participant) => resolveParticipantGroupId(participant, nextGroups))
+            .filter((groupId): groupId is string => Boolean(groupId))
+        );
         setGroups(nextGroups);
-        setParticipants(json.participants ?? []);
+        setParticipants(nextParticipants);
         setRooms(json.rooms ?? []);
         setRoomScopes(json.roomScopes ?? []);
         setAssignments(json.assignments ?? []);
@@ -171,6 +195,7 @@ export function DesktopRoomAssignmentWorkspace({
         setSelectedGroupId((current) => {
           const currentIsValid =
             (current === ALL_GROUPS_ID && nextGroups.length > 1) ||
+            (current === ROME_GROUPS_ID && nextRomeGroupIds.size > 1) ||
             nextGroups.some((group) => group.id === current);
           if (currentIsValid) return current;
           return nextGroups.length > 1 ? ALL_GROUPS_ID : (nextGroups[0]?.id ?? "");
@@ -201,6 +226,18 @@ export function DesktopRoomAssignmentWorkspace({
   }, [nonRoomDialogOpen, unassignedDialogOpen]);
 
   const isCombinedView = selectedGroupId === ALL_GROUPS_ID;
+  const isRomeAggregateView = selectedGroupId === ROME_GROUPS_ID;
+  const romeGroupIds = useMemo(
+    () =>
+      new Set(
+        participants
+          .filter((participant) => isGroupLeaderRomeCity(participant.city))
+          .map((participant) => resolveParticipantGroupId(participant, groups))
+          .filter((groupId): groupId is string => Boolean(groupId))
+      ),
+    [groups, participants]
+  );
+  const showRomeAggregateOption = romeGroupIds.size > 1;
 
   const participantsForSelectedGroup = useMemo(
     () =>
@@ -208,12 +245,14 @@ export function DesktopRoomAssignmentWorkspace({
         participants.filter((participant) =>
           isCombinedView
             ? true
+            : isRomeAggregateView
+              ? isGroupLeaderRomeCity(participant.city)
             : selectedGroupId
               ? participantBelongsToGroup(participant, selectedGroupId)
               : false
         )
       ),
-    [isCombinedView, participants, selectedGroupId]
+    [isCombinedView, isRomeAggregateView, participants, selectedGroupId]
   );
 
   const nonRoomParticipantsForSelectedGroup = useMemo(
@@ -222,12 +261,14 @@ export function DesktopRoomAssignmentWorkspace({
         nonRoomParticipants.filter((participant) =>
           isCombinedView
             ? true
+            : isRomeAggregateView
+              ? isGroupLeaderRomeCity(participant.city)
             : selectedGroupId
               ? participantBelongsToGroup(participant, selectedGroupId)
               : false
         )
       ),
-    [isCombinedView, nonRoomParticipants, selectedGroupId]
+    [isCombinedView, isRomeAggregateView, nonRoomParticipants, selectedGroupId]
   );
 
   const scopedRoomIds = useMemo(
@@ -236,10 +277,24 @@ export function DesktopRoomAssignmentWorkspace({
         canAssignAcrossGroups
           ? rooms.map((room) => room.id)
           : roomScopes
-              .filter((scope) => isCombinedView || scope.groupId === selectedGroupId)
+              .filter(
+                (scope) =>
+                  isCombinedView ||
+                  (isRomeAggregateView
+                    ? romeGroupIds.has(scope.groupId)
+                    : scope.groupId === selectedGroupId)
+              )
               .map((scope) => scope.roomId)
       ),
-    [canAssignAcrossGroups, isCombinedView, roomScopes, rooms, selectedGroupId]
+    [
+      canAssignAcrossGroups,
+      isCombinedView,
+      isRomeAggregateView,
+      romeGroupIds,
+      roomScopes,
+      rooms,
+      selectedGroupId,
+    ]
   );
 
   const hostelsForSelectedGroup = useMemo(() => {
@@ -301,11 +356,14 @@ export function DesktopRoomAssignmentWorkspace({
         ? roomsForSelectedGroup
         : roomsForSelectedGroup.filter((room) =>
             (roomOccupantsByRoomId.get(room.id) ?? []).some((occupant) =>
-              matchesGroupLeaderRoomOccupantGroup(occupant, selectedGroupId)
+              isRomeAggregateView
+                ? isGroupLeaderRomeCity(occupant.city)
+                : matchesGroupLeaderRoomOccupantGroup(occupant, selectedGroupId)
             )
           ),
     [
       isCombinedView,
+      isRomeAggregateView,
       roomOccupantsByRoomId,
       roomsForSelectedGroup,
       selectedGroupId,
@@ -322,11 +380,9 @@ export function DesktopRoomAssignmentWorkspace({
 
     return new Map(
       participantsForSelectedGroup.map((participant) => {
-        const participantGroup = groups.find((group) =>
-          participantBelongsToGroup(participant, group.id)
-        );
-        const participantRoomIds = participantGroup
-          ? scopedRoomIdsByGroupId.get(participantGroup.id)
+        const participantGroupId = resolveParticipantGroupId(participant, groups);
+        const participantRoomIds = participantGroupId
+          ? scopedRoomIdsByGroupId.get(participantGroupId)
           : undefined;
 
         return [
@@ -350,18 +406,30 @@ export function DesktopRoomAssignmentWorkspace({
   const roomsMatchingFilters = useMemo(
     () =>
       roomsOccupiedBySelectedGroup.filter((room) => {
-        const occupantCount = roomOccupantsByRoomId.get(room.id)?.length ?? 0;
+        const occupants = roomOccupantsByRoomId.get(room.id) ?? [];
+        const occupantCount = occupants.length;
+        const hasExtensionWarning =
+          getGroupLeaderRoomRequiredAvailableFrom(room, occupants) !== null;
+        const hasShorteningWarning =
+          getGroupLeaderRoomShorteningSuggestion(room, occupants) !== null;
         return (
           matchesGroupLeaderRoomAvailabilityFilter(
             room,
             occupantCount,
             roomAvailabilityFilter
-          ) && matchesGroupLeaderRoomCodeFilter(room, deferredRoomCodeFilter)
+          ) &&
+          matchesGroupLeaderRoomAvailabilityWarningFilter(
+            hasExtensionWarning,
+            hasShorteningWarning,
+            roomAvailabilityWarningFilter
+          ) &&
+          matchesGroupLeaderRoomCodeFilter(room, deferredRoomCodeFilter)
         );
       }),
     [
       deferredRoomCodeFilter,
       roomAvailabilityFilter,
+      roomAvailabilityWarningFilter,
       roomOccupantsByRoomId,
       roomsOccupiedBySelectedGroup,
     ]
@@ -692,7 +760,7 @@ export function DesktopRoomAssignmentWorkspace({
       ) : null}
 
       <section className="sticky top-0 z-20 rounded-xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur">
-        <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-[minmax(12rem,1.2fr)_minmax(11rem,1fr)_minmax(10rem,.8fr)_minmax(12rem,1fr)_minmax(14rem,1.2fr)_auto] 2xl:items-end">
+        <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-[minmax(12rem,1.2fr)_minmax(11rem,1fr)_minmax(10rem,.8fr)_minmax(11rem,.9fr)_minmax(12rem,1fr)_minmax(14rem,1.2fr)_auto] 2xl:items-end">
           <label className="block text-xs font-semibold text-slate-600">
             {t("groupLeader.roomAssignment.filters.group")}
             <select
@@ -709,6 +777,13 @@ export function DesktopRoomAssignmentWorkspace({
                 <option value={ALL_GROUPS_ID}>
                   {t("groupLeader.roomAssignment.filters.allGroups", {
                     count: formatNumber(groups.length),
+                  })}
+                </option>
+              ) : null}
+              {showRomeAggregateOption ? (
+                <option value={ROME_GROUPS_ID}>
+                  {t("groupLeader.roomAssignment.filters.allRomeGroups", {
+                    count: formatNumber(romeGroupIds.size),
                   })}
                 </option>
               ) : null}
@@ -755,6 +830,26 @@ export function DesktopRoomAssignmentWorkspace({
           </label>
 
           <label className="block text-xs font-semibold text-slate-600">
+            {t("groupLeader.roomAssignment.filters.availabilityWarning")}
+            <select
+              data-testid="room-availability-warning-filter"
+              value={roomAvailabilityWarningFilter}
+              onChange={(event) =>
+                setRoomAvailabilityWarningFilter(
+                  event.target.value as RoomAvailabilityWarningFilter
+                )
+              }
+              className="mt-1 w-full rounded-md border border-slate-300 bg-white px-2.5 py-2 text-xs text-slate-900"
+            >
+              <option value="all">{t("groupLeader.roomAssignment.filters.allWarnings")}</option>
+              <option value="extend">{t("groupLeader.roomAssignment.filters.extendWarning")}</option>
+              <option value="shorten">{t("groupLeader.roomAssignment.filters.shortenWarning")}</option>
+              <option value="any">{t("groupLeader.roomAssignment.filters.anyWarning")}</option>
+              <option value="both">{t("groupLeader.roomAssignment.filters.bothWarnings")}</option>
+            </select>
+          </label>
+
+          <label className="block text-xs font-semibold text-slate-600">
             {t("groupLeader.roomAssignment.filters.roomCode")}
             <input
               data-testid="room-code-filter"
@@ -777,7 +872,7 @@ export function DesktopRoomAssignmentWorkspace({
             />
           </label>
 
-          <div className="grid grid-cols-5 gap-1.5" aria-label={t("groupLeader.roomAssignment.summary.title")}>
+          <div className="grid grid-cols-5 gap-1.5 lg:col-span-2 2xl:col-span-1" aria-label={t("groupLeader.roomAssignment.summary.title")}>
             {[
               [t("groupLeader.roomAssignment.summary.rooms"), roomsMatchingFilters.length, "text-slate-800"],
               [t("accommodation.roomAssignmentTest.summary.beds"), totalVisibleBeds, "text-indigo-800"],
@@ -863,6 +958,8 @@ export function DesktopRoomAssignmentWorkspace({
                     );
                     const requiredAvailableFrom =
                       getGroupLeaderRoomRequiredAvailableFrom(room, occupants);
+                    const shorteningSuggestion =
+                      getGroupLeaderRoomShorteningSuggestion(room, occupants);
                     const roomHasSearchMatch =
                       hasSearch && occupants.some((occupant) => matchingRoomOccupantIds.has(occupant.participantId));
                     const roomTone =
@@ -933,6 +1030,43 @@ export function DesktopRoomAssignmentWorkspace({
                                         availableDate: formatDate(room.availableFrom),
                                       })}
                                     </p>
+                                  </div>
+                                ) : null}
+                                {shorteningSuggestion ? (
+                                  <div
+                                    data-testid="room-availability-shortening-alert"
+                                    className="mt-1.5 rounded-md border border-sky-300 bg-sky-50 px-2 py-1 text-[9px] font-semibold leading-tight text-sky-950"
+                                  >
+                                    <p className="font-black uppercase tracking-wide">
+                                      {t("accommodation.roomAssignmentTest.table.shortenAvailability")}
+                                    </p>
+                                    {shorteningSuggestion.availableFrom &&
+                                    shorteningSuggestion.availableTo &&
+                                    room.availableFrom &&
+                                    room.availableTo ? (
+                                      <p className="mt-0.5 font-medium">
+                                        {t("accommodation.roomAssignmentTest.table.shortenBoth", {
+                                          requiredFrom: formatDate(shorteningSuggestion.availableFrom),
+                                          requiredTo: formatDate(shorteningSuggestion.availableTo),
+                                          currentFrom: formatDate(room.availableFrom),
+                                          currentTo: formatDate(room.availableTo),
+                                        })}
+                                      </p>
+                                    ) : shorteningSuggestion.availableFrom && room.availableFrom ? (
+                                      <p className="mt-0.5 font-medium">
+                                        {t("accommodation.roomAssignmentTest.table.shortenFrom", {
+                                          requiredDate: formatDate(shorteningSuggestion.availableFrom),
+                                          currentDate: formatDate(room.availableFrom),
+                                        })}
+                                      </p>
+                                    ) : shorteningSuggestion.availableTo && room.availableTo ? (
+                                      <p className="mt-0.5 font-medium">
+                                        {t("accommodation.roomAssignmentTest.table.shortenTo", {
+                                          requiredDate: formatDate(shorteningSuggestion.availableTo),
+                                          currentDate: formatDate(room.availableTo),
+                                        })}
+                                      </p>
+                                    ) : null}
                                   </div>
                                 ) : null}
                                 <div className="mt-1.5 h-1 overflow-hidden rounded bg-slate-200">

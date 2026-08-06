@@ -56,6 +56,7 @@ test("visible room occupants include external participants as read-only", () => 
         data_nascita: null,
         data_arrivo: "2026-08-27",
         data_partenza: "2026-08-31",
+        citta: "Roma",
         sesso: "Female",
         eta: 23,
       },
@@ -73,6 +74,7 @@ test("visible room occupants include external participants as read-only", () => 
         data_nascita: null,
         data_arrivo: "2026-08-27",
         data_partenza: "2026-08-31",
+        citta: "Milano",
         sesso: "Male",
         eta: 24,
       },
@@ -90,6 +92,10 @@ test("visible room occupants include external participants as read-only", () => 
   assert.equal(
     occupants.find((occupant) => occupant.participantId === "external")?.groupId,
     "G2"
+  );
+  assert.equal(
+    occupants.find((occupant) => occupant.participantId === "managed")?.city,
+    "Roma"
   );
 });
 

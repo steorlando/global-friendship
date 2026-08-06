@@ -8,9 +8,12 @@ import {
   getGroupLeaderRoomFreeBedCount,
   getGroupLeaderRoomOccupancy,
   getGroupLeaderRoomRequiredAvailableFrom,
+  getGroupLeaderRoomShorteningSuggestion,
   getGroupLeaderSharedRooms,
+  isGroupLeaderRomeCity,
   matchesGroupLeaderParticipantSearch,
   matchesGroupLeaderRoomAvailabilityFilter,
+  matchesGroupLeaderRoomAvailabilityWarningFilter,
   matchesGroupLeaderRoomCodeFilter,
   matchesGroupLeaderRoomOccupantGroup,
   matchesGroupLeaderRoomOccupantSearch,
@@ -43,6 +46,19 @@ test("room availability filters distinguish free beds from completely empty room
   assert.equal(matchesGroupLeaderRoomAvailabilityFilter(room, 2, "available"), true);
   assert.equal(matchesGroupLeaderRoomAvailabilityFilter(room, 2, "empty"), false);
   assert.equal(matchesGroupLeaderRoomAvailabilityFilter(room, 4, "available"), false);
+});
+
+test("room warning filter supports individual, any, and combined warning states", () => {
+  assert.equal(matchesGroupLeaderRoomAvailabilityWarningFilter(false, false, "all"), true);
+  assert.equal(matchesGroupLeaderRoomAvailabilityWarningFilter(true, false, "extend"), true);
+  assert.equal(matchesGroupLeaderRoomAvailabilityWarningFilter(false, true, "extend"), false);
+  assert.equal(matchesGroupLeaderRoomAvailabilityWarningFilter(false, true, "shorten"), true);
+  assert.equal(matchesGroupLeaderRoomAvailabilityWarningFilter(true, false, "shorten"), false);
+  assert.equal(matchesGroupLeaderRoomAvailabilityWarningFilter(true, false, "any"), true);
+  assert.equal(matchesGroupLeaderRoomAvailabilityWarningFilter(false, true, "any"), true);
+  assert.equal(matchesGroupLeaderRoomAvailabilityWarningFilter(false, false, "any"), false);
+  assert.equal(matchesGroupLeaderRoomAvailabilityWarningFilter(true, true, "both"), true);
+  assert.equal(matchesGroupLeaderRoomAvailabilityWarningFilter(true, false, "both"), false);
 });
 
 test("room occupancy uses the most complete active-occupant count", () => {
@@ -259,6 +275,98 @@ test("room availability extension uses the earliest assigned arrival", () => {
   );
 });
 
+test("room shortening suggests later arrival and earlier departure only from complete occupancy data", () => {
+  const occupants = [
+    {
+      participantId: "p1",
+      roomId: "room-1",
+      firstName: "Anna",
+      lastName: "Rossi",
+      groupId: "G1",
+      groupLabel: "Roma Centro",
+      displayGroup: "Roma Centro",
+      arrivalDate: "2026-08-28",
+      departureDate: "2026-08-30",
+      city: "Roma",
+      sex: "Female",
+      sexCategory: "female" as const,
+      age: 23,
+      canManage: true,
+    },
+    {
+      participantId: "p2",
+      roomId: "room-1",
+      firstName: "Luca",
+      lastName: "Bianchi",
+      groupId: "G1",
+      groupLabel: "Roma Centro",
+      displayGroup: "Roma Centro",
+      arrivalDate: "2026-08-28",
+      departureDate: "2026-08-30",
+      city: "Roma",
+      sex: "Male",
+      sexCategory: "male" as const,
+      age: 24,
+      canManage: true,
+    },
+  ];
+
+  assert.deepEqual(
+    getGroupLeaderRoomShorteningSuggestion(
+      {
+        assignedParticipantCount: 2,
+        availableFrom: "2026-08-27",
+        availableTo: "2026-08-31",
+      },
+      occupants
+    ),
+    {
+      availableFrom: "2026-08-28",
+      availableTo: "2026-08-30",
+    }
+  );
+  assert.deepEqual(
+    getGroupLeaderRoomShorteningSuggestion(
+      {
+        assignedParticipantCount: 2,
+        availableFrom: "2026-08-27",
+        availableTo: "2026-08-31",
+      },
+      occupants.map((occupant) => ({
+        ...occupant,
+        arrivalDate: "2026-08-27",
+      }))
+    ),
+    {
+      availableFrom: null,
+      availableTo: "2026-08-30",
+    }
+  );
+
+  assert.equal(
+    getGroupLeaderRoomShorteningSuggestion(
+      {
+        assignedParticipantCount: 3,
+        availableFrom: "2026-08-27",
+        availableTo: "2026-08-31",
+      },
+      occupants
+    ),
+    null
+  );
+  assert.equal(
+    getGroupLeaderRoomShorteningSuggestion(
+      {
+        assignedParticipantCount: 2,
+        availableFrom: "2026-08-27",
+        availableTo: "2026-08-31",
+      },
+      [{ ...occupants[0], arrivalDate: null }, occupants[1]]
+    ),
+    null
+  );
+});
+
 test("matchesGroupLeaderParticipantSearch matches name, email, and group", () => {
   const participant: GroupLeaderParticipant = {
     id: "p1",
@@ -313,4 +421,12 @@ test("matchesGroupLeaderRoomOccupantGroup filters rooms by their actual occupant
   assert.equal(matchesGroupLeaderRoomOccupantGroup(occupant, "G2"), true);
   assert.equal(matchesGroupLeaderRoomOccupantGroup(occupant, "Milano Centro"), true);
   assert.equal(matchesGroupLeaderRoomOccupantGroup(occupant, "G1"), false);
+});
+
+test("Rome aggregation recognizes the localized city names only", () => {
+  assert.equal(isGroupLeaderRomeCity("Roma"), true);
+  assert.equal(isGroupLeaderRomeCity(" Rome "), true);
+  assert.equal(isGroupLeaderRomeCity("ROMA"), true);
+  assert.equal(isGroupLeaderRomeCity("Romania"), false);
+  assert.equal(isGroupLeaderRomeCity(null), false);
 });

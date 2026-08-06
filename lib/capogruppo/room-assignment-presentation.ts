@@ -5,6 +5,12 @@ import type {
 } from "./room-assignments.ts";
 
 export type RoomAvailabilityFilter = "all" | "available" | "empty";
+export type RoomAvailabilityWarningFilter =
+  | "all"
+  | "extend"
+  | "shorten"
+  | "any"
+  | "both";
 
 export function getGroupLeaderRoomOccupancy(
   room: AccommodationRoom,
@@ -44,6 +50,18 @@ export function matchesGroupLeaderRoomAvailabilityFilter(
   const occupancy = getGroupLeaderRoomOccupancy(room, visibleOccupantCount);
   if (filter === "empty") return occupancy === 0;
   return occupancy < room.capacity;
+}
+
+export function matchesGroupLeaderRoomAvailabilityWarningFilter(
+  hasExtensionWarning: boolean,
+  hasShorteningWarning: boolean,
+  filter: RoomAvailabilityWarningFilter
+): boolean {
+  if (filter === "extend") return hasExtensionWarning;
+  if (filter === "shorten") return hasShorteningWarning;
+  if (filter === "any") return hasExtensionWarning || hasShorteningWarning;
+  if (filter === "both") return hasExtensionWarning && hasShorteningWarning;
+  return true;
 }
 
 export function matchesGroupLeaderRoomCodeFilter(
@@ -128,6 +146,56 @@ export function getGroupLeaderRoomRequiredAvailableFrom(
   return requiredAvailableFrom;
 }
 
+export type GroupLeaderRoomShorteningSuggestion = {
+  availableFrom: string | null;
+  availableTo: string | null;
+};
+
+export function getGroupLeaderRoomShorteningSuggestion(
+  room: Pick<
+    AccommodationRoom,
+    "assignedParticipantCount" | "availableFrom" | "availableTo"
+  >,
+  occupants: GroupLeaderVisibleRoomOccupant[]
+): GroupLeaderRoomShorteningSuggestion | null {
+  const knownOccupantCount = occupants.length;
+  const totalOccupantCount = Math.max(
+    room.assignedParticipantCount,
+    knownOccupantCount
+  );
+  if (totalOccupantCount === 0 || knownOccupantCount < totalOccupantCount) {
+    return null;
+  }
+
+  const arrivalDates = occupants.map((occupant) => occupant.arrivalDate);
+  const departureDates = occupants.map((occupant) => occupant.departureDate);
+  if (!arrivalDates.every(isDateOnly) || !departureDates.every(isDateOnly)) {
+    return null;
+  }
+
+  const validArrivalDates = arrivalDates as string[];
+  const validDepartureDates = departureDates as string[];
+  const earliestArrival = validArrivalDates.reduce((earliest, date) =>
+    date < earliest ? date : earliest
+  );
+  const latestDeparture = validDepartureDates.reduce((latest, date) =>
+    date > latest ? date : latest
+  );
+
+  const availableFrom =
+    isDateOnly(room.availableFrom) &&
+    earliestArrival > room.availableFrom
+      ? earliestArrival
+      : null;
+  const availableTo =
+    isDateOnly(room.availableTo) &&
+    latestDeparture < room.availableTo
+      ? latestDeparture
+      : null;
+
+  return availableFrom || availableTo ? { availableFrom, availableTo } : null;
+}
+
 export function matchesGroupLeaderParticipantSearch(
   participant: GroupLeaderParticipant,
   searchTerm: string
@@ -165,4 +233,13 @@ export function matchesGroupLeaderRoomOccupantGroup(
   groupId: string
 ): boolean {
   return occupant.groupId === groupId || occupant.groupLabel === groupId;
+}
+
+export function isGroupLeaderRomeCity(city: string | null | undefined): boolean {
+  const normalized = (city ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLocaleLowerCase();
+  return normalized === "roma" || normalized === "rome";
 }

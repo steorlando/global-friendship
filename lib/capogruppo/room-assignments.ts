@@ -31,6 +31,7 @@ type ParticipantRow = {
   data_nascita: string | null;
   data_arrivo: string | null;
   data_partenza: string | null;
+  citta?: string | null;
   sesso: string | null;
   eta: number | null;
 };
@@ -51,8 +52,8 @@ type ParticipantAssignmentRow = {
   updated_by: string | null;
 };
 
-const ROOM_ASSIGNMENT_PARTICIPANT_SELECT_FIELDS =
-  "id,nome,cognome,email,gruppo_id,gruppo_label,alloggio,alloggio_short,tipo_iscrizione,preferenza_alloggio_operatore,data_nascita,data_arrivo,data_partenza,sesso,eta";
+const ROOM_ASSIGNMENT_PARTICIPANT_SELECT_FIELDS: string =
+  "id,nome,cognome,email,gruppo_id,gruppo_label,alloggio,alloggio_short,tipo_iscrizione,preferenza_alloggio_operatore,data_nascita,data_arrivo,data_partenza,citta:città,sesso,eta";
 
 export type GroupLeaderRoomAssignmentGroup = {
   id: string;
@@ -70,6 +71,7 @@ export type GroupLeaderParticipant = {
   accommodation: string | null;
   arrivalDate: string | null;
   departureDate: string | null;
+  city?: string | null;
   sex: string | null;
   sexCategory: GroupLeaderParticipantSexCategory;
   age: number | null;
@@ -107,6 +109,7 @@ export type GroupLeaderVisibleRoomOccupant = {
   displayGroup: string;
   arrivalDate: string | null;
   departureDate: string | null;
+  city?: string | null;
   sex: string | null;
   sexCategory: GroupLeaderParticipantSexCategory;
   age: number | null;
@@ -489,9 +492,9 @@ async function loadParticipantsForGroups(
     if (response.error) {
       throw new Error(response.error.message);
     }
-    for (const row of response.data ?? []) {
+    for (const row of (response.data ?? []) as unknown as ParticipantRow[]) {
       if (!row.id) continue;
-      merged.set(row.id, row as ParticipantRow);
+      merged.set(row.id, row);
     }
   }
 
@@ -523,9 +526,9 @@ async function loadParticipantsByIds(
     if (response.error) {
       throw new Error(response.error.message);
     }
-    for (const row of response.data ?? []) {
+    for (const row of (response.data ?? []) as unknown as ParticipantRow[]) {
       if (!row.id) continue;
-      merged.set(row.id, row as ParticipantRow);
+      merged.set(row.id, row);
     }
   }
 
@@ -550,6 +553,7 @@ function toGroupLeaderParticipant(row: ParticipantRow): GroupLeaderParticipant {
     accommodation: getParticipantAccommodationShort(row),
     arrivalDate: row.data_arrivo,
     departureDate: row.data_partenza,
+    city: normalizeText(row.citta),
     sex: normalizeText(row.sesso),
     sexCategory: normalizeParticipantSexCategory(row.sesso),
     age: row.eta ?? calculated.eta,
@@ -590,6 +594,7 @@ export function buildGroupLeaderVisibleRoomOccupants(input: {
           displayGroup: buildDisplayGroup(row),
           arrivalDate: row.data_arrivo,
           departureDate: row.data_partenza,
+          city: normalizeText(row.citta),
           sex: normalizeText(row.sesso),
           sexCategory: normalizeParticipantSexCategory(row.sesso),
           age: row.eta ?? calculated.eta,
