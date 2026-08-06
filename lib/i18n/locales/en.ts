@@ -293,7 +293,7 @@ const en: TranslationDictionary = {
     "Create one print-ready PDF containing all {count} active participants, with name, country, and city filled in automatically.",
   "manager.participantBadges.printFormat":
     "One 100 x 150 mm finished badge per page at 300 dpi, with 3 mm bleed on every side.",
-  "manager.participantBadges.download": "Download all badges (PDF)",
+  "manager.participantBadges.download": "Download PDF",
   "manager.participantBadges.preparing": "Preparing PDF...",
   "manager.participantBadges.retry": "Generation failed - retry",
   "manager.staffAvailability.title": "Event team availability",

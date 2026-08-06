@@ -65,7 +65,7 @@ export function ParticipantBadgesDownloadButton({
       type="button"
       onClick={downloadBadges}
       disabled={state === "loading"}
-      className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-800 transition hover:border-blue-300 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-wait disabled:opacity-70"
+      className="inline-flex min-h-9 shrink-0 items-center justify-center gap-2 rounded-md border border-blue-200 bg-white px-3 py-1.5 text-xs font-semibold text-blue-800 transition hover:border-blue-300 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-wait disabled:opacity-70"
     >
       {state === "loading" ? (
         <span

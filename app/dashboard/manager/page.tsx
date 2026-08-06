@@ -965,7 +965,7 @@ function OperatorAccommodationPreferenceSection({
   );
 }
 
-function ParticipantBadgesSection({
+function ParticipantBadgesControl({
   participantCount,
   t,
 }: {
@@ -973,29 +973,22 @@ function ParticipantBadgesSection({
   t: (key: string, values?: Record<string, string | number>) => string;
 }) {
   return (
-    <section
+    <div
       id="participant-badges"
-      className="rounded-xl border border-blue-200 bg-white p-6 shadow-sm"
+      className="flex flex-wrap items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2"
     >
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h3 className="text-lg font-semibold text-slate-900">
-            {t("manager.participantBadges.title")}
-          </h3>
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">
-            {t("manager.participantBadges.subtitle", { count: participantCount })}
-          </p>
-          <p className="mt-1 text-xs text-slate-500">
-            {t("manager.participantBadges.printFormat")}
-          </p>
-        </div>
-        <ParticipantBadgesDownloadButton
-          idleLabel={t("manager.participantBadges.download")}
-          loadingLabel={t("manager.participantBadges.preparing")}
-          errorLabel={t("manager.participantBadges.retry")}
-        />
+      <div className="flex items-baseline gap-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+          {t("manager.participantBadges.title")}
+        </p>
+        <p className="text-sm font-bold text-slate-900">{participantCount}</p>
       </div>
-    </section>
+      <ParticipantBadgesDownloadButton
+        idleLabel={t("manager.participantBadges.download")}
+        loadingLabel={t("manager.participantBadges.preparing")}
+        errorLabel={t("manager.participantBadges.retry")}
+      />
+    </div>
   );
 }
 
@@ -1796,7 +1789,15 @@ export async function StatisticsDashboard({
 
         <div className="space-y-6">
           <section id="top-counters" className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h3 className="text-lg font-semibold text-slate-900">{t("manager.statistics.topCounters")}</h3>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <h3 className="text-lg font-semibold text-slate-900">{t("manager.statistics.topCounters")}</h3>
+              {!publicView && (
+                <ParticipantBadgesControl
+                  participantCount={participants.length}
+                  t={t}
+                />
+              )}
+            </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <article className="rounded border border-slate-200 bg-slate-50 p-4">
                 <p className="text-xs uppercase tracking-wide text-slate-500">
@@ -1825,13 +1826,6 @@ export async function StatisticsDashboard({
 
             <DailyPresenceSection participants={participants} />
           </div>
-
-          {!publicView && (
-            <ParticipantBadgesSection
-              participantCount={participants.length}
-              t={t}
-            />
-          )}
 
           {!publicView && (
             <div className="grid gap-6 xl:grid-cols-2 xl:items-start">

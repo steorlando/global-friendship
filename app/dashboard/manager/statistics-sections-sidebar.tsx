@@ -59,6 +59,11 @@ export function StatisticsSectionsSidebar({
           <a href="#top-counters" className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
             {labels.counters}
           </a>
+          {includePrivateSections ? (
+            <a href="#participant-badges" className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
+              {labels.participantBadges}
+            </a>
+          ) : null}
           <a href="#registrations" className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
             {labels.registrations}
           </a>
@@ -70,9 +75,6 @@ export function StatisticsSectionsSidebar({
           </a>
           {includePrivateSections ? (
             <>
-              <a href="#participant-badges" className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
-                {labels.participantBadges}
-              </a>
               <a href="#staff-availability" className="rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
                 {labels.staffAvailability}
               </a>
