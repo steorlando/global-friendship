@@ -34,7 +34,6 @@ import {
   type FoodNeedsFilter,
 } from "@/lib/statistics/food-needs";
 import { STATISTICS_GROUP_LEADER_ROLES } from "@/lib/statistics/group-leader-associations";
-import { isParticipantBadgeEligible } from "@/lib/statistics/participant-badges";
 
 export const dynamic = "force-dynamic";
 
@@ -967,10 +966,8 @@ function OperatorAccommodationPreferenceSection({
 }
 
 function ParticipantBadgesControl({
-  participantCount,
   t,
 }: {
-  participantCount: number;
   t: (key: string, values?: Record<string, string | number>) => string;
 }) {
   return (
@@ -978,12 +975,9 @@ function ParticipantBadgesControl({
       id="participant-badges"
       className="flex flex-wrap items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2"
     >
-      <div className="flex items-baseline gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
-          {t("manager.participantBadges.title")}
-        </p>
-        <p className="text-sm font-bold text-slate-900">{participantCount}</p>
-      </div>
+      <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+        {t("manager.participantBadges.title")}
+      </p>
       <ParticipantBadgesDownloadButton
         idleLabel={t("manager.participantBadges.download")}
         loadingLabel={t("manager.participantBadges.preparing")}
@@ -1793,10 +1787,7 @@ export async function StatisticsDashboard({
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h3 className="text-lg font-semibold text-slate-900">{t("manager.statistics.topCounters")}</h3>
               {!publicView && (
-                <ParticipantBadgesControl
-                  participantCount={participants.filter(isParticipantBadgeEligible).length}
-                  t={t}
-                />
+                <ParticipantBadgesControl t={t} />
               )}
             </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
