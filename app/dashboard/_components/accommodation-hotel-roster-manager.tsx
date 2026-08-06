@@ -10,6 +10,8 @@ import {
   buildAccommodationHotelRosterColumns,
   buildAccommodationHotelRosterCsv,
   buildAccommodationHotelRosterRows,
+  buildAccommodationHotelRosterXlsxColumns,
+  buildAccommodationHotelRosterXlsxRows,
   exportRowsToPdf,
   exportRowsToXlsx,
   matchesOperationalRosterParticipantSearch,
@@ -156,6 +158,49 @@ export function AccommodationHotelRosterManager() {
     [displayedHotels, formatDate]
   );
 
+  const xlsxHotels = useMemo(() => {
+    const hotelsForSelection = hotels.filter(
+      (hotel) => selectedHotelId === "all" || hotel.hotelId === selectedHotelId
+    );
+    if (!deferredSearchTerm.trim()) return hotelsForSelection;
+
+    return displayedHotels.map((hotel) => ({
+      ...hotel,
+      rooms: hotel.rooms.filter((room) =>
+        hotel.participants.some((participant) => participant.roomId === room.roomId)
+      ),
+    }));
+  }, [deferredSearchTerm, displayedHotels, hotels, selectedHotelId]);
+
+  const xlsxColumns = useMemo(
+    () =>
+      buildAccommodationHotelRosterXlsxColumns({
+        hotel: t("accommodation.rosters.common.hotel"),
+        room: t("accommodation.rosters.common.room"),
+        availableFrom: t("accommodation.rosters.common.availableFrom"),
+        availableTo: t("accommodation.rosters.common.availableTo"),
+        realRoom: t("accommodation.rosters.common.realRoom"),
+        group: t("accommodation.rosters.common.group"),
+        participant: t("accommodation.rosters.common.participant"),
+        sex: t("accommodation.rosters.common.sex"),
+        age: t("accommodation.rosters.common.age"),
+        arrival: t("accommodation.rosters.common.arrival"),
+        departure: t("accommodation.rosters.common.departure"),
+        email: t("accommodation.rosters.common.email"),
+      }),
+    [t]
+  );
+
+  const xlsxRows = useMemo(
+    () =>
+      buildAccommodationHotelRosterXlsxRows({
+        hotels: xlsxHotels,
+        emptyBedLabel: t("accommodation.rosters.common.emptyBed"),
+        formatDate,
+      }),
+    [formatDate, t, xlsxHotels]
+  );
+
   const handleExport = useCallback(() => {
     const csv = buildAccommodationHotelRosterCsv({
       hotels: displayedHotels,
@@ -182,15 +227,15 @@ export function AccommodationHotelRosterManager() {
       await exportRowsToXlsx({
         fileName: `accommodation-hotel-roster-${stamp}.xlsx`,
         sheetName: "Hotel roster",
-        columns: exportColumns,
-        rows: exportRows,
+        columns: xlsxColumns,
+        rows: xlsxRows,
       });
     } catch (exportError) {
       setError(
         (exportError as Error).message || t("accommodation.rosters.status.exportError")
       );
     }
-  }, [exportColumns, exportRows, t]);
+  }, [t, xlsxColumns, xlsxRows]);
 
   const handleExportPdf = useCallback(async () => {
     try {

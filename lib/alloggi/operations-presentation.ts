@@ -93,6 +93,36 @@ export function buildAccommodationHotelRosterColumns(headers: {
   ];
 }
 
+export function buildAccommodationHotelRosterXlsxColumns(headers: {
+  hotel: string;
+  room: string;
+  availableFrom: string;
+  availableTo: string;
+  realRoom: string;
+  group: string;
+  participant: string;
+  sex: string;
+  age: string;
+  arrival: string;
+  departure: string;
+  email: string;
+}): OperationalExportColumn[] {
+  return [
+    { key: "hotel", label: headers.hotel },
+    { key: "room", label: headers.room },
+    { key: "availableFrom", label: headers.availableFrom },
+    { key: "availableTo", label: headers.availableTo },
+    { key: "realRoom", label: headers.realRoom },
+    { key: "group", label: headers.group },
+    { key: "participant", label: headers.participant },
+    { key: "sex", label: headers.sex },
+    { key: "age", label: headers.age, align: "center" },
+    { key: "arrival", label: headers.arrival },
+    { key: "departure", label: headers.departure },
+    { key: "email", label: headers.email },
+  ];
+}
+
 export function buildAccommodationRoomRosterColumns(headers: {
   hotel: string;
   room: string;
@@ -136,6 +166,55 @@ export function buildAccommodationHotelRosterRows(args: {
       email: participant.email ?? "",
     }))
   );
+}
+
+export function buildAccommodationHotelRosterXlsxRows(args: {
+  hotels: AccommodationHotelRosterSection[];
+  emptyBedLabel: string;
+  formatDate?: DateFormatter;
+}): OperationalExportRow[] {
+  return args.hotels.flatMap((hotel) => {
+    const participantsByRoom = new Map<string, AccommodationOperationalParticipant[]>();
+    for (const participant of hotel.participants) {
+      const participants = participantsByRoom.get(participant.roomId) ?? [];
+      participants.push(participant);
+      participantsByRoom.set(participant.roomId, participants);
+    }
+
+    return hotel.rooms.flatMap((room) => {
+      const participants = participantsByRoom.get(room.roomId) ?? [];
+      const roomValues = {
+        hotel: hotel.hotelName,
+        room: room.internalCode,
+        availableFrom: formatExportDate(room.availableFrom, args.formatDate),
+        availableTo: formatExportDate(room.availableTo, args.formatDate),
+        realRoom: room.realRoomNumber ?? "",
+      };
+      const participantRows = participants.map((participant) => ({
+        ...roomValues,
+        group: participant.groupName,
+        participant: participant.fullName,
+        sex: participant.sex ?? "",
+        age: participant.age == null ? "" : String(participant.age),
+        arrival: formatExportDate(participant.arrivalDate, args.formatDate),
+        departure: formatExportDate(participant.departureDate, args.formatDate),
+        email: participant.email ?? "",
+      }));
+      const emptyBedCount = Math.max(room.capacity - room.occupancyCount, 0);
+      const emptyBedRows = Array.from({ length: emptyBedCount }, () => ({
+        ...roomValues,
+        group: room.assignedGroups.join("; "),
+        participant: args.emptyBedLabel,
+        sex: "",
+        age: "",
+        arrival: "",
+        departure: "",
+        email: "",
+      }));
+
+      return [...participantRows, ...emptyBedRows];
+    });
+  });
 }
 
 export function buildAccommodationRoomRosterRows(args: {

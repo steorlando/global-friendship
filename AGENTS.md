@@ -658,6 +658,9 @@ Recent state:
   without a hostel room assignment; participant drill-downs label them as operator hotel.
   They are also excluded from the hostel-bed need used by the `Rooms` metric, so they do
   not create false uncovered-bed counts for their group.
+- The Hotel roster XLSX export includes each room's `available_from` and exclusive
+  `available_to` check-out date, participant age, and one explicit row for every empty bed;
+  completely empty rooms therefore appear with one empty-bed row per place.
 
 ## Supabase / Database Notes
 

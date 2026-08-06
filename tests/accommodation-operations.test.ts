@@ -5,6 +5,8 @@ import {
   buildAccommodationHotelRosterColumns,
   buildAccommodationHotelRosterCsv,
   buildAccommodationHotelRosterRows,
+  buildAccommodationHotelRosterXlsxColumns,
+  buildAccommodationHotelRosterXlsxRows,
   buildAccommodationRoomRosterColumns,
   buildAccommodationRoomRosterCsv,
   buildAccommodationRoomRosterRows,
@@ -64,6 +66,29 @@ test("buildAccommodationOperationalRosters groups assigned participants by hotel
         updatedAt: "",
         assignedGroupCount: 1,
         assignedParticipantCount: 1,
+      },
+      {
+        id: "r3",
+        hotelId: "h1",
+        hotel: {
+          id: "h1",
+          name: "Wombat's",
+          address: "Budapest",
+          googleMapsUrl: null,
+          createdAt: "",
+          roomCount: 2,
+        },
+        legacyName: "WO-04-B",
+        internalCode: "WO-04-B",
+        realRoomNumber: "102",
+        capacity: 4,
+        genderPolicy: "mixed",
+        availableFrom: "2026-08-27",
+        availableTo: "2026-08-31",
+        createdAt: "",
+        updatedAt: "",
+        assignedGroupCount: 1,
+        assignedParticipantCount: 0,
       },
     ],
     participants: [
@@ -144,8 +169,11 @@ test("buildAccommodationOperationalRosters groups assigned participants by hotel
   const wombats = rosters.hotels.find((hotel) => hotel.hotelId === "h1");
   assert.ok(wombats);
   assert.equal(wombats.participantCount, 2);
+  assert.equal(wombats.roomCount, 2);
   assert.equal(wombats.sharedRoomCount, 1);
   assert.equal(wombats.rooms[0]?.assignedGroups.join(", "), "Madrid, Roma Centro");
+  assert.equal(wombats.rooms[1]?.internalCode, "WO-04-B");
+  assert.equal(wombats.rooms[1]?.occupancyCount, 0);
 
   const room = rosters.rooms.find((item) => item.roomId === "r1");
   assert.ok(room);
@@ -336,6 +364,120 @@ test("PDF export builder renders landscape document with flat rows", () => {
   assert.match(pdfHtml, /Anna Rossi/);
   assert.match(pdfHtml, /WO-04-A/);
   assert.match(pdfHtml, /Generated at/);
+});
+
+test("hotel XLSX rows include room availability, participant age, empty beds, and empty rooms", () => {
+  const columns = buildAccommodationHotelRosterXlsxColumns({
+    hotel: "Hotel",
+    room: "Stanza",
+    availableFrom: "Disponibile dal",
+    availableTo: "Disponibile al",
+    realRoom: "Numero reale",
+    group: "Gruppo",
+    participant: "Partecipante",
+    sex: "Sesso",
+    age: "Età",
+    arrival: "Arrivo",
+    departure: "Partenza",
+    email: "Email",
+  });
+  const rows = buildAccommodationHotelRosterXlsxRows({
+    emptyBedLabel: "Posto vuoto",
+    hotels: [
+      {
+        hotelId: "h1",
+        hotelName: "Wombat's",
+        address: null,
+        googleMapsUrl: null,
+        participantCount: 1,
+        roomCount: 2,
+        sharedRoomCount: 0,
+        rooms: [
+          {
+            roomId: "r1",
+            internalCode: "WO-04-A",
+            realRoomNumber: "101",
+            capacity: 2,
+            genderPolicy: "mixed",
+            availableFrom: "2026-08-27",
+            availableTo: "2026-08-31",
+            occupancyCount: 1,
+            assignedGroups: ["Roma Centro"],
+          },
+          {
+            roomId: "r2",
+            internalCode: "WO-04-B",
+            realRoomNumber: "102",
+            capacity: 2,
+            genderPolicy: "mixed",
+            availableFrom: "2026-08-28",
+            availableTo: "2026-08-30",
+            occupancyCount: 0,
+            assignedGroups: ["Madrid"],
+          },
+        ],
+        participants: [
+          {
+            participantId: "p1",
+            assignmentId: "a1",
+            firstName: "Anna",
+            lastName: "Rossi",
+            fullName: "Anna Rossi",
+            email: "anna@example.com",
+            groupId: "g1",
+            groupName: "Roma Centro",
+            sex: "Female",
+            age: 22,
+            arrivalDate: "2026-08-27",
+            departureDate: "2026-08-30",
+            hotelId: "h1",
+            hotelName: "Wombat's",
+            roomId: "r1",
+            roomInternalCode: "WO-04-A",
+            realRoomNumber: "101",
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.deepEqual(
+    columns.map((column) => column.key),
+    [
+      "hotel",
+      "room",
+      "availableFrom",
+      "availableTo",
+      "realRoom",
+      "group",
+      "participant",
+      "sex",
+      "age",
+      "arrival",
+      "departure",
+      "email",
+    ]
+  );
+  assert.equal(rows.length, 4);
+  assert.deepEqual(rows[0], {
+    hotel: "Wombat's",
+    room: "WO-04-A",
+    availableFrom: "2026-08-27",
+    availableTo: "2026-08-31",
+    realRoom: "101",
+    group: "Roma Centro",
+    participant: "Anna Rossi",
+    sex: "Female",
+    age: "22",
+    arrival: "2026-08-27",
+    departure: "2026-08-30",
+    email: "anna@example.com",
+  });
+  assert.equal(rows[1]?.participant, "Posto vuoto");
+  assert.equal(rows[2]?.room, "WO-04-B");
+  assert.equal(rows[2]?.participant, "Posto vuoto");
+  assert.equal(rows[3]?.room, "WO-04-B");
+  assert.equal(rows[3]?.participant, "Posto vuoto");
 });
 
 test("room roster row builder includes group list and capacity", () => {

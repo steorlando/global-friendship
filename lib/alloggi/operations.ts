@@ -22,6 +22,7 @@ type OperationalParticipantRow = {
   alloggio: string | null;
   alloggio_short: string | null;
   sesso: string | null;
+  eta?: number | null;
   data_arrivo: string | null;
   data_partenza: string | null;
 };
@@ -47,6 +48,7 @@ export type AccommodationOperationalParticipant = {
   groupId: string | null;
   groupName: string;
   sex: string | null;
+  age?: number | null;
   arrivalDate: string | null;
   departureDate: string | null;
   hotelId: string;
@@ -235,6 +237,23 @@ export function buildAccommodationOperationalRosters(args: {
   const roomMap = new Map<string, AccommodationRoomRosterSection>();
   const assignedEligibleParticipantIds = new Set<string>();
 
+  for (const room of args.rooms) {
+    const hotel = room.hotel;
+    if (!hotel || hotelMap.has(hotel.id)) continue;
+
+    hotelMap.set(hotel.id, {
+      hotelId: hotel.id,
+      hotelName: hotel.name,
+      address: hotel.address,
+      googleMapsUrl: hotel.googleMapsUrl,
+      participantCount: 0,
+      roomCount: 0,
+      sharedRoomCount: 0,
+      participants: [],
+      rooms: [],
+    });
+  }
+
   for (const assignment of args.assignments) {
     const participantId = normalizeText(assignment.partecipante_id);
     const roomId = normalizeText(assignment.stanza_id);
@@ -301,6 +320,7 @@ export function buildAccommodationOperationalRosters(args: {
       groupId: normalizeText(participant.gruppo_id),
       groupName: resolveGroupName(participant, groupAliasMap),
       sex: normalizeText(participant.sesso),
+      age: participant.eta ?? null,
       arrivalDate: normalizeText(participant.data_arrivo),
       departureDate: normalizeText(participant.data_partenza),
       hotelId: hotel.id,
@@ -326,27 +346,34 @@ export function buildAccommodationOperationalRosters(args: {
       return a.internalCode.localeCompare(b.internalCode);
     });
 
-  const roomSummaryById = new Map<string, AccommodationRosterRoomSummary>(
-    roomSections.map((roomSection) => [
-      roomSection.roomId,
-      {
-        roomId: roomSection.roomId,
-        internalCode: roomSection.internalCode,
-        realRoomNumber: roomSection.realRoomNumber,
-        capacity: roomSection.capacity,
-        genderPolicy: roomSection.genderPolicy,
-        availableFrom: roomSection.availableFrom,
-        availableTo: roomSection.availableTo,
-        occupancyCount: roomSection.occupancyCount,
-        assignedGroups: roomSection.assignedGroups,
-      },
-    ])
+  const occupiedRoomById = new Map(
+    roomSections.map((roomSection) => [roomSection.roomId, roomSection] as const)
   );
+  const roomSummaries = args.rooms
+    .filter((room) => room.hotel?.id)
+    .map((room): AccommodationRosterRoomSummary => {
+      const occupiedRoom = occupiedRoomById.get(room.id);
+      return {
+        roomId: room.id,
+        internalCode: room.internalCode,
+        realRoomNumber: room.realRoomNumber,
+        capacity: room.capacity,
+        genderPolicy: room.genderPolicy,
+        availableFrom: room.availableFrom,
+        availableTo: room.availableTo,
+        occupancyCount: occupiedRoom?.occupancyCount ?? 0,
+        assignedGroups: resolveAssignedGroupNames(
+          room.id,
+          args.roomScopes,
+          groupAliasMap
+        ),
+      };
+    });
 
   const hotels = [...hotelMap.values()]
     .map((hotelSection) => {
-      const roomsForHotel = roomSections.filter(
-        (roomSection) => roomSection.hotelId === hotelSection.hotelId
+      const roomsForHotel = roomSummaries.filter(
+        (roomSummary) => roomById.get(roomSummary.roomId)?.hotel?.id === hotelSection.hotelId
       );
 
       return {
@@ -355,9 +382,7 @@ export function buildAccommodationOperationalRosters(args: {
         roomCount: roomsForHotel.length,
         sharedRoomCount: roomsForHotel.filter((room) => room.assignedGroups.length > 1).length,
         participants: sortParticipants(hotelSection.participants, "hotel"),
-        rooms: roomsForHotel
-          .map((room) => roomSummaryById.get(room.roomId))
-          .filter(Boolean) as AccommodationRosterRoomSummary[],
+        rooms: roomsForHotel.sort((a, b) => a.internalCode.localeCompare(b.internalCode)),
       };
     })
     .sort((a, b) => a.hotelName.localeCompare(b.hotelName));
@@ -390,7 +415,7 @@ export async function loadAccommodationOperationalRosters(
       service
         .from("partecipanti")
         .select(
-          "id,nome,cognome,email,gruppo_id,gruppo_label,alloggio,alloggio_short,sesso,data_arrivo,data_partenza"
+          "id,nome,cognome,email,gruppo_id,gruppo_label,alloggio,alloggio_short,sesso,eta,data_arrivo,data_partenza"
         )
         .is("deleted_at", null),
       service.from("partecipanti_stanze").select("id,partecipante_id,stanza_id"),
