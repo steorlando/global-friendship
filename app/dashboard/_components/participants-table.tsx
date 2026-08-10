@@ -102,6 +102,7 @@ type ParticipantsTableProps = {
   showTotalFee?: boolean;
   showPaymentSummary?: boolean;
   allowExcelExport?: boolean;
+  excelExportPath?: string;
   canEditGroupAssignment?: boolean;
   initialEditParticipantId?: string | null;
   modalOnly?: boolean;
@@ -350,6 +351,7 @@ export function ParticipantsTable({
   showTotalFee = true,
   showPaymentSummary = false,
   allowExcelExport = false,
+  excelExportPath,
   canEditGroupAssignment = false,
   initialEditParticipantId: initialEditParticipantIdProp = null,
   modalOnly = false,
@@ -1045,7 +1047,17 @@ export function ParticipantsTable({
           <p className="text-sm text-slate-500">
             {groupSummaryLabel}: {groups.length > 0 ? groups.join(", ") : t("participants.table.noGroup")}
           </p>
-          {allowExcelExport ? (
+          {excelExportPath ? (
+            <a
+              href={excelExportPath}
+              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4M5 19h14" />
+              </svg>
+              {t("participants.export.button")}
+            </a>
+          ) : allowExcelExport ? (
             <button
               type="button"
               onClick={downloadParticipantsExcel}

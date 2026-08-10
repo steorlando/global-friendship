@@ -452,12 +452,17 @@ Used by:
 API:
 
 - `app/api/manager/participants/route.ts`
+- `app/api/manager/participants/export/route.ts`
 - `app/api/capogruppo/participants/route.ts`
 - `app/api/admin/deleted-participants/route.ts`
 
 Important behavior:
 
 - Admin and manager participant pages currently use the same manager participants API
+- Admin and manager participant pages expose an authenticated Excel export of every active
+  participant, including normalized registration/accommodation type, age, sex, stay dates,
+  current hostel/room assignment, and a boolean `Da assegnare` flag for hostel participants
+  who do not yet have a room.
 - Edit modal allows updating participant data
 - The edit modal shows the read-only four-digit `personal_code` as a badge beside the participant name.
 - Edit modal includes `tipo_iscrizione`; it is editable from manager/admin and capogruppo participant views.
