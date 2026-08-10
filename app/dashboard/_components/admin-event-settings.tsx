@@ -6,6 +6,7 @@ type LoadResponse = {
   eventStartDate: string;
   eventEndDate: string;
   hostCity: string;
+  hostelCheckInEnabled: boolean;
   updatedAt: string | null;
 };
 
@@ -20,6 +21,7 @@ export function AdminEventSettings() {
   const [eventStartDate, setEventStartDate] = useState("");
   const [eventEndDate, setEventEndDate] = useState("");
   const [hostCity, setHostCity] = useState("");
+  const [hostelCheckInEnabled, setHostelCheckInEnabled] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
 
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +37,7 @@ export function AdminEventSettings() {
       setEventStartDate(json.eventStartDate || "");
       setEventEndDate(json.eventEndDate || "");
       setHostCity(json.hostCity || "");
+      setHostelCheckInEnabled(json.hostelCheckInEnabled === true);
       setUpdatedAt(json.updatedAt ?? null);
     } catch (err) {
       setError((err as Error).message);
@@ -61,6 +64,7 @@ export function AdminEventSettings() {
           eventStartDate,
           eventEndDate,
           hostCity,
+          hostelCheckInEnabled,
         }),
       });
 
@@ -70,6 +74,7 @@ export function AdminEventSettings() {
       setEventStartDate(json.eventStartDate || eventStartDate);
       setEventEndDate(json.eventEndDate || eventEndDate);
       setHostCity(json.hostCity || hostCity);
+      setHostelCheckInEnabled(json.hostelCheckInEnabled === true);
       setUpdatedAt(json.updatedAt ?? null);
       setSuccess("Event settings saved.");
     } catch (err) {
@@ -125,6 +130,24 @@ export function AdminEventSettings() {
                 placeholder="Budapest"
                 required
               />
+            </label>
+
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-indigo-200 bg-indigo-50 p-4">
+              <input
+                type="checkbox"
+                checked={hostelCheckInEnabled}
+                onChange={(event) => setHostelCheckInEnabled(event.target.checked)}
+                className="mt-0.5 h-5 w-5 rounded border-indigo-300 text-indigo-600"
+              />
+              <span>
+                <span className="block text-sm font-semibold text-indigo-950">
+                  Enable participant hostel information and check-in
+                </span>
+                <span className="mt-1 block text-xs leading-5 text-indigo-800">
+                  Keep this disabled until room assignments are complete. While disabled,
+                  participants see only the “available soon” placeholder.
+                </span>
+              </span>
             </label>
 
             {updatedAt ? (

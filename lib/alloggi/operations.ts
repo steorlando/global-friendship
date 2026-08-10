@@ -9,6 +9,10 @@ import {
   loadAccommodationRooms,
   type AccommodationRoom,
 } from "./inventory.ts";
+import {
+  isMissingHostelCheckInTable,
+  type HostelCheckInInput,
+} from "./check-in.ts";
 
 type ServiceClient = SupabaseClient;
 
@@ -38,6 +42,16 @@ type RoomScopeRow = {
   gruppo_id: string | null;
 };
 
+type ParticipantHostelCheckInRow = {
+  participant_id: string | null;
+  identity_document_type: HostelCheckInInput["identityDocumentType"] | null;
+  identity_document_number: string | null;
+  identity_document_country: string | null;
+  identity_document_issuing_city: string | null;
+  identity_document_issue_date: string | null;
+  identity_document_expiration_date: string | null;
+};
+
 export type AccommodationOperationalParticipant = {
   participantId: string;
   assignmentId: string;
@@ -56,6 +70,7 @@ export type AccommodationOperationalParticipant = {
   roomId: string;
   roomInternalCode: string;
   realRoomNumber: string | null;
+  hostelCheckIn?: HostelCheckInInput | null;
 };
 
 export type AccommodationRosterRoomSummary = {
@@ -212,6 +227,7 @@ export function buildAccommodationOperationalRosters(args: {
   participants: OperationalParticipantRow[];
   assignments: ParticipantRoomAssignmentRow[];
   roomScopes: RoomScopeRow[];
+  checkIns?: ParticipantHostelCheckInRow[];
 }): AccommodationOperationalRosters {
   const groupAliasMap = buildGroupAliasMap(args.groups);
   const roomById = new Map(
@@ -231,6 +247,49 @@ export function buildAccommodationOperationalRosters(args: {
         return [participantId, participant] as const;
       })
       .filter(Boolean) as Array<readonly [string, OperationalParticipantRow]>
+  );
+  const checkInByParticipantId = new Map(
+    (args.checkIns ?? [])
+      .map((checkIn) => {
+        const participantId = normalizeText(checkIn.participant_id);
+        const identityDocumentType = checkIn.identity_document_type;
+        const identityDocumentNumber = normalizeText(checkIn.identity_document_number);
+        const identityDocumentCountry = normalizeText(checkIn.identity_document_country);
+        const identityDocumentIssuingCity = normalizeText(
+          checkIn.identity_document_issuing_city
+        );
+        const identityDocumentIssueDate = normalizeText(
+          checkIn.identity_document_issue_date
+        );
+        const identityDocumentExpirationDate = normalizeText(
+          checkIn.identity_document_expiration_date
+        );
+
+        if (
+          !participantId ||
+          !identityDocumentType ||
+          !identityDocumentNumber ||
+          !identityDocumentCountry ||
+          !identityDocumentIssuingCity ||
+          !identityDocumentIssueDate ||
+          !identityDocumentExpirationDate
+        ) {
+          return null;
+        }
+
+        return [
+          participantId,
+          {
+            identityDocumentType,
+            identityDocumentNumber,
+            identityDocumentCountry,
+            identityDocumentIssuingCity,
+            identityDocumentIssueDate,
+            identityDocumentExpirationDate,
+          },
+        ] as const;
+      })
+      .filter(Boolean) as Array<readonly [string, HostelCheckInInput]>
   );
 
   const hotelMap = new Map<string, AccommodationHotelRosterSection>();
@@ -328,6 +387,7 @@ export function buildAccommodationOperationalRosters(args: {
       roomId: room.id,
       roomInternalCode: room.internalCode,
       realRoomNumber: room.realRoomNumber,
+      hostelCheckIn: checkInByParticipantId.get(participantId) ?? null,
     };
 
     hotelSection.participants.push(rosterParticipant);
@@ -406,7 +466,8 @@ export function buildAccommodationOperationalRosters(args: {
 }
 
 export async function loadAccommodationOperationalRosters(
-  service: ServiceClient
+  service: ServiceClient,
+  options: { includeCheckInDocuments?: boolean } = {}
 ): Promise<AccommodationOperationalRosters> {
   const [groups, rooms, participantsRes, assignmentsRes, roomScopesRes] =
     await Promise.all([
@@ -431,6 +492,20 @@ export async function loadAccommodationOperationalRosters(
   if (roomScopesRes.error) {
     throw new Error(roomScopesRes.error.message);
   }
+  let checkIns: ParticipantHostelCheckInRow[] = [];
+  if (options.includeCheckInDocuments) {
+    const checkInsRes = await service
+      .from("participant_hostel_check_ins")
+      .select(
+        "participant_id,identity_document_type,identity_document_number,identity_document_country,identity_document_issuing_city,identity_document_issue_date,identity_document_expiration_date"
+      )
+      .not("completed_at", "is", null);
+
+    if (checkInsRes.error && !isMissingHostelCheckInTable(checkInsRes.error)) {
+      throw new Error(checkInsRes.error.message);
+    }
+    checkIns = (checkInsRes.error ? [] : checkInsRes.data ?? []) as ParticipantHostelCheckInRow[];
+  }
 
   return buildAccommodationOperationalRosters({
     groups,
@@ -438,5 +513,6 @@ export async function loadAccommodationOperationalRosters(
     participants: (participantsRes.data ?? []) as OperationalParticipantRow[],
     assignments: (assignmentsRes.data ?? []) as ParticipantRoomAssignmentRow[],
     roomScopes: (roomScopesRes.data ?? []) as RoomScopeRow[],
+    checkIns,
   });
 }

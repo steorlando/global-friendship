@@ -274,6 +274,17 @@ vocals or instrument details; social-media selection requires one or more activi
 The authenticated server action verifies that the selected participant belongs to the signed-in
 email before upserting one row in `participant_staff_availability`.
 
+The participant profile also reserves a prominent accommodation section above the staff
+questionnaire. `admin_event_settings.hostel_check_in_enabled` is disabled by default: while it
+is disabled, participants see only an "available soon" placeholder. When enabled, participants
+with a current `partecipanti_stanze` assignment see the assigned hostel, address, room, roommates,
+and a mobile-first inline check-in form. Autonomous participants and Hotel-preferring operators
+do not see the form. Identity-document details are stored in `participant_hostel_check_ins`.
+They are exposed through the authenticated participant route
+`app/api/partecipante/hostel-check-in/route.ts` and loaded by the authenticated accommodation
+roster API only on demand for the Hotel roster XLSX export; ordinary manager and capogruppo
+payloads expose only the derived completed/pending/not-applicable status.
+
 ### Participation Fee Bank Import
 
 Main files:
@@ -382,6 +393,10 @@ Statistics currently implemented:
   city), preserves international characters, and reuses one compressed 300 dpi background so
   the complete PDF remains compact. The title is positioned for the top-center lanyard hole.
   The public statistics page does not expose this control.
+- Authenticated hostel check-in summary for manager/admin, grouped by participant group and
+  counting only active participants with an assigned hostel room. The public statistics page
+  does not expose this section. The shared participant table shows a narrow green/red status dot
+  for completed/pending hostel check-ins and a neutral dash when check-in is not applicable.
 
 Registration type recoding used in stats:
 
@@ -539,6 +554,7 @@ Current fields:
 - `event_start_date`
 - `event_end_date`
 - `host_city`
+- `hostel_check_in_enabled`
 
 Default values:
 
@@ -673,6 +689,10 @@ Recent state:
 - The Hotel roster XLSX export includes each room's `available_from` and exclusive
   `available_to` check-out date, participant age, and one explicit row for every empty bed;
   completely empty rooms therefore appear with one empty-bed row per place.
+- The same Hotel roster XLSX includes the six identity-document fields collected through
+  the participant hostel check-in. Document types are exported with localized readable
+  labels; participants without a completed check-in and empty-bed rows keep those cells blank.
+  CSV/PDF roster exports intentionally remain unchanged.
 
 ## Supabase / Database Notes
 
@@ -720,6 +740,7 @@ High-value migrations to know:
 - `supabase/participant_personal_code_migration.sql`
 - `supabase/participation_fee_bank_import_migration.sql`
 - `supabase/participant_staff_availability_migration.sql`
+- `supabase/participant_hostel_check_in_migration.sql`
 
 Main business tables encountered frequently:
 
@@ -745,6 +766,7 @@ Main business tables encountered frequently:
 - `partecipanti_stanze`
 - `participation_fee_bank_payments`
 - `participant_staff_availability`
+- `participant_hostel_check_ins`
 
 Participant identifiers:
 

@@ -155,6 +155,17 @@ test("buildAccommodationOperationalRosters groups assigned participants by hotel
       { stanza_id: "r1", gruppo_id: "g2" },
       { stanza_id: "r2", gruppo_id: "g2" },
     ],
+    checkIns: [
+      {
+        participant_id: "p1",
+        identity_document_type: "passport",
+        identity_document_number: "YA1234567",
+        identity_document_country: "Italy",
+        identity_document_issuing_city: "Rome",
+        identity_document_issue_date: "2024-01-10",
+        identity_document_expiration_date: "2034-01-09",
+      },
+    ],
   });
 
   assert.equal(rosters.summary.hotelCount, 2);
@@ -179,6 +190,11 @@ test("buildAccommodationOperationalRosters groups assigned participants by hotel
   assert.ok(room);
   assert.equal(room.occupancyCount, 2);
   assert.equal(room.participants[0]?.fullName, "Luca Bianchi");
+  assert.equal(
+    room.participants.find((participant) => participant.participantId === "p1")
+      ?.hostelCheckIn?.identityDocumentNumber,
+    "YA1234567"
+  );
 });
 
 test("matchesOperationalRosterParticipantSearch checks participant, group, room, and hotel fields", () => {
@@ -380,9 +396,20 @@ test("hotel XLSX rows include room availability, participant age, empty beds, an
     arrival: "Arrivo",
     departure: "Partenza",
     email: "Email",
+    identityDocumentType: "Tipo documento",
+    identityDocumentNumber: "Numero documento",
+    identityDocumentCountry: "Paese documento",
+    identityDocumentIssuingCity: "Città di rilascio",
+    identityDocumentIssueDate: "Data di rilascio",
+    identityDocumentExpirationDate: "Data di scadenza",
   });
   const rows = buildAccommodationHotelRosterXlsxRows({
     emptyBedLabel: "Posto vuoto",
+    documentTypeLabels: {
+      passport: "Passaporto",
+      driving_license: "Patente di guida",
+      national_id: "Carta d'identità nazionale",
+    },
     hotels: [
       {
         hotelId: "h1",
@@ -435,6 +462,14 @@ test("hotel XLSX rows include room availability, participant age, empty beds, an
             roomId: "r1",
             roomInternalCode: "WO-04-A",
             realRoomNumber: "101",
+            hostelCheckIn: {
+              identityDocumentType: "passport",
+              identityDocumentNumber: "YA1234567",
+              identityDocumentCountry: "Italia",
+              identityDocumentIssuingCity: "Roma",
+              identityDocumentIssueDate: "2024-01-10",
+              identityDocumentExpirationDate: "2034-01-09",
+            },
           },
         ],
       },
@@ -456,6 +491,12 @@ test("hotel XLSX rows include room availability, participant age, empty beds, an
       "arrival",
       "departure",
       "email",
+      "identityDocumentType",
+      "identityDocumentNumber",
+      "identityDocumentCountry",
+      "identityDocumentIssuingCity",
+      "identityDocumentIssueDate",
+      "identityDocumentExpirationDate",
     ]
   );
   assert.equal(rows.length, 4);
@@ -472,8 +513,15 @@ test("hotel XLSX rows include room availability, participant age, empty beds, an
     arrival: "2026-08-27",
     departure: "2026-08-30",
     email: "anna@example.com",
+    identityDocumentType: "Passaporto",
+    identityDocumentNumber: "YA1234567",
+    identityDocumentCountry: "Italia",
+    identityDocumentIssuingCity: "Roma",
+    identityDocumentIssueDate: "2024-01-10",
+    identityDocumentExpirationDate: "2034-01-09",
   });
   assert.equal(rows[1]?.participant, "Posto vuoto");
+  assert.equal(rows[1]?.identityDocumentNumber, "");
   assert.equal(rows[2]?.room, "WO-04-B");
   assert.equal(rows[2]?.participant, "Posto vuoto");
   assert.equal(rows[3]?.room, "WO-04-B");

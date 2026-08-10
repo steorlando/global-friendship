@@ -28,6 +28,7 @@ type AdminEventSettingsRow = {
   event_start_date: string;
   event_end_date: string;
   host_city: string;
+  hostel_check_in_enabled?: boolean | null;
   created_at: string;
   updated_at: string;
 };
@@ -36,6 +37,7 @@ export type EventRuntimeSettings = {
   eventStartDate: string;
   eventEndDate: string;
   hostCity: string;
+  hostelCheckInEnabled: boolean;
   updatedAt: string | null;
 };
 
@@ -78,6 +80,7 @@ export async function loadEventRuntimeSettings(
     eventStartDate: normalizeDate(row?.event_start_date) ?? DEFAULT_EVENT_START_DATE,
     eventEndDate: normalizeDate(row?.event_end_date) ?? DEFAULT_EVENT_END_DATE,
     hostCity: normalizeText(row?.host_city) ?? DEFAULT_EVENT_HOST_CITY,
+    hostelCheckInEnabled: row?.hostel_check_in_enabled === true,
     updatedAt: row?.updated_at ?? null,
   };
 }

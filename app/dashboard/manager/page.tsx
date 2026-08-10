@@ -34,6 +34,12 @@ import {
   type FoodNeedsFilter,
 } from "@/lib/statistics/food-needs";
 import { STATISTICS_GROUP_LEADER_ROLES } from "@/lib/statistics/group-leader-associations";
+import {
+  buildHostelCheckInGroupSummary,
+  loadHostelCheckInStatuses,
+  participantMayNeedHostelCheckIn,
+  type HostelCheckInGroupRow,
+} from "@/lib/alloggi/check-in";
 
 export const dynamic = "force-dynamic";
 
@@ -987,6 +993,92 @@ function ParticipantBadgesControl({
   );
 }
 
+function HostelCheckInStatisticsSection({
+  rows,
+  t,
+}: {
+  rows: HostelCheckInGroupRow[];
+  t: (key: string, values?: Record<string, string | number>) => string;
+}) {
+  const completed = rows.reduce((sum, row) => sum + row.completed, 0);
+  const pending = rows.reduce((sum, row) => sum + row.pending, 0);
+
+  return (
+    <section
+      id="hostel-check-in"
+      className="rounded-xl border border-cyan-200 bg-white p-6 shadow-sm"
+    >
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-slate-900">
+            {t("manager.hostelCheckIn.title")}
+          </h3>
+          <p className="mt-1 text-sm text-slate-500">
+            {t("manager.hostelCheckIn.subtitle")}
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-2 text-center">
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2">
+            <p className="text-xs font-semibold uppercase text-emerald-700">
+              {t("manager.hostelCheckIn.completed")}
+            </p>
+            <p className="mt-1 text-2xl font-bold text-emerald-900">{completed}</p>
+          </div>
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2">
+            <p className="text-xs font-semibold uppercase text-red-700">
+              {t("manager.hostelCheckIn.pending")}
+            </p>
+            <p className="mt-1 text-2xl font-bold text-red-900">{pending}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-5 overflow-x-auto rounded-lg border border-slate-200">
+        <table className="min-w-full border-collapse text-left text-sm">
+          <thead className="bg-slate-50 text-slate-700">
+            <tr>
+              <th className="px-4 py-3 font-semibold">
+                {t("manager.hostelCheckIn.group")}
+              </th>
+              <th className="px-4 py-3 text-center font-semibold text-emerald-800">
+                {t("manager.hostelCheckIn.completed")}
+              </th>
+              <th className="px-4 py-3 text-center font-semibold text-red-800">
+                {t("manager.hostelCheckIn.pending")}
+              </th>
+              <th className="px-4 py-3 text-center font-semibold">
+                {t("manager.hostelCheckIn.total")}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={4} className="px-4 py-4 text-slate-500">
+                  {t("manager.hostelCheckIn.empty")}
+                </td>
+              </tr>
+            ) : (
+              rows.map((row) => (
+                <tr key={row.group} className="border-t border-slate-100">
+                  <td className="px-4 py-3 font-medium text-slate-900">{row.group}</td>
+                  <td className="px-4 py-3 text-center font-semibold text-emerald-700">
+                    {row.completed}
+                  </td>
+                  <td className="px-4 py-3 text-center font-semibold text-red-700">
+                    {row.pending}
+                  </td>
+                  <td className="px-4 py-3 text-center text-slate-700">{row.total}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
 function StaffAvailabilityMetric({
   label,
   value,
@@ -1588,10 +1680,21 @@ export async function StatisticsDashboard({
   const accessibilitySummary = buildAccessibilitySummary(participants);
   const foodNeedsSummary = buildFoodNeedsSummary(participants);
   let staffAvailabilitySummary = emptyStaffAvailabilitySummary();
+  let hostelCheckInGroupSummary: HostelCheckInGroupRow[] = [];
   if (!publicView) {
-    const { data: staffAvailabilityData, error: staffAvailabilityError } = await service
-      .from("participant_staff_availability")
-      .select("participant_id,areas,band_role,social_media_tasks");
+    const [staffAvailabilityResult, hostelCheckInStatuses] = await Promise.all([
+      service
+        .from("participant_staff_availability")
+        .select("participant_id,areas,band_role,social_media_tasks"),
+      loadHostelCheckInStatuses(
+        service,
+        participants
+          .filter(participantMayNeedHostelCheckIn)
+          .map((participant) => participant.id)
+      ),
+    ]);
+    const { data: staffAvailabilityData, error: staffAvailabilityError } =
+      staffAvailabilityResult;
 
     if (staffAvailabilityError) {
       return (
@@ -1607,6 +1710,14 @@ export async function StatisticsDashboard({
       (staffAvailabilityData ?? []) as StaffAvailabilityStatRow[]
     ).filter((row) => activeParticipantIds.has(row.participant_id));
     staffAvailabilitySummary = buildStaffAvailabilitySummary(activeAvailabilityRows);
+
+    hostelCheckInGroupSummary = buildHostelCheckInGroupSummary(
+      participants.map((participant) => ({
+        id: participant.id,
+        group: participantGroupValue(participant),
+      })),
+      hostelCheckInStatuses
+    );
   }
   const operatorAccommodationPreferenceCounts =
     buildOperatorAccommodationPreferenceCounts(participants);
@@ -1771,6 +1882,7 @@ export async function StatisticsDashboard({
             trend: t("manager.statistics.trend"),
             dailyPresence: t("manager.statistics.dailyPresence"),
             participantBadges: t("manager.statistics.participantBadges"),
+            hostelCheckIn: t("manager.statistics.hostelCheckIn"),
             staffAvailability: t("manager.statistics.staffAvailability"),
             accessibility: t("manager.statistics.accessibility"),
             foodNeeds: t("manager.statistics.foodNeeds"),
@@ -1818,6 +1930,10 @@ export async function StatisticsDashboard({
 
             <DailyPresenceSection participants={participants} />
           </div>
+
+          {!publicView && (
+            <HostelCheckInStatisticsSection rows={hostelCheckInGroupSummary} t={t} />
+          )}
 
           {!publicView && (
             <div className="grid gap-6 xl:grid-cols-2 xl:items-start">

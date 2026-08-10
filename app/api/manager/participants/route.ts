@@ -25,6 +25,11 @@ import {
   parseStaffAvailabilityFilter,
   type StaffAvailabilityStatRow,
 } from "@/lib/statistics/staff-availability";
+import {
+  loadHostelCheckInStatuses,
+  participantMayNeedHostelCheckIn,
+  type HostelCheckInStatus,
+} from "@/lib/alloggi/check-in";
 
 type ParticipantRow = {
   id: string;
@@ -362,7 +367,10 @@ async function loadParticipantById(
   return participant?.deleted_at ? null : participant;
 }
 
-function toResponseParticipant(row: ParticipantRow) {
+function toResponseParticipant(
+  row: ParticipantRow,
+  hostelCheckInStatus: HostelCheckInStatus = "not_applicable"
+) {
   const group = buildGroupLabel(row);
   return {
     ...row,
@@ -371,6 +379,7 @@ function toResponseParticipant(row: ParticipantRow) {
     gruppo_roma: isRomeCity(row.citta) ? group : null,
     esigenze_alimentari: parseStoredEsigenze(row.esigenze_alimentari),
     difficolta_accessibilita: parseStoredDifficolta(row.difficolta_accessibilita),
+    hostel_check_in_status: hostelCheckInStatus,
   };
 }
 
@@ -415,13 +424,24 @@ export async function GET(req: Request) {
     ]
       .filter((group) => group && group !== "-")
       .sort((a, b) => a.localeCompare(b));
+    const hostelCheckInStatuses = await loadHostelCheckInStatuses(
+      auth.service,
+      participants
+        .filter(participantMayNeedHostelCheckIn)
+        .map((participant) => participant.id)
+    );
 
     return NextResponse.json({
       groups,
       assignableGroups,
       showGroupColumn: true,
       staffAvailabilityFilter,
-      participants: participants.map(toResponseParticipant),
+      participants: participants.map((participant) =>
+        toResponseParticipant(
+          participant,
+          hostelCheckInStatuses.get(participant.id) ?? "not_applicable"
+        )
+      ),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to load participants";

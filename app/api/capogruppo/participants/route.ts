@@ -18,6 +18,11 @@ import {
   alloggioShortToLong,
 } from "@/lib/partecipante/constants";
 import type { ParticipantStaffAvailability } from "@/lib/partecipante/staff-availability";
+import {
+  loadHostelCheckInStatuses,
+  participantMayNeedHostelCheckIn,
+  type HostelCheckInStatus,
+} from "@/lib/alloggi/check-in";
 
 type ParticipantRow = {
   id: string;
@@ -454,7 +459,8 @@ async function loadStaffAvailabilityForParticipants(
 function toResponseParticipant(
   row: ParticipantRow,
   hostCity: string,
-  staffAvailability?: ParticipantStaffAvailability | null
+  staffAvailability?: ParticipantStaffAvailability | null,
+  hostelCheckInStatus: HostelCheckInStatus = "not_applicable"
 ) {
   const presenzaDettaglio = normalizePresenceDettaglio(row.presenza_dettaglio);
   return {
@@ -470,6 +476,7 @@ function toResponseParticipant(
     ...(staffAvailability !== undefined
       ? { staff_availability: staffAvailability }
       : {}),
+    hostel_check_in_status: hostelCheckInStatus,
   };
 }
 
@@ -482,11 +489,19 @@ export async function GET() {
       loadParticipantsForGroups(auth.groups),
       loadEventRuntimeSettings(),
     ]);
-    const staffAvailabilityByParticipant =
-      await loadStaffAvailabilityForParticipants(
-        auth.service,
-        participants.map((participant) => participant.id)
-      );
+    const [staffAvailabilityByParticipant, hostelCheckInStatuses] =
+      await Promise.all([
+        loadStaffAvailabilityForParticipants(
+          auth.service,
+          participants.map((participant) => participant.id)
+        ),
+        loadHostelCheckInStatuses(
+          auth.service,
+          participants
+            .filter(participantMayNeedHostelCheckIn)
+            .map((participant) => participant.id)
+        ),
+      ]);
 
     return NextResponse.json({
       groups: auth.groups,
@@ -496,7 +511,8 @@ export async function GET() {
         toResponseParticipant(
           participant,
           eventSettings.hostCity,
-          staffAvailabilityByParticipant.get(participant.id) ?? null
+          staffAvailabilityByParticipant.get(participant.id) ?? null,
+          hostelCheckInStatuses.get(participant.id) ?? "not_applicable"
         )
       ),
     });

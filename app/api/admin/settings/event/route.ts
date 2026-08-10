@@ -53,6 +53,7 @@ export async function PATCH(req: Request) {
   const eventStartDate = normalizeText(body.eventStartDate) || DEFAULT_EVENT_START_DATE;
   const eventEndDate = normalizeText(body.eventEndDate) || DEFAULT_EVENT_END_DATE;
   const hostCity = normalizeText(body.hostCity) || DEFAULT_EVENT_HOST_CITY;
+  const hostelCheckInEnabled = body.hostelCheckInEnabled === true;
 
   if (!isValidDateOnly(eventStartDate)) {
     return NextResponse.json({ error: "Valid eventStartDate is required" }, { status: 400 });
@@ -82,10 +83,13 @@ export async function PATCH(req: Request) {
           event_start_date: eventStartDate,
           event_end_date: eventEndDate,
           host_city: hostCity,
+          hostel_check_in_enabled: hostelCheckInEnabled,
         },
         { onConflict: "id" }
       )
-      .select("event_start_date,event_end_date,host_city,updated_at")
+      .select(
+        "event_start_date,event_end_date,host_city,hostel_check_in_enabled,updated_at"
+      )
       .single();
 
     if (error) {
@@ -103,6 +107,7 @@ export async function PATCH(req: Request) {
       eventStartDate: data.event_start_date,
       eventEndDate: data.event_end_date,
       hostCity: data.host_city,
+      hostelCheckInEnabled: data.hostel_check_in_enabled === true,
       updatedAt: data.updated_at,
     });
   } catch (error) {

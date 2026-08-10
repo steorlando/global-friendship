@@ -52,6 +52,7 @@ type Participant = {
   presenza_dettaglio?: PresenceDettaglioMap | null;
   can_manage_host_city_fields?: boolean | null;
   staff_availability?: ParticipantStaffAvailability | null;
+  hostel_check_in_status?: "completed" | "pending" | "not_applicable";
 };
 
 type FormState = {
@@ -639,6 +640,7 @@ export function ParticipantsTable({
   ]);
 
   const tableColumnCount =
+    1 +
     (showGroupColumn ? 1 : 0) +
     2 +
     visibleOptionalColumns.length +
@@ -1196,6 +1198,9 @@ export function ParticipantsTable({
           <table className="w-full border-collapse text-left text-sm">
             <thead className="bg-slate-50 text-slate-700">
               <tr>
+                <th className="w-16 px-2 py-3 text-center">
+                  {t("participants.table.header.hostelCheckIn")}
+                </th>
                 {showGroupColumn && (
                   <th className="px-4 py-3">
                     <button type="button" onClick={() => toggleSort("group")}>
@@ -1266,6 +1271,7 @@ export function ParticipantsTable({
                 )}
               </tr>
               <tr>
+                <th className="w-16 px-2 pb-3" aria-hidden="true" />
                 {showGroupColumn && (
                   <th className="px-2 pb-3">
                     <input
@@ -1416,6 +1422,37 @@ export function ParticipantsTable({
                         : ""
                     }`}
                   >
+                    <td className="w-16 px-2 py-3 text-center">
+                      {participant.hostel_check_in_status === "not_applicable" ||
+                      !participant.hostel_check_in_status ? (
+                        <span
+                          className="text-slate-400"
+                          aria-label={t("participants.table.hostelCheckIn.notApplicable")}
+                          title={t("participants.table.hostelCheckIn.notApplicable")}
+                        >
+                          —
+                        </span>
+                      ) : (
+                        <span
+                          className={`inline-block h-3.5 w-3.5 rounded-full ring-2 ring-white shadow-sm ${
+                            participant.hostel_check_in_status === "completed"
+                              ? "bg-emerald-500"
+                              : "bg-red-500"
+                          }`}
+                          aria-label={
+                            participant.hostel_check_in_status === "completed"
+                              ? t("participants.table.hostelCheckIn.completed")
+                              : t("participants.table.hostelCheckIn.pending")
+                          }
+                          title={
+                            participant.hostel_check_in_status === "completed"
+                              ? t("participants.table.hostelCheckIn.completed")
+                              : t("participants.table.hostelCheckIn.pending")
+                          }
+                          role="img"
+                        />
+                      )}
+                    </td>
                     {showGroupColumn && (
                       <td className="px-4 py-3">{participant.group || "-"}</td>
                     )}

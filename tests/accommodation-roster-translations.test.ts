@@ -50,6 +50,14 @@ test("hotel roster XLSX exposes both physical room number and internal ID number
     arrival: en["accommodation.rosters.common.arrival"],
     departure: en["accommodation.rosters.common.departure"],
     email: en["accommodation.rosters.common.email"],
+    identityDocumentType: en["participant.hostelCheckIn.identityDocumentType"],
+    identityDocumentNumber: en["participant.hostelCheckIn.identityDocumentNumber"],
+    identityDocumentCountry: en["participant.hostelCheckIn.identityDocumentCountry"],
+    identityDocumentIssuingCity:
+      en["participant.hostelCheckIn.identityDocumentIssuingCity"],
+    identityDocumentIssueDate: en["participant.hostelCheckIn.identityDocumentIssueDate"],
+    identityDocumentExpirationDate:
+      en["participant.hostelCheckIn.identityDocumentExpirationDate"],
   });
 
   assert.deepEqual(

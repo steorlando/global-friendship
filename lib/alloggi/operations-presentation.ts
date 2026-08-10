@@ -106,6 +106,12 @@ export function buildAccommodationHotelRosterXlsxColumns(headers: {
   arrival: string;
   departure: string;
   email: string;
+  identityDocumentType: string;
+  identityDocumentNumber: string;
+  identityDocumentCountry: string;
+  identityDocumentIssuingCity: string;
+  identityDocumentIssueDate: string;
+  identityDocumentExpirationDate: string;
 }): OperationalExportColumn[] {
   return [
     { key: "hotel", label: headers.hotel },
@@ -120,6 +126,18 @@ export function buildAccommodationHotelRosterXlsxColumns(headers: {
     { key: "arrival", label: headers.arrival },
     { key: "departure", label: headers.departure },
     { key: "email", label: headers.email },
+    { key: "identityDocumentType", label: headers.identityDocumentType },
+    { key: "identityDocumentNumber", label: headers.identityDocumentNumber },
+    { key: "identityDocumentCountry", label: headers.identityDocumentCountry },
+    {
+      key: "identityDocumentIssuingCity",
+      label: headers.identityDocumentIssuingCity,
+    },
+    { key: "identityDocumentIssueDate", label: headers.identityDocumentIssueDate },
+    {
+      key: "identityDocumentExpirationDate",
+      label: headers.identityDocumentExpirationDate,
+    },
   ];
 }
 
@@ -171,6 +189,11 @@ export function buildAccommodationHotelRosterRows(args: {
 export function buildAccommodationHotelRosterXlsxRows(args: {
   hotels: AccommodationHotelRosterSection[];
   emptyBedLabel: string;
+  documentTypeLabels: {
+    passport: string;
+    driving_license: string;
+    national_id: string;
+  };
   formatDate?: DateFormatter;
 }): OperationalExportRow[] {
   return args.hotels.flatMap((hotel) => {
@@ -199,6 +222,23 @@ export function buildAccommodationHotelRosterXlsxRows(args: {
         arrival: formatExportDate(participant.arrivalDate, args.formatDate),
         departure: formatExportDate(participant.departureDate, args.formatDate),
         email: participant.email ?? "",
+        identityDocumentType: participant.hostelCheckIn
+          ? args.documentTypeLabels[participant.hostelCheckIn.identityDocumentType]
+          : "",
+        identityDocumentNumber:
+          participant.hostelCheckIn?.identityDocumentNumber ?? "",
+        identityDocumentCountry:
+          participant.hostelCheckIn?.identityDocumentCountry ?? "",
+        identityDocumentIssuingCity:
+          participant.hostelCheckIn?.identityDocumentIssuingCity ?? "",
+        identityDocumentIssueDate: formatExportDate(
+          participant.hostelCheckIn?.identityDocumentIssueDate,
+          args.formatDate
+        ),
+        identityDocumentExpirationDate: formatExportDate(
+          participant.hostelCheckIn?.identityDocumentExpirationDate,
+          args.formatDate
+        ),
       }));
       const emptyBedCount = Math.max(room.capacity - room.occupancyCount, 0);
       const emptyBedRows = Array.from({ length: emptyBedCount }, () => ({
@@ -210,6 +250,12 @@ export function buildAccommodationHotelRosterXlsxRows(args: {
         arrival: "",
         departure: "",
         email: "",
+        identityDocumentType: "",
+        identityDocumentNumber: "",
+        identityDocumentCountry: "",
+        identityDocumentIssuingCity: "",
+        identityDocumentIssueDate: "",
+        identityDocumentExpirationDate: "",
       }));
 
       return [...participantRows, ...emptyBedRows];
