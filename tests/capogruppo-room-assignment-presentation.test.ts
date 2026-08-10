@@ -7,8 +7,10 @@ import {
   getGroupLeaderRoomBedRowCount,
   getGroupLeaderRoomEarlyArrivalOccupants,
   getGroupLeaderRoomFreeBedCount,
+  getGroupLeaderRoomLateDepartureOccupants,
   getGroupLeaderRoomOccupancy,
   getGroupLeaderRoomRequiredAvailableFrom,
+  getGroupLeaderRoomRequiredAvailableTo,
   getGroupLeaderRoomShorteningSuggestion,
   getGroupLeaderSharedRooms,
   isGroupLeaderRomeCity,
@@ -270,6 +272,63 @@ test("room availability extension uses the earliest assigned arrival", () => {
   assert.equal(
     getGroupLeaderRoomRequiredAvailableFrom(
       { availableFrom: "2026-08-26" },
+      occupants
+    ),
+    null
+  );
+});
+
+test("room availability extension uses the latest assigned departure", () => {
+  const occupants = [
+    {
+      participantId: "departure-31",
+      roomId: "r1",
+      firstName: "Anna",
+      lastName: "Rossi",
+      groupId: "G1",
+      groupLabel: "Roma",
+      displayGroup: "Roma",
+      arrivalDate: "2026-08-28",
+      departureDate: "2026-08-31",
+      sex: "Female",
+      sexCategory: "female" as const,
+      age: 22,
+      canManage: true,
+    },
+    {
+      participantId: "departure-30",
+      roomId: "r1",
+      firstName: "Luca",
+      lastName: "Bianchi",
+      groupId: "G2",
+      groupLabel: "Milano",
+      displayGroup: "Milano",
+      arrivalDate: "2026-08-28",
+      departureDate: "2026-08-30",
+      sex: "Male",
+      sexCategory: "male" as const,
+      age: 24,
+      canManage: true,
+    },
+  ];
+
+  assert.deepEqual(
+    getGroupLeaderRoomLateDepartureOccupants(
+      { availableTo: "2026-08-30" },
+      occupants
+    ).map((occupant) => occupant.participantId),
+    ["departure-31"]
+  );
+  assert.equal(
+    getGroupLeaderRoomRequiredAvailableTo(
+      { availableTo: "2026-08-30" },
+      occupants
+    ),
+    "2026-08-31"
+  );
+  assert.equal(
+    getGroupLeaderRoomRequiredAvailableTo(
+      { availableTo: "2026-08-31" },
       occupants
     ),
     null

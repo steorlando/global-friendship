@@ -648,6 +648,7 @@ const it: TranslationDictionary = {
   "accommodation.roomAssignmentTest.table.freeBeds": "{count} posti liberi",
   "accommodation.roomAssignmentTest.table.extendAvailability": "Disponibilità da estendere",
   "accommodation.roomAssignmentTest.table.earlyArrivals": "Estendere dal {requiredDate} (ora dal {availableDate}) · {count} arrivi anticipati",
+  "accommodation.roomAssignmentTest.table.lateDepartures": "Estendere fino al {requiredDate} (ora fino al {availableDate}) · {count} partenze successive",
   "accommodation.roomAssignmentTest.table.shortenAvailability": "Disponibilità da accorciare",
   "accommodation.roomAssignmentTest.table.shortenFrom": "Posticipare l’inizio al {requiredDate} (ora dal {currentDate})",
   "accommodation.roomAssignmentTest.table.shortenTo": "Anticipare la fine al {requiredDate} (ora fino al {currentDate})",
@@ -667,6 +668,8 @@ const it: TranslationDictionary = {
   "accommodation.roomAssignmentTest.queue.noSharedRooms": "Non ci sono stanze utilizzabili in comune per tutte le persone selezionate.",
   "accommodation.roomAssignmentTest.status.bulkSaved": "{count} persone assegnate alla stanza.",
   "accommodation.roomAssignmentTest.status.bulkSavedWithAvailabilityWarning": "{count} persone assegnate. Estendere la disponibilità della stanza almeno dal {date}.",
+  "accommodation.roomAssignmentTest.status.bulkSavedWithEndAvailabilityWarning": "{count} persone assegnate. Estendere la disponibilità della stanza almeno fino al {date}.",
+  "accommodation.roomAssignmentTest.status.bulkSavedWithBothAvailabilityWarnings": "{count} persone assegnate. Estendere la disponibilità della stanza dal {fromDate} fino al {toDate}.",
   "accommodation.roomAssignmentTest.status.bulkPartial": "{count} persone assegnate; le altre restano selezionate. Errore: {error}",
   "accommodation.roomAssignmentTest.unassigned.title": "Partecipanti non assegnati",
   "accommodation.roomAssignmentTest.unassigned.subtitle": "{count} persone ancora da assegnare con i filtri correnti.",
@@ -763,6 +766,10 @@ const it: TranslationDictionary = {
   "groupLeader.roomAssignment.status.saved": "Assegnazione stanza salvata.",
   "groupLeader.roomAssignment.status.savedWithAvailabilityWarning":
     "Assegnazione salvata. Attenzione: la stanza è disponibile solo dal {date}.",
+  "groupLeader.roomAssignment.status.savedWithEndAvailabilityWarning":
+    "Assegnazione salvata. Attenzione: la stanza è disponibile solo fino al {date}.",
+  "groupLeader.roomAssignment.status.savedWithBothAvailabilityWarnings":
+    "Assegnazione salvata. Attenzione: la disponibilità della stanza va estesa dal {fromDate} fino al {toDate}.",
   "groupLeader.roomAssignment.status.unassigned": "Partecipante rimosso dalla stanza.",
   "groupLeader.roomAssignment.rooms.title": "Stanze disponibili per il gruppo",
   "groupLeader.roomAssignment.rooms.subtitle": "Stanze attualmente collegate al gruppo {group}.",
@@ -782,6 +789,7 @@ const it: TranslationDictionary = {
   "groupLeader.roomAssignment.rooms.availabilityWarningPlural":
     "Attenzione: {count} persone arrivano prima che la stanza sia disponibile, dal {date}. Valutare un'altra soluzione oppure chiedere all'ostello di estendere la disponibilità.",
   "groupLeader.roomAssignment.rooms.earlyArrivalBadge": "Arrivo prima della disponibilità",
+  "groupLeader.roomAssignment.rooms.lateDepartureBadge": "Partenza dopo la disponibilità",
   "groupLeader.roomAssignment.rooms.occupants": "Persone assegnate",
   "groupLeader.roomAssignment.rooms.groupOccupancy": "{count} del gruppo",
   "groupLeader.roomAssignment.rooms.groupsOccupancy": "{count} dei tuoi gruppi",

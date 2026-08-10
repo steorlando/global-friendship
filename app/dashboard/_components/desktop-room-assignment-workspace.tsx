@@ -18,8 +18,10 @@ import {
   getGroupLeaderRoomBedRowCount,
   getGroupLeaderRoomEarlyArrivalOccupants,
   getGroupLeaderRoomFreeBedCount,
+  getGroupLeaderRoomLateDepartureOccupants,
   getGroupLeaderRoomOccupancy,
   getGroupLeaderRoomRequiredAvailableFrom,
+  getGroupLeaderRoomRequiredAvailableTo,
   getGroupLeaderRoomShorteningSuggestion,
   getGroupLeaderSharedRooms,
   isGroupLeaderRomeCity,
@@ -412,7 +414,8 @@ export function DesktopRoomAssignmentWorkspace({
         const occupants = roomOccupantsByRoomId.get(room.id) ?? [];
         const occupantCount = occupants.length;
         const hasExtensionWarning =
-          getGroupLeaderRoomRequiredAvailableFrom(room, occupants) !== null;
+          getGroupLeaderRoomRequiredAvailableFrom(room, occupants) !== null ||
+          getGroupLeaderRoomRequiredAvailableTo(room, occupants) !== null;
         const hasShorteningWarning =
           getGroupLeaderRoomShorteningSuggestion(room, occupants) !== null;
         return (
@@ -625,23 +628,56 @@ export function DesktopRoomAssignmentWorkspace({
         current.filter((selectedId) => selectedId !== participantId)
       );
 
-      const availabilityWarning = (json.warnings ?? []).find(
+      const startAvailabilityWarning = (json.warnings ?? []).find(
         (warning) => warning.code === "room_availability_starts_after_arrival"
       );
+      const endAvailabilityWarning = (json.warnings ?? []).find(
+        (warning) => warning.code === "room_availability_ends_before_departure"
+      );
       setNotice(
-        availabilityWarning
+        startAvailabilityWarning && endAvailabilityWarning
+          ? {
+              tone: "warning",
+              message: t(
+                "groupLeader.roomAssignment.status.savedWithBothAvailabilityWarnings",
+                {
+                  fromDate:
+                    typeof startAvailabilityWarning.meta?.arrivalDate === "string"
+                      ? formatDate(startAvailabilityWarning.meta.arrivalDate)
+                      : "-",
+                  toDate:
+                    typeof endAvailabilityWarning.meta?.departureDate === "string"
+                      ? formatDate(endAvailabilityWarning.meta.departureDate)
+                      : "-",
+                }
+              ),
+            }
+          : startAvailabilityWarning
           ? {
               tone: "warning",
               message: t(
                 "groupLeader.roomAssignment.status.savedWithAvailabilityWarning",
                 {
                   date:
-                    typeof availabilityWarning.meta?.availableFrom === "string"
-                      ? formatDate(availabilityWarning.meta.availableFrom)
+                    typeof startAvailabilityWarning.meta?.availableFrom === "string"
+                      ? formatDate(startAvailabilityWarning.meta.availableFrom)
                       : "-",
                 }
               ),
             }
+          : endAvailabilityWarning
+            ? {
+                tone: "warning",
+                message: t(
+                  "groupLeader.roomAssignment.status.savedWithEndAvailabilityWarning",
+                  {
+                    date:
+                      typeof endAvailabilityWarning.meta?.availableTo === "string"
+                        ? formatDate(endAvailabilityWarning.meta.availableTo)
+                        : "-",
+                  }
+                ),
+              }
           : {
               tone: "success",
               message: roomId
@@ -663,22 +699,33 @@ export function DesktopRoomAssignmentWorkspace({
     setError(null);
     setNotice(null);
     const completedParticipantIds: string[] = [];
-    let availabilityWarningRequiredDate: string | null = null;
+    let availabilityWarningRequiredFrom: string | null = null;
+    let availabilityWarningRequiredTo: string | null = null;
 
     try {
       for (const participant of selectedParticipants) {
         try {
           const json = await saveAssignment(participant.id, roomId);
           completedParticipantIds.push(participant.id);
-          const availabilityWarning = (json.warnings ?? []).find(
+          const startAvailabilityWarning = (json.warnings ?? []).find(
             (warning) => warning.code === "room_availability_starts_after_arrival"
           );
           if (
-            typeof availabilityWarning?.meta?.arrivalDate === "string" &&
-            (!availabilityWarningRequiredDate ||
-              availabilityWarning.meta.arrivalDate < availabilityWarningRequiredDate)
+            typeof startAvailabilityWarning?.meta?.arrivalDate === "string" &&
+            (!availabilityWarningRequiredFrom ||
+              startAvailabilityWarning.meta.arrivalDate < availabilityWarningRequiredFrom)
           ) {
-            availabilityWarningRequiredDate = availabilityWarning.meta.arrivalDate;
+            availabilityWarningRequiredFrom = startAvailabilityWarning.meta.arrivalDate;
+          }
+          const endAvailabilityWarning = (json.warnings ?? []).find(
+            (warning) => warning.code === "room_availability_ends_before_departure"
+          );
+          if (
+            typeof endAvailabilityWarning?.meta?.departureDate === "string" &&
+            (!availabilityWarningRequiredTo ||
+              endAvailabilityWarning.meta.departureDate > availabilityWarningRequiredTo)
+          ) {
+            availabilityWarningRequiredTo = endAvailabilityWarning.meta.departureDate;
           }
         } catch (assignmentError) {
           throw new Error(
@@ -688,17 +735,40 @@ export function DesktopRoomAssignmentWorkspace({
       }
 
       setNotice(
-        availabilityWarningRequiredDate
+        availabilityWarningRequiredFrom && availabilityWarningRequiredTo
+          ? {
+              tone: "warning",
+              message: t(
+                "accommodation.roomAssignmentTest.status.bulkSavedWithBothAvailabilityWarnings",
+                {
+                  count: formatNumber(completedParticipantIds.length),
+                  fromDate: formatDate(availabilityWarningRequiredFrom),
+                  toDate: formatDate(availabilityWarningRequiredTo),
+                }
+              ),
+            }
+          : availabilityWarningRequiredFrom
           ? {
               tone: "warning",
               message: t(
                 "accommodation.roomAssignmentTest.status.bulkSavedWithAvailabilityWarning",
                 {
                   count: formatNumber(completedParticipantIds.length),
-                  date: formatDate(availabilityWarningRequiredDate),
+                  date: formatDate(availabilityWarningRequiredFrom),
                 }
               ),
             }
+          : availabilityWarningRequiredTo
+            ? {
+                tone: "warning",
+                message: t(
+                  "accommodation.roomAssignmentTest.status.bulkSavedWithEndAvailabilityWarning",
+                  {
+                    count: formatNumber(completedParticipantIds.length),
+                    date: formatDate(availabilityWarningRequiredTo),
+                  }
+                ),
+              }
           : {
               tone: "success",
               message: t("accommodation.roomAssignmentTest.status.bulkSaved", {
@@ -961,6 +1031,13 @@ export function DesktopRoomAssignmentWorkspace({
                     );
                     const requiredAvailableFrom =
                       getGroupLeaderRoomRequiredAvailableFrom(room, occupants);
+                    const lateDepartureOccupants =
+                      getGroupLeaderRoomLateDepartureOccupants(room, occupants);
+                    const lateDepartureIds = new Set(
+                      lateDepartureOccupants.map((occupant) => occupant.participantId)
+                    );
+                    const requiredAvailableTo =
+                      getGroupLeaderRoomRequiredAvailableTo(room, occupants);
                     const shorteningSuggestion =
                       getGroupLeaderRoomShorteningSuggestion(room, occupants);
                     const roomHasSearchMatch =
@@ -1016,9 +1093,12 @@ export function DesktopRoomAssignmentWorkspace({
                                 </div>
                                 <p className="mt-1 text-[10px] text-slate-500">{buildPolicyLabel(room.genderPolicy, t)}</p>
                                 <p className="mt-0.5 whitespace-nowrap text-[9px] text-slate-400">{formatGroupLeaderRoomAvailability(room)}</p>
-                                {earlyArrivalOccupants.length > 0 &&
-                                requiredAvailableFrom &&
-                                room.availableFrom ? (
+                                {(earlyArrivalOccupants.length > 0 &&
+                                  requiredAvailableFrom &&
+                                  room.availableFrom) ||
+                                (lateDepartureOccupants.length > 0 &&
+                                  requiredAvailableTo &&
+                                  room.availableTo) ? (
                                   <div
                                     data-testid="room-availability-extension-alert"
                                     className="mt-1.5 rounded-md border border-amber-300 bg-amber-100 px-2 py-1 text-[9px] font-semibold leading-tight text-amber-900"
@@ -1026,13 +1106,28 @@ export function DesktopRoomAssignmentWorkspace({
                                     <p className="font-black uppercase tracking-wide">
                                       {t("accommodation.roomAssignmentTest.table.extendAvailability")}
                                     </p>
-                                    <p className="mt-0.5 font-medium">
-                                      {t("accommodation.roomAssignmentTest.table.earlyArrivals", {
-                                        count: formatNumber(earlyArrivalOccupants.length),
-                                        requiredDate: formatDate(requiredAvailableFrom),
-                                        availableDate: formatDate(room.availableFrom),
-                                      })}
-                                    </p>
+                                    {earlyArrivalOccupants.length > 0 &&
+                                    requiredAvailableFrom &&
+                                    room.availableFrom ? (
+                                      <p className="mt-0.5 font-medium">
+                                        {t("accommodation.roomAssignmentTest.table.earlyArrivals", {
+                                          count: formatNumber(earlyArrivalOccupants.length),
+                                          requiredDate: formatDate(requiredAvailableFrom),
+                                          availableDate: formatDate(room.availableFrom),
+                                        })}
+                                      </p>
+                                    ) : null}
+                                    {lateDepartureOccupants.length > 0 &&
+                                    requiredAvailableTo &&
+                                    room.availableTo ? (
+                                      <p className="mt-0.5 font-medium">
+                                        {t("accommodation.roomAssignmentTest.table.lateDepartures", {
+                                          count: formatNumber(lateDepartureOccupants.length),
+                                          requiredDate: formatDate(requiredAvailableTo),
+                                          availableDate: formatDate(room.availableTo),
+                                        })}
+                                      </p>
+                                    ) : null}
                                   </div>
                                 ) : null}
                                 {shorteningSuggestion ? (
@@ -1118,6 +1213,9 @@ export function DesktopRoomAssignmentWorkspace({
                                 <span className="whitespace-nowrap">{occupant.arrivalDate ? formatDate(occupant.arrivalDate) : "-"} → {occupant.departureDate ? formatDate(occupant.departureDate) : "-"}</span>
                                 {earlyArrivalIds.has(occupant.participantId) ? (
                                   <span className="mt-0.5 block font-semibold text-amber-700">{t("groupLeader.roomAssignment.rooms.earlyArrivalBadge")}</span>
+                                ) : null}
+                                {lateDepartureIds.has(occupant.participantId) ? (
+                                  <span className="mt-0.5 block font-semibold text-amber-700">{t("groupLeader.roomAssignment.rooms.lateDepartureBadge")}</span>
                                 ) : null}
                               </>
                             ) : "—"}

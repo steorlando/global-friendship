@@ -146,6 +146,38 @@ export function getGroupLeaderRoomRequiredAvailableFrom(
   return requiredAvailableFrom;
 }
 
+export function getGroupLeaderRoomLateDepartureOccupants(
+  room: Pick<AccommodationRoom, "availableTo">,
+  occupants: GroupLeaderVisibleRoomOccupant[]
+): GroupLeaderVisibleRoomOccupant[] {
+  if (!isDateOnly(room.availableTo)) return [];
+  const availableTo = room.availableTo;
+
+  return occupants.filter(
+    (occupant) =>
+      isDateOnly(occupant.departureDate) && occupant.departureDate > availableTo
+  );
+}
+
+export function getGroupLeaderRoomRequiredAvailableTo(
+  room: Pick<AccommodationRoom, "availableTo">,
+  occupants: GroupLeaderVisibleRoomOccupant[]
+): string | null {
+  const lateDepartures = getGroupLeaderRoomLateDepartureOccupants(room, occupants);
+  let requiredAvailableTo: string | null = null;
+
+  for (const occupant of lateDepartures) {
+    if (
+      isDateOnly(occupant.departureDate) &&
+      (requiredAvailableTo === null || occupant.departureDate > requiredAvailableTo)
+    ) {
+      requiredAvailableTo = occupant.departureDate;
+    }
+  }
+
+  return requiredAvailableTo;
+}
+
 export type GroupLeaderRoomShorteningSuggestion = {
   availableFrom: string | null;
   availableTo: string | null;

@@ -676,6 +676,7 @@ const en: TranslationDictionary = {
   "accommodation.roomAssignmentTest.table.freeBeds": "{count} free beds",
   "accommodation.roomAssignmentTest.table.extendAvailability": "Availability must be extended",
   "accommodation.roomAssignmentTest.table.earlyArrivals": "Extend from {requiredDate} (currently {availableDate}) · {count} early arrivals",
+  "accommodation.roomAssignmentTest.table.lateDepartures": "Extend until {requiredDate} (currently {availableDate}) · {count} later departures",
   "accommodation.roomAssignmentTest.table.shortenAvailability": "Availability can be shortened",
   "accommodation.roomAssignmentTest.table.shortenFrom": "Move the start to {requiredDate} (currently {currentDate})",
   "accommodation.roomAssignmentTest.table.shortenTo": "Move the end to {requiredDate} (currently {currentDate})",
@@ -695,6 +696,8 @@ const en: TranslationDictionary = {
   "accommodation.roomAssignmentTest.queue.noSharedRooms": "There are no rooms available to all selected people.",
   "accommodation.roomAssignmentTest.status.bulkSaved": "{count} people assigned to the room.",
   "accommodation.roomAssignmentTest.status.bulkSavedWithAvailabilityWarning": "{count} people assigned. Extend the room availability from at least {date}.",
+  "accommodation.roomAssignmentTest.status.bulkSavedWithEndAvailabilityWarning": "{count} people assigned. Extend the room availability until at least {date}.",
+  "accommodation.roomAssignmentTest.status.bulkSavedWithBothAvailabilityWarnings": "{count} people assigned. Extend the room availability from {fromDate} until {toDate}.",
   "accommodation.roomAssignmentTest.status.bulkPartial": "{count} people assigned; the others remain selected. Error: {error}",
   "accommodation.roomAssignmentTest.unassigned.title": "Unassigned participants",
   "accommodation.roomAssignmentTest.unassigned.subtitle": "{count} people still need assignment with the current filters.",
@@ -791,6 +794,10 @@ const en: TranslationDictionary = {
   "groupLeader.roomAssignment.status.saved": "Room assignment saved.",
   "groupLeader.roomAssignment.status.savedWithAvailabilityWarning":
     "Assignment saved. Warning: the room is available only from {date}.",
+  "groupLeader.roomAssignment.status.savedWithEndAvailabilityWarning":
+    "Assignment saved. Warning: the room is available only until {date}.",
+  "groupLeader.roomAssignment.status.savedWithBothAvailabilityWarnings":
+    "Assignment saved. Warning: extend the room availability from {fromDate} until {toDate}.",
   "groupLeader.roomAssignment.status.unassigned": "Participant removed from the room.",
   "groupLeader.roomAssignment.rooms.title": "Rooms available for the group",
   "groupLeader.roomAssignment.rooms.subtitle": "Rooms currently linked to the group {group}.",
@@ -810,6 +817,7 @@ const en: TranslationDictionary = {
   "groupLeader.roomAssignment.rooms.availabilityWarningPlural":
     "Warning: {count} people arrive before the room becomes available on {date}. Consider another solution or ask the hostel to extend availability.",
   "groupLeader.roomAssignment.rooms.earlyArrivalBadge": "Arrives before availability",
+  "groupLeader.roomAssignment.rooms.lateDepartureBadge": "Departs after availability",
   "groupLeader.roomAssignment.rooms.occupants": "Assigned people",
   "groupLeader.roomAssignment.rooms.groupOccupancy": "{count} from the group",
   "groupLeader.roomAssignment.rooms.groupsOccupancy": "{count} from your groups",

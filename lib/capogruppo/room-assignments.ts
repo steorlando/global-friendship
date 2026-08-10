@@ -134,7 +134,8 @@ export type GroupLeaderRoomAssignmentWarning = {
   code:
     | "participant_sex_unknown"
     | "existing_occupant_sex_unknown"
-    | "room_availability_starts_after_arrival";
+    | "room_availability_starts_after_arrival"
+    | "room_availability_ends_before_departure";
   message: string;
   meta?: Record<string, string | number | null>;
 };
@@ -369,10 +370,9 @@ export function validateGroupLeaderRoomAssignment(
     throw new Error("Room is not assigned to the participant group");
   }
 
-  const stayDates = eachStayDate(
-    normalizeText(input.participant.arrivalDate) ?? "",
-    normalizeText(input.participant.departureDate) ?? ""
-  );
+  const participantArrivalDate = normalizeText(input.participant.arrivalDate) ?? "";
+  const participantDepartureDate = normalizeText(input.participant.departureDate) ?? "";
+  const stayDates = eachStayDate(participantArrivalDate, participantDepartureDate);
 
   if (stayDates.length === 0) {
     throw new Error("Participant must have valid arrival and departure dates");
@@ -398,7 +398,16 @@ export function validateGroupLeaderRoomAssignment(
     });
   }
   if (input.room.availableTo && lastStayDate >= input.room.availableTo) {
-    throw new Error("Room availability ends before the participant departure");
+    warnings.push({
+      code: "room_availability_ends_before_departure",
+      message:
+        "Assignment saved, but the participant departs after the room availability ends.",
+      meta: {
+        participantId: input.participant.id,
+        departureDate: participantDepartureDate,
+        availableTo: input.room.availableTo,
+      },
+    });
   }
 
   const participantSexCategory = normalizeParticipantSexCategory(input.participant.sex);
