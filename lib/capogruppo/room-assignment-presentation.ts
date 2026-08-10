@@ -235,6 +235,25 @@ export function matchesGroupLeaderRoomOccupantGroup(
   return occupant.groupId === groupId || occupant.groupLabel === groupId;
 }
 
+export function filterGroupLeaderRoomsForSelectedGroup<T extends { id: string }>(input: {
+  rooms: T[];
+  occupantsByRoomId: ReadonlyMap<
+    string,
+    readonly GroupLeaderVisibleRoomOccupant[]
+  >;
+  canAssignAcrossGroups: boolean;
+  isCombinedView: boolean;
+  matchesSelectedGroup: (occupant: GroupLeaderVisibleRoomOccupant) => boolean;
+}): T[] {
+  if (input.isCombinedView || !input.canAssignAcrossGroups) {
+    return input.rooms;
+  }
+
+  return input.rooms.filter((room) =>
+    (input.occupantsByRoomId.get(room.id) ?? []).some(input.matchesSelectedGroup)
+  );
+}
+
 export function isGroupLeaderRomeCity(city: string | null | undefined): boolean {
   const normalized = (city ?? "")
     .normalize("NFD")

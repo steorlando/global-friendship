@@ -2,6 +2,7 @@ import { strict as assert } from "node:assert";
 import test from "node:test";
 import {
   buildGroupLeaderRoomOptionLabel,
+  filterGroupLeaderRoomsForSelectedGroup,
   formatGroupLeaderRoomAvailability,
   getGroupLeaderRoomBedRowCount,
   getGroupLeaderRoomEarlyArrivalOccupants,
@@ -421,6 +422,103 @@ test("matchesGroupLeaderRoomOccupantGroup filters rooms by their actual occupant
   assert.equal(matchesGroupLeaderRoomOccupantGroup(occupant, "G2"), true);
   assert.equal(matchesGroupLeaderRoomOccupantGroup(occupant, "Milano Centro"), true);
   assert.equal(matchesGroupLeaderRoomOccupantGroup(occupant, "G1"), false);
+});
+
+test("capogruppo room scope keeps assigned empty rooms visible", () => {
+  const rooms = [{ id: "occupied" }, { id: "empty" }];
+  const occupantsByRoomId = new Map([
+    [
+      "occupied",
+      [
+        {
+          participantId: "p1",
+          roomId: "occupied",
+          firstName: "Anna",
+          lastName: "Rossi",
+          groupId: "G1",
+          groupLabel: "Roma Centro",
+          displayGroup: "Roma Centro",
+          arrivalDate: "2026-08-28",
+          departureDate: "2026-08-30",
+          city: "Roma",
+          sex: "Female",
+          sexCategory: "female" as const,
+          age: 23,
+          canManage: true,
+        },
+      ],
+    ],
+  ]);
+
+  assert.deepEqual(
+    filterGroupLeaderRoomsForSelectedGroup({
+      rooms,
+      occupantsByRoomId,
+      canAssignAcrossGroups: false,
+      isCombinedView: false,
+      matchesSelectedGroup: (occupant) => occupant.groupId === "G1",
+    }),
+    rooms
+  );
+});
+
+test("cross-group operators keep occupant-based filtering for a selected group", () => {
+  const rooms = [{ id: "matching" }, { id: "other" }, { id: "empty" }];
+  const occupantsByRoomId = new Map([
+    [
+      "matching",
+      [
+        {
+          participantId: "p1",
+          roomId: "matching",
+          firstName: "Anna",
+          lastName: "Rossi",
+          groupId: "G1",
+          groupLabel: "Roma Centro",
+          displayGroup: "Roma Centro",
+          arrivalDate: "2026-08-28",
+          departureDate: "2026-08-30",
+          city: "Roma",
+          sex: "Female",
+          sexCategory: "female" as const,
+          age: 23,
+          canManage: true,
+        },
+      ],
+    ],
+    [
+      "other",
+      [
+        {
+          participantId: "p2",
+          roomId: "other",
+          firstName: "Luca",
+          lastName: "Bianchi",
+          groupId: "G2",
+          groupLabel: "Milano Centro",
+          displayGroup: "Milano Centro",
+          arrivalDate: "2026-08-28",
+          departureDate: "2026-08-30",
+          city: "Milano",
+          sex: "Male",
+          sexCategory: "male" as const,
+          age: 24,
+          canManage: false,
+        },
+      ],
+    ],
+  ]);
+
+  assert.deepEqual(
+    filterGroupLeaderRoomsForSelectedGroup({
+      rooms,
+      occupantsByRoomId,
+      canAssignAcrossGroups: true,
+      isCombinedView: false,
+      matchesSelectedGroup: (occupant) => occupant.groupId === "G1",
+    }),
+    [{ id: "matching" }]
+  );
 });
 
 test("Rome aggregation recognizes the localized city names only", () => {

@@ -13,6 +13,7 @@ import type {
 } from "@/lib/capogruppo/room-assignments";
 import {
   buildGroupLeaderRoomOptionLabel,
+  filterGroupLeaderRoomsForSelectedGroup,
   formatGroupLeaderRoomAvailability,
   getGroupLeaderRoomBedRowCount,
   getGroupLeaderRoomEarlyArrivalOccupants,
@@ -350,18 +351,20 @@ export function DesktopRoomAssignmentWorkspace({
     return occupantsByRoomId;
   }, [roomOccupants]);
 
-  const roomsOccupiedBySelectedGroup = useMemo(
+  const roomsVisibleForSelectedGroup = useMemo(
     () =>
-      isCombinedView
-        ? roomsForSelectedGroup
-        : roomsForSelectedGroup.filter((room) =>
-            (roomOccupantsByRoomId.get(room.id) ?? []).some((occupant) =>
-              isRomeAggregateView
-                ? isGroupLeaderRomeCity(occupant.city)
-                : matchesGroupLeaderRoomOccupantGroup(occupant, selectedGroupId)
-            )
-          ),
+      filterGroupLeaderRoomsForSelectedGroup({
+        rooms: roomsForSelectedGroup,
+        occupantsByRoomId: roomOccupantsByRoomId,
+        canAssignAcrossGroups,
+        isCombinedView,
+        matchesSelectedGroup: (occupant) =>
+          isRomeAggregateView
+            ? isGroupLeaderRomeCity(occupant.city)
+            : matchesGroupLeaderRoomOccupantGroup(occupant, selectedGroupId),
+      }),
     [
+      canAssignAcrossGroups,
       isCombinedView,
       isRomeAggregateView,
       roomOccupantsByRoomId,
@@ -405,7 +408,7 @@ export function DesktopRoomAssignmentWorkspace({
 
   const roomsMatchingFilters = useMemo(
     () =>
-      roomsOccupiedBySelectedGroup.filter((room) => {
+      roomsVisibleForSelectedGroup.filter((room) => {
         const occupants = roomOccupantsByRoomId.get(room.id) ?? [];
         const occupantCount = occupants.length;
         const hasExtensionWarning =
@@ -431,7 +434,7 @@ export function DesktopRoomAssignmentWorkspace({
       roomAvailabilityFilter,
       roomAvailabilityWarningFilter,
       roomOccupantsByRoomId,
-      roomsOccupiedBySelectedGroup,
+      roomsVisibleForSelectedGroup,
     ]
   );
 
