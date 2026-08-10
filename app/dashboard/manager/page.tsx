@@ -7,6 +7,7 @@ import { loadEventRuntimeSettings } from "@/lib/event/settings";
 import { DailyPresenceSection } from "./daily-presence-section";
 import { RegistrationsTabsSection } from "./registrations-tabs-section";
 import { StatisticsSectionsSidebar } from "./statistics-sections-sidebar";
+import { StatisticsSectionNavigator } from "./statistics-section-navigator";
 import { StatisticsParticipantEditModal } from "./statistics-participant-edit-modal";
 import { ParticipantBadgesDownloadButton } from "./participant-badges-download-button";
 import { getServerTranslator } from "@/lib/i18n/server";
@@ -38,6 +39,7 @@ import {
   buildHostelCheckInGroupSummary,
   loadHostelCheckInStatuses,
   participantMayNeedHostelCheckIn,
+  type HostelCheckInStatus,
   type HostelCheckInGroupRow,
 } from "@/lib/alloggi/check-in";
 import { ArrivalGroupSummaryTable } from "@/app/dashboard/_components/arrival-group-summary-table";
@@ -46,6 +48,10 @@ import {
   buildArrivalGroupSummary,
   type ArrivalGroupSummaryRow,
 } from "@/lib/accoglienza/arrivals";
+import {
+  parseStatisticsSection,
+  type StatisticsSectionKey,
+} from "@/lib/statistics/dashboard-sections";
 
 export const dynamic = "force-dynamic";
 
@@ -83,13 +89,15 @@ type ProfileRoleRow = {
   id: string;
 };
 
+type DuplicateReasonCode = "same-name" | "similar-name";
+
 type DuplicateCandidateRow = {
   id: string;
   nome: string | null;
   cognome: string | null;
   email: string | null;
   group: string;
-  reason: string;
+  reasonCodes: DuplicateReasonCode[];
   matchedWith: { id: string; label: string }[];
 };
 
@@ -117,6 +125,27 @@ const SELECT_FIELDS_BASE_LEGACY =
   "id,nome,cognome,email,tipo_iscrizione,paese_residenza,nazione,gruppo_label,gruppo_id,data_arrivo,data_partenza,alloggio_short,alloggio,created_at";
 const SELECT_FIELDS_WITH_CITY = `${SELECT_FIELDS_BASE},citta:città`;
 const SELECT_FIELDS_WITH_CITY_LEGACY = `${SELECT_FIELDS_BASE_LEGACY},citta:città`;
+const SECTION_SELECT_FIELDS: Record<StatisticsSectionKey, string> = {
+  overview: "id,tipo_iscrizione,deleted_at",
+  registrations:
+    "id,tipo_iscrizione,paese_residenza,nazione,gruppo_label,gruppo_id,deleted_at,citta:città",
+  trend: "id,created_at,deleted_at",
+  "daily-presence":
+    "id,data_arrivo,data_partenza,alloggio_short,alloggio,deleted_at",
+  "event-arrivals": "id,gruppo_label,gruppo_id,deleted_at",
+  "hostel-check-in":
+    "id,tipo_iscrizione,preferenza_alloggio_operatore,gruppo_label,gruppo_id,alloggio_short,alloggio,deleted_at",
+  "operator-accommodation":
+    "id,tipo_iscrizione,preferenza_alloggio_operatore,alloggio_short,alloggio,deleted_at",
+  "staff-availability": "id,deleted_at",
+  accessibility:
+    "id,disabilita_accessibilita,difficolta_accessibilita,deleted_at",
+  "food-needs": "id,esigenze_alimentari,allergie,deleted_at",
+  duplicates:
+    "id,nome,cognome,email,gruppo_label,gruppo_id,dati_tally,deleted_at",
+};
+const REGISTRATIONS_SELECT_FIELDS_WITHOUT_CITY =
+  "id,tipo_iscrizione,paese_residenza,nazione,gruppo_label,gruppo_id,deleted_at";
 const HISTORY_FILES = ["history_2023.csv", "history_2024.csv", "history_2025.csv"] as const;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -573,14 +602,15 @@ function buildDuplicateCandidates(participants: ParticipantStatRow[]): Duplicate
     byKey.set(key, list);
   }
 
-  const reasonsById = new Map<string, Set<string>>();
+  const reasonsById = new Map<string, Set<DuplicateReasonCode>>();
   const matchesById = new Map<string, Set<string>>();
 
   for (const [, group] of byKey.entries()) {
     if (group.length < 2) continue;
     for (const participant of group) {
-      const reasons = reasonsById.get(participant.id) ?? new Set<string>();
-      reasons.add("Nome e cognome uguali");
+      const reasons =
+        reasonsById.get(participant.id) ?? new Set<DuplicateReasonCode>();
+      reasons.add("same-name");
       reasonsById.set(participant.id, reasons);
 
       const matches = matchesById.get(participant.id) ?? new Set<string>();
@@ -607,11 +637,13 @@ function buildDuplicateCandidates(participants: ParticipantStatRow[]): Duplicate
         continue;
       }
 
-      const reasonsA = reasonsById.get(a.id) ?? new Set<string>();
-      reasonsA.add("Nome e cognome molto simili");
+      const reasonsA =
+        reasonsById.get(a.id) ?? new Set<DuplicateReasonCode>();
+      reasonsA.add("similar-name");
       reasonsById.set(a.id, reasonsA);
-      const reasonsB = reasonsById.get(b.id) ?? new Set<string>();
-      reasonsB.add("Nome e cognome molto simili");
+      const reasonsB =
+        reasonsById.get(b.id) ?? new Set<DuplicateReasonCode>();
+      reasonsB.add("similar-name");
       reasonsById.set(b.id, reasonsB);
 
       const matchesA = matchesById.get(a.id) ?? new Set<string>();
@@ -631,7 +663,7 @@ function buildDuplicateCandidates(participants: ParticipantStatRow[]): Duplicate
       cognome: participant.cognome,
       email: participant.email,
       group: participantGroupValue(participant),
-      reason: [...(reasonsById.get(participant.id) ?? [])].join(" + "),
+      reasonCodes: [...(reasonsById.get(participant.id) ?? [])],
       matchedWith: [...(matchesById.get(participant.id) ?? [])]
         .map((matchedId) => ({
           id: matchedId,
@@ -756,7 +788,9 @@ function DuplicateAndUnassignedSection({
                   <th className="px-3 py-2 font-semibold text-slate-700">
                     {t("manager.duplicates.compareWith")}
                   </th>
-                  <th className="px-3 py-2 font-semibold text-slate-700">Azione</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700">
+                    {t("manager.duplicates.action")}
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -774,7 +808,13 @@ function DuplicateAndUnassignedSection({
                       </td>
                       <td className="px-3 py-2 text-slate-700">{participant.email ?? "-"}</td>
                       <td className="px-3 py-2 text-slate-700">{participant.group}</td>
-                      <td className="px-3 py-2 text-slate-700">{participant.reason}</td>
+                      <td className="px-3 py-2 text-slate-700">
+                        {participant.reasonCodes
+                          .map((reason) =>
+                            t(`manager.duplicates.reason.${reason}`)
+                          )
+                          .join(" + ")}
+                      </td>
                       <td className="px-3 py-2 text-slate-700">
                         <div className="flex flex-col gap-2">
                           {participant.matchedWith.map((match) => (
@@ -785,7 +825,7 @@ function DuplicateAndUnassignedSection({
                       <td className="px-3 py-2 text-slate-700">
                         <div className="flex flex-col gap-2">
                           <Link
-                            href={`?editParticipant=${participant.id}#duplicates-non-associated`}
+                            href={`?section=duplicates&editParticipant=${participant.id}#duplicates-non-associated`}
                             className="inline-flex w-fit rounded border border-indigo-200 px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-50"
                           >
                             {t("common.edit")}
@@ -802,7 +842,7 @@ function DuplicateAndUnassignedSection({
                                 type="submit"
                                 className="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50"
                               >
-                                Escludi
+                                {t("manager.duplicates.exclude")}
                               </button>
                             </form>
                           ))}
@@ -859,7 +899,7 @@ function DuplicateAndUnassignedSection({
                       <td className="px-3 py-2 text-slate-700">{participantTallyDetail(participant)}</td>
                       <td className="px-3 py-2 text-slate-700">
                         <Link
-                          href={`?editParticipant=${participant.id}#duplicates-non-associated`}
+                          href={`?section=duplicates&editParticipant=${participant.id}#duplicates-non-associated`}
                           className="inline-flex rounded border border-indigo-200 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50"
                         >
                           {t("common.edit")}
@@ -912,7 +952,10 @@ function OperatorAccommodationPreferenceSection({
   ];
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+    <section
+      id="operator-accommodation"
+      className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+    >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h3 className="text-lg font-semibold text-slate-900">
@@ -1628,11 +1671,17 @@ function RegistrationTrendSection({
 
 export async function StatisticsDashboard({
   publicView = false,
+  sectionedView = false,
+  activeSection = "overview",
+  sectionBasePath = "/dashboard/manager",
 }: {
   publicView?: boolean;
+  sectionedView?: boolean;
+  activeSection?: StatisticsSectionKey;
+  sectionBasePath?: string;
 } = {}) {
   const { t } = await getServerTranslator();
-  const service = createSupabaseServiceClient();
+  const service = createSupabaseServiceClient({ noStore: sectionedView });
   if (!publicView) {
     const supabase = await createSupabaseServerClient();
     const {
@@ -1665,11 +1714,38 @@ export async function StatisticsDashboard({
     }
   }
 
+  const showSection = (section: StatisticsSectionKey) =>
+    !sectionedView || activeSection === section;
+
   const executeSelect = async (selectFields: string) =>
     service.from("partecipanti").select(selectFields);
 
-  let { data, error } = await executeSelect(SELECT_FIELDS_WITH_CITY);
-  if (error) {
+  const primarySelectFields = sectionedView
+    ? SECTION_SELECT_FIELDS[activeSection]
+    : SELECT_FIELDS_WITH_CITY;
+  let { data, error } = await executeSelect(primarySelectFields);
+  if (error && sectionedView) {
+    const code = error.code ?? "";
+    const message = (error.message ?? "").toLowerCase();
+    const canRetry =
+      ["42703", "PGRST100", "PGRST204"].includes(code) ||
+      message.includes("column") ||
+      message.includes("parse") ||
+      message.includes("terminated") ||
+      message.includes("timeout") ||
+      message.includes("econnreset");
+
+    if (canRetry) {
+      const retryFields =
+        activeSection === "registrations"
+          ? REGISTRATIONS_SELECT_FIELDS_WITHOUT_CITY
+          : primarySelectFields;
+      const retry = await executeSelect(retryFields);
+      data = retry.data;
+      error = retry.error;
+    }
+  }
+  if (error && !sectionedView) {
     const code = error.code ?? "";
     const message = (error.message ?? "").toLowerCase();
     const canFallback =
@@ -1723,20 +1799,29 @@ export async function StatisticsDashboard({
   let hostelCheckInGroupSummary: HostelCheckInGroupRow[] = [];
   let eventArrivalGroupSummary: ArrivalGroupSummaryRow[] = [];
   if (!publicView) {
+    const shouldLoadStaffAvailability = showSection("staff-availability");
+    const shouldLoadHostelCheckIn = showSection("hostel-check-in");
+    const shouldLoadEventArrivals = showSection("event-arrivals");
     const [staffAvailabilityResult, hostelCheckInStatuses, eventArrivalStatuses] = await Promise.all([
-      service
-        .from("participant_staff_availability")
-        .select("participant_id,areas,band_role,social_media_tasks"),
-      loadHostelCheckInStatuses(
-        service,
-        participants
-          .filter(participantMayNeedHostelCheckIn)
-          .map((participant) => participant.id)
-      ),
-      loadParticipantArrivalStatuses(
-        service,
-        participants.map((participant) => participant.id)
-      ),
+      shouldLoadStaffAvailability
+        ? service
+            .from("participant_staff_availability")
+            .select("participant_id,areas,band_role,social_media_tasks")
+        : Promise.resolve({ data: [], error: null }),
+      shouldLoadHostelCheckIn
+        ? loadHostelCheckInStatuses(
+            service,
+            participants
+              .filter(participantMayNeedHostelCheckIn)
+              .map((participant) => participant.id)
+          )
+        : Promise.resolve(new Map<string, HostelCheckInStatus>()),
+      shouldLoadEventArrivals
+        ? loadParticipantArrivalStatuses(
+            service,
+            participants.map((participant) => participant.id)
+          )
+        : Promise.resolve(new Map<string, string | null>()),
     ]);
     const { data: staffAvailabilityData, error: staffAvailabilityError } =
       staffAvailabilityResult;
@@ -1750,32 +1835,38 @@ export async function StatisticsDashboard({
       );
     }
 
-    const activeParticipantIds = new Set(participants.map((participant) => participant.id));
-    const activeAvailabilityRows = (
-      (staffAvailabilityData ?? []) as StaffAvailabilityStatRow[]
-    ).filter((row) => activeParticipantIds.has(row.participant_id));
-    staffAvailabilitySummary = buildStaffAvailabilitySummary(activeAvailabilityRows);
+    if (shouldLoadStaffAvailability) {
+      const activeParticipantIds = new Set(participants.map((participant) => participant.id));
+      const activeAvailabilityRows = (
+        (staffAvailabilityData ?? []) as StaffAvailabilityStatRow[]
+      ).filter((row) => activeParticipantIds.has(row.participant_id));
+      staffAvailabilitySummary = buildStaffAvailabilitySummary(activeAvailabilityRows);
+    }
 
-    hostelCheckInGroupSummary = buildHostelCheckInGroupSummary(
-      participants.map((participant) => ({
-        id: participant.id,
-        group: participantGroupValue(participant),
-      })),
-      hostelCheckInStatuses
-    );
-    eventArrivalGroupSummary = buildArrivalGroupSummary(
-      participants.map((participant) => ({
-        group: participantGroupValue(participant),
-        arrivedAt: eventArrivalStatuses.get(participant.id) ?? null,
-      }))
-    );
+    if (shouldLoadHostelCheckIn) {
+      hostelCheckInGroupSummary = buildHostelCheckInGroupSummary(
+        participants.map((participant) => ({
+          id: participant.id,
+          group: participantGroupValue(participant),
+        })),
+        hostelCheckInStatuses
+      );
+    }
+    if (shouldLoadEventArrivals) {
+      eventArrivalGroupSummary = buildArrivalGroupSummary(
+        participants.map((participant) => ({
+          group: participantGroupValue(participant),
+          arrivedAt: eventArrivalStatuses.get(participant.id) ?? null,
+        }))
+      );
+    }
   }
   const operatorAccommodationPreferenceCounts =
     buildOperatorAccommodationPreferenceCounts(participants);
   const leaderGroupIds = new Set<string>();
   let duplicateCandidates: DuplicateCandidateRow[] = [];
   let unassignedParticipants: ParticipantStatRow[] = [];
-  if (!publicView) {
+  if (!publicView && showSection("duplicates")) {
     const { data: leaderProfiles, error: leaderProfilesError } = await service
       .from("profili")
       .select("id")
@@ -1879,14 +1970,16 @@ export async function StatisticsDashboard({
       total: ENROLLMENT_BUCKETS.reduce((acc, bucket) => acc + counts[bucket], 0),
     };
   });
-  const eventSettings = await loadEventRuntimeSettings(service);
   let trendSeries: TrendSeries | null = null;
-  try {
-    trendSeries = await buildTrendSeries(participants, eventSettings.eventStartDate);
-  } catch {
-    trendSeries = null;
+  if (showSection("trend")) {
+    const eventSettings = await loadEventRuntimeSettings(service);
+    try {
+      trendSeries = await buildTrendSeries(participants, eventSettings.eventStartDate);
+    } catch {
+      trendSeries = null;
+    }
   }
-  if (!publicView) {
+  if (!publicView && showSection("duplicates")) {
     unassignedParticipants = buildUnassignedParticipants(participants, leaderGroupIds);
     const { data: falsePositiveRows, error: falsePositiveError } = await service
       .from("duplicate_false_positives")
@@ -1924,94 +2017,169 @@ export async function StatisticsDashboard({
         <p className="mt-2 text-sm text-slate-500">{t("manager.statistics.subtitle")}</p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[auto_minmax(0,1fr)] lg:items-start">
-        <StatisticsSectionsSidebar
-          labels={{
-            title: t("manager.statistics.sections"),
-            counters: t("manager.statistics.counters"),
-            registrations: t("manager.statistics.registrations"),
-            trend: t("manager.statistics.trend"),
-            dailyPresence: t("manager.statistics.dailyPresence"),
-            participantBadges: t("manager.statistics.participantBadges"),
-            hostelCheckIn: t("manager.statistics.hostelCheckIn"),
-            eventArrivals: t("manager.statistics.eventArrivals"),
-            staffAvailability: t("manager.statistics.staffAvailability"),
-            accessibility: t("manager.statistics.accessibility"),
-            foodNeeds: t("manager.statistics.foodNeeds"),
-            duplicates: t("manager.duplicates.section"),
-            open: t("manager.statistics.openSections"),
-            close: t("manager.statistics.closeSections"),
-          }}
-          includePrivateSections={!publicView}
-          includeDuplicates={!publicView}
-        />
+      <div
+        className={`grid gap-6 lg:items-start ${
+          sectionedView
+            ? "lg:grid-cols-[256px_minmax(0,1fr)]"
+            : "lg:grid-cols-[auto_minmax(0,1fr)]"
+        }`}
+      >
+        {sectionedView ? (
+          <StatisticsSectionNavigator
+            activeSection={activeSection}
+            basePath={sectionBasePath}
+            labels={{
+              title: t("manager.statistics.navigation"),
+              mobileLabel: t("manager.statistics.mobileLabel"),
+              loading: t("manager.statistics.loadingSection"),
+              groups: {
+                overview: t("manager.statistics.group.overview"),
+                participation: t("manager.statistics.group.participation"),
+                operations: t("manager.statistics.group.operations"),
+                needs: t("manager.statistics.group.needs"),
+                quality: t("manager.statistics.group.quality"),
+              },
+              sections: {
+                overview: t("manager.statistics.counters"),
+                registrations: t("manager.statistics.registrations"),
+                trend: t("manager.statistics.trend"),
+                "daily-presence": t("manager.statistics.dailyPresence"),
+                "event-arrivals": t("manager.statistics.eventArrivals"),
+                "hostel-check-in": t("manager.statistics.hostelCheckIn"),
+                "operator-accommodation": t("manager.operatorAccommodation.title"),
+                "staff-availability": t("manager.statistics.staffAvailability"),
+                accessibility: t("manager.statistics.accessibility"),
+                "food-needs": t("manager.statistics.foodNeeds"),
+                duplicates: t("manager.duplicates.section"),
+              },
+            }}
+          />
+        ) : (
+          <StatisticsSectionsSidebar
+            labels={{
+              title: t("manager.statistics.sections"),
+              counters: t("manager.statistics.counters"),
+              registrations: t("manager.statistics.registrations"),
+              trend: t("manager.statistics.trend"),
+              dailyPresence: t("manager.statistics.dailyPresence"),
+              participantBadges: t("manager.statistics.participantBadges"),
+              hostelCheckIn: t("manager.statistics.hostelCheckIn"),
+              eventArrivals: t("manager.statistics.eventArrivals"),
+              staffAvailability: t("manager.statistics.staffAvailability"),
+              accessibility: t("manager.statistics.accessibility"),
+              foodNeeds: t("manager.statistics.foodNeeds"),
+              duplicates: t("manager.duplicates.section"),
+              open: t("manager.statistics.openSections"),
+              close: t("manager.statistics.closeSections"),
+            }}
+            includePrivateSections={!publicView}
+            includeDuplicates={!publicView}
+          />
+        )}
 
         <div className="space-y-6">
-          <section id="top-counters" className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <h3 className="text-lg font-semibold text-slate-900">{t("manager.statistics.topCounters")}</h3>
-              {!publicView && (
-                <ParticipantBadgesControl t={t} />
-              )}
-            </div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <article className="rounded border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs uppercase tracking-wide text-slate-500">
-                  {t("manager.statistics.totalRegistrations")}
-                </p>
-                <p className="mt-2 text-2xl font-bold text-slate-900">{totalWithoutDrivers}</p>
-              </article>
-              {ENROLLMENT_BUCKETS.map((bucket) => (
-                <article key={bucket} className="rounded border border-slate-200 bg-slate-50 p-4">
+          {showSection("overview") && (
+            <section
+              id="top-counters"
+              className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <h3 className="text-lg font-semibold text-slate-900">
+                  {t("manager.statistics.topCounters")}
+                </h3>
+                {!publicView && <ParticipantBadgesControl t={t} />}
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <article className="rounded border border-slate-200 bg-slate-50 p-4">
                   <p className="text-xs uppercase tracking-wide text-slate-500">
-                    {t(ENROLLMENT_BUCKET_LABEL_KEYS[bucket])}
+                    {t("manager.statistics.totalRegistrations")}
                   </p>
-                  <p className="mt-2 text-2xl font-bold text-slate-900">{counters[bucket]}</p>
+                  <p className="mt-2 text-2xl font-bold text-slate-900">
+                    {totalWithoutDrivers}
+                  </p>
                 </article>
-              ))}
+                {ENROLLMENT_BUCKETS.map((bucket) => (
+                  <article
+                    key={bucket}
+                    className="rounded border border-slate-200 bg-slate-50 p-4"
+                  >
+                    <p className="text-xs uppercase tracking-wide text-slate-500">
+                      {t(ENROLLMENT_BUCKET_LABEL_KEYS[bucket])}
+                    </p>
+                    <p className="mt-2 text-2xl font-bold text-slate-900">
+                      {counters[bucket]}
+                    </p>
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {!sectionedView ? (
+            <div className="grid gap-6 xl:grid-cols-2">
+              <RegistrationsTabsSection
+                buckets={ENROLLMENT_BUCKETS}
+                countryRows={countryRows}
+                groupRows={groupRows}
+                italianCityRows={italianCityRows}
+              />
+              <DailyPresenceSection participants={participants} />
             </div>
-          </section>
+          ) : (
+            <>
+              {showSection("registrations") && (
+                <RegistrationsTabsSection
+                  buckets={ENROLLMENT_BUCKETS}
+                  countryRows={countryRows}
+                  groupRows={groupRows}
+                  italianCityRows={italianCityRows}
+                />
+              )}
+              {showSection("daily-presence") && (
+                <DailyPresenceSection participants={participants} />
+              )}
+            </>
+          )}
 
-          <div className="grid gap-6 xl:grid-cols-2">
-            <RegistrationsTabsSection
-              buckets={ENROLLMENT_BUCKETS}
-              countryRows={countryRows}
-              groupRows={groupRows}
-              italianCityRows={italianCityRows}
-            />
-
-            <DailyPresenceSection participants={participants} />
-          </div>
-
-          {!publicView && (
+          {!publicView && showSection("event-arrivals") && (
             <EventArrivalStatisticsSection rows={eventArrivalGroupSummary} t={t} />
           )}
 
-          {!publicView && (
+          {!publicView && showSection("hostel-check-in") && (
             <HostelCheckInStatisticsSection rows={hostelCheckInGroupSummary} t={t} />
           )}
 
-          {!publicView && (
+          {!publicView && !sectionedView && (
             <div className="grid gap-6 xl:grid-cols-2 xl:items-start">
               <StaffAvailabilitySection summary={staffAvailabilitySummary} t={t} />
               <AccessibilitySection summary={accessibilitySummary} t={t} />
             </div>
           )}
 
-          {!publicView && (
+          {!publicView && sectionedView && showSection("staff-availability") && (
+            <StaffAvailabilitySection summary={staffAvailabilitySummary} t={t} />
+          )}
+
+          {!publicView && sectionedView && showSection("accessibility") && (
+            <AccessibilitySection summary={accessibilitySummary} t={t} />
+          )}
+
+          {!publicView && showSection("food-needs") && (
             <FoodNeedsSection summary={foodNeedsSummary} t={t} />
           )}
 
-          {!publicView && (
+          {!publicView && showSection("operator-accommodation") && (
             <OperatorAccommodationPreferenceSection
               counts={operatorAccommodationPreferenceCounts}
               t={t}
             />
           )}
 
-          <RegistrationTrendSection series={trendSeries} t={t} />
+          {showSection("trend") && (
+            <RegistrationTrendSection series={trendSeries} t={t} />
+          )}
 
-          {!publicView && (
+          {!publicView && showSection("duplicates") && (
             <DuplicateAndUnassignedSection
               duplicateCandidates={duplicateCandidates}
               unassignedParticipants={unassignedParticipants}
@@ -2025,8 +2193,21 @@ export async function StatisticsDashboard({
   );
 }
 
-export default async function ManagerStatisticsPage() {
+type ManagerStatisticsPageProps = {
+  searchParams: Promise<{
+    section?: string | string[];
+  }>;
+};
+
+export default async function ManagerStatisticsPage({
+  searchParams,
+}: ManagerStatisticsPageProps) {
+  const params = await searchParams;
+
   return StatisticsDashboard({
     publicView: false,
+    sectionedView: true,
+    activeSection: parseStatisticsSection(params.section),
+    sectionBasePath: "/dashboard/manager",
   });
 }

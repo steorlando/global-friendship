@@ -241,6 +241,17 @@ export async function loadParticipantArrivalStatuses(
   participantIds: string[]
 ): Promise<Map<string, string | null>> {
   const uniqueIds = [...new Set(participantIds.map((id) => id.trim()).filter(Boolean))];
+  if (uniqueIds.length > BATCH_SIZE * 4) {
+    const activeIds = new Set(uniqueIds);
+    const { data, error } = await service
+      .from("participant_event_arrivals")
+      .select("participant_id,arrived_at");
+    if (error) throw new Error(error.message);
+    const rows = ((data ?? []) as ArrivalRow[]).filter((row) =>
+      activeIds.has(row.participant_id)
+    );
+    return new Map(rows.map((row) => [row.participant_id, row.arrived_at] as const));
+  }
   const rows = await loadInBatches<ArrivalRow>(uniqueIds, (batch) =>
     service
       .from("participant_event_arrivals")

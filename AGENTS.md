@@ -363,6 +363,7 @@ Main files:
 - `app/dashboard/manager/daily-presence-section.tsx`
 - `app/dashboard/manager/registrations-tabs-section.tsx`
 - `app/dashboard/manager/statistics-sections-sidebar.tsx`
+- `app/dashboard/manager/statistics-section-navigator.tsx`
 - `app/global_gfhi8y/page.tsx`
 
 Important design:
@@ -371,6 +372,9 @@ Important design:
 - Public statistics page is available at `/global_gfhi8y`.
 - Public stats route reuses the same `StatisticsDashboard` component with `publicView`.
 - In `publicView`, the duplicate/unassigned block is hidden.
+- The official manager and admin statistics pages use `?section=<key>` to render and load
+  only the selected statistics area, with a persistent grouped sidebar on desktop and one
+  compact selector on mobile. There is no separate preview statistics route.
 
 Statistics currently implemented:
 

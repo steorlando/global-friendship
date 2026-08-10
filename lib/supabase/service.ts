@@ -1,6 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
 
-export function createSupabaseServiceClient() {
+type SupabaseServiceClientOptions = {
+  noStore?: boolean;
+};
+
+export function createSupabaseServiceClient(
+  options: SupabaseServiceClientOptions = {}
+) {
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -10,5 +16,14 @@ export function createSupabaseServiceClient() {
 
   return createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
+    global: options.noStore
+      ? {
+          fetch: (input, init) =>
+            fetch(input, {
+              ...init,
+              cache: "no-store",
+            }),
+        }
+      : undefined,
   });
 }
