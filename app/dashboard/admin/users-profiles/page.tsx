@@ -77,6 +77,7 @@ export default function AdminUsersProfilesPage() {
   const [groupFilter, setGroupFilter] = useState("all");
   const [italiaFilter, setItaliaFilter] = useState("all");
   const [romaFilter, setRomaFilter] = useState("all");
+  const newProfileRequiresGroup = newProfile.ruolo !== "accoglienza";
 
   const sorted = useMemo(
     () => [...profiles].sort((a, b) => a.email.localeCompare(b.email)),
@@ -249,7 +250,7 @@ export default function AdminUsersProfilesPage() {
   async function handleCreate(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
-    if (newProfile.groups.length === 0) {
+    if (newProfileRequiresGroup && newProfile.groups.length === 0) {
       setError("At least one group is required");
       return;
     }
@@ -434,6 +435,7 @@ export default function AdminUsersProfilesPage() {
             />
             <span>Rome</span>
           </label>
+          {newProfileRequiresGroup ? (
           <div className="md:col-span-3 space-y-2">
             <div className="flex flex-wrap gap-1">
               {newProfile.groups.map((group) => (
@@ -484,11 +486,21 @@ export default function AdminUsersProfilesPage() {
             </div>
             <p className="text-xs text-slate-500">At least one group is required.</p>
           </div>
+          ) : (
+            <div className="md:col-span-3 rounded border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+              Reception users can access all active participants and do not need a group assignment.
+            </div>
+          )}
           <div className="flex gap-2">
             <select
               value={newProfile.ruolo}
               onChange={(e) =>
-                setNewProfile((prev) => ({ ...prev, ruolo: e.target.value }))
+                setNewProfile((prev) => ({
+                  ...prev,
+                  ruolo: e.target.value,
+                  groups: e.target.value === "accoglienza" ? [] : prev.groups,
+                  newGroup: e.target.value === "accoglienza" ? "" : prev.newGroup,
+                }))
               }
               className="w-full rounded border border-slate-300 px-4 py-3 text-sm"
             >
@@ -500,7 +512,7 @@ export default function AdminUsersProfilesPage() {
             </select>
             <button
               type="submit"
-              disabled={newProfile.groups.length === 0}
+              disabled={newProfileRequiresGroup && newProfile.groups.length === 0}
               className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white"
             >
               Add

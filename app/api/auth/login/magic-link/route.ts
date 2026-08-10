@@ -96,7 +96,7 @@ function buildEmailHtml(link: string): string {
     <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.5;">
       <h1 style="font-size: 20px; margin: 0 0 16px;">Global Friendship - Access Link 🌍</h1>
       <p>You are receiving this email to access the <strong>Global Friendship</strong> platform, the event organized by <strong>Youth for Peace</strong>.</p>
-      <p>Through this portal you can review your information and access your functions as a participant, group leader, or manager.</p>
+      <p>Through this portal you can review your information and access the functions available for your role.</p>
       <p><strong>Click the link below to securely log in:</strong></p>
       <p style="margin: 24px 0;">
         <a href="${link}" style="background: #4f46e5; color: #ffffff; padding: 10px 16px; border-radius: 8px; text-decoration: none; display: inline-block;">
@@ -152,7 +152,7 @@ export async function POST(request: Request) {
           "",
           "You are receiving this email to access the Global Friendship platform, the event organized by Youth for Peace.",
           "",
-          "Through this portal you can review your information and access your functions as a participant, group leader, or manager.",
+          "Through this portal you can review your information and access the functions available for your role.",
           "",
           "Click the link below to securely log in:",
           link,

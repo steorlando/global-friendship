@@ -17,6 +17,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import type { ParticipantStaffAvailability } from "@/lib/partecipante/staff-availability";
 import { StaffAvailabilityQuestionnaire } from "./staff-availability-questionnaire";
 import { HostelCheckInSection } from "./hostel-check-in-section";
+import { ParticipantArrivalQr } from "./participant-arrival-qr";
 
 type PresenceDettaglioMap = Record<string, boolean>;
 
@@ -514,6 +515,13 @@ export function PartecipanteForm() {
             })}
           </select>
         </div>
+      ) : null}
+
+      {selectedParticipantId && !requiresSelection ? (
+        <ParticipantArrivalQr
+          key={`arrival-qr-${selectedParticipantId}`}
+          participantId={selectedParticipantId}
+        />
       ) : null}
 
       {selectedParticipantId && !requiresSelection ? (

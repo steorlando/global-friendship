@@ -38,7 +38,8 @@ export async function POST(req: Request) {
     const groups = Array.isArray(body.groups)
       ? body.groups.map((group: unknown) => String(group).trim()).filter(Boolean)
       : [];
-    if (groups.length === 0) {
+    const role = String(body.ruolo ?? "");
+    if (role !== "accoglienza" && groups.length === 0) {
       return NextResponse.json(
         { error: "At least one group is required" },
         { status: 400 }
@@ -50,13 +51,13 @@ export async function POST(req: Request) {
       email: String(body.email ?? ""),
       nome: body.nome ? String(body.nome) : null,
       cognome: body.cognome ? String(body.cognome) : null,
-      ruolo: String(body.ruolo ?? ""),
+      ruolo: role,
       telefono: body.telefono !== undefined ? String(body.telefono) : null,
       italia: body.italia !== undefined ? Boolean(body.italia) : null,
       roma: body.roma !== undefined ? Boolean(body.roma) : null,
       capogruppoHost:
         body.capogruppo_host !== undefined ? Boolean(body.capogruppo_host) : null,
-      groups,
+      groups: role === "accoglienza" ? [] : groups,
     });
     return NextResponse.json({ data });
   } catch (error) {
@@ -85,16 +86,17 @@ export async function PATCH(req: Request) {
         : Array.isArray(body.groups)
           ? body.groups.map((group: unknown) => String(group))
           : [];
+    const role = body.ruolo !== undefined ? String(body.ruolo) : undefined;
     const data = await updateProfiloById(supabase, id, {
       nome: body.nome !== undefined ? String(body.nome) : undefined,
       cognome: body.cognome !== undefined ? String(body.cognome) : undefined,
-      ruolo: body.ruolo !== undefined ? String(body.ruolo) : undefined,
+      ruolo: role,
       telefono: body.telefono !== undefined ? String(body.telefono) : undefined,
       italia: body.italia !== undefined ? Boolean(body.italia) : undefined,
       roma: body.roma !== undefined ? Boolean(body.roma) : undefined,
       capogruppoHost:
         body.capogruppo_host !== undefined ? Boolean(body.capogruppo_host) : undefined,
-      groups,
+      groups: role === "accoglienza" ? [] : groups,
     });
 
     return NextResponse.json({ data });

@@ -105,6 +105,8 @@ function AuthCallbackContent() {
             ? "capogruppo"
             : availableRoles.has("alloggi")
               ? "alloggi"
+              : availableRoles.has("accoglienza")
+                ? "accoglienza"
               : null;
       const requestedRole = isAppRole(requestedRoleFromQuery)
         ? requestedRoleFromQuery

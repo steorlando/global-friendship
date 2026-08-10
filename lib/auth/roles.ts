@@ -4,6 +4,7 @@ export const AVAILABLE_ROLES = [
   "partecipante",
   "manager",
   "alloggi",
+  "accoglienza",
 ] as const;
 
 export type AppRole = (typeof AVAILABLE_ROLES)[number];
@@ -14,6 +15,7 @@ export const ROLE_ROUTES: Record<AppRole, string> = {
   partecipante: "/dashboard/partecipante",
   manager: "/dashboard/manager",
   alloggi: "/dashboard/alloggi",
+  accoglienza: "/dashboard/accoglienza",
 };
 
 export const ROLE_LABELS: Record<AppRole, string> = {
@@ -22,6 +24,7 @@ export const ROLE_LABELS: Record<AppRole, string> = {
   partecipante: "Participant",
   manager: "Manager",
   alloggi: "Accommodation",
+  accoglienza: "Reception",
 };
 
 export function isAppRole(value: string | null | undefined): value is AppRole {

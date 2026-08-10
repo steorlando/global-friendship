@@ -15,6 +15,7 @@ Keep it updated when major routes, data structures, or business rules change.
   - `capogruppo`
   - `partecipante`
   - `alloggi`
+  - `accoglienza`
 
 ## Core Commands
 
@@ -109,6 +110,7 @@ Dashboards:
 - Accommodation: `app/dashboard/alloggi/*`
 - Group leader: `app/dashboard/capogruppo/*`
 - Participant: `app/dashboard/partecipante/*`
+- Reception: `app/dashboard/accoglienza/*`
 
 Shared dashboard components live mostly in:
 
@@ -284,6 +286,30 @@ They are exposed through the authenticated participant route
 `app/api/partecipante/hostel-check-in/route.ts` and loaded by the authenticated accommodation
 roster API only on demand for the Hotel roster XLSX export; ordinary manager and capogruppo
 payloads expose only the derived completed/pending/not-applicable status.
+
+The participant profile also shows a small personal arrival QR code. It expands to a
+full-screen, high-contrast view when tapped, especially for mobile use. The QR contains an
+opaque UUID token from `participant_event_arrivals`, never the sequential `personal_code`.
+
+### Accoglienza
+
+Main files:
+
+- `app/dashboard/accoglienza/page.tsx`
+- `app/dashboard/accoglienza/arrival-dashboard.tsx`
+- `app/dashboard/accoglienza/arrival-qr-scanner.tsx`
+- `app/api/accoglienza/participants/route.ts`
+- `app/api/accoglienza/scan/route.ts`
+- `lib/accoglienza/arrival-data.ts`
+- `supabase/participant_event_arrivals_migration.sql`
+
+The `accoglienza` role has one dedicated dashboard and no group scope. Admins create these
+profiles from Users & Profiles without assigning groups. Reception users see all active
+participants, filter and select pending people, mark arrivals in bulk, and scan the opaque
+participant QR code with a mobile rear camera. Arrived participants remain visible with a
+green status. `participant_event_arrivals.arrived_at` is the authoritative arrival state;
+the table also records the confirming Auth user and email. Manager/admin Statistics include
+the same arrived/not-arrived/total group summary, while the public statistics route does not.
 
 ### Participation Fee Bank Import
 
@@ -741,6 +767,7 @@ High-value migrations to know:
 - `supabase/participation_fee_bank_import_migration.sql`
 - `supabase/participant_staff_availability_migration.sql`
 - `supabase/participant_hostel_check_in_migration.sql`
+- `supabase/participant_event_arrivals_migration.sql`
 
 Main business tables encountered frequently:
 
@@ -767,6 +794,7 @@ Main business tables encountered frequently:
 - `participation_fee_bank_payments`
 - `participant_staff_availability`
 - `participant_hostel_check_ins`
+- `participant_event_arrivals`
 
 Participant identifiers:
 

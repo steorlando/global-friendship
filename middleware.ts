@@ -94,6 +94,7 @@ export async function middleware(req: NextRequest) {
   const capogruppoBase = ROLE_ROUTES.capogruppo;
   const managerBase = ROLE_ROUTES.manager;
   const alloggiBase = ROLE_ROUTES.alloggi;
+  const accoglienzaBase = ROLE_ROUTES.accoglienza;
   const adminBase = ROLE_ROUTES.admin;
   const requestedRoleRaw = req.cookies.get("gf_requested_role")?.value ?? null;
   const requestedRole = isAppRole(requestedRoleRaw) ? requestedRoleRaw : null;
@@ -113,8 +114,20 @@ export async function middleware(req: NextRequest) {
     }
     if (roleSet.has("admin")) return NextResponse.redirect(new URL(adminBase, req.url));
     if (roleSet.has("manager")) return NextResponse.redirect(new URL(managerBase, req.url));
+    if (roleSet.has("accoglienza")) {
+      return NextResponse.redirect(new URL(accoglienzaBase, req.url));
+    }
     if (roleSet.has("capogruppo")) return NextResponse.redirect(new URL(capogruppoBase, req.url));
     if (roleSet.has("alloggi")) return NextResponse.redirect(new URL(alloggiBase, req.url));
+    return NextResponse.redirect(new URL(participantBase, req.url));
+  }
+
+  const receptionOnly = roleSet.size === 1 && roleSet.has("accoglienza");
+  if (receptionOnly && !pathMatches(path, accoglienzaBase)) {
+    return NextResponse.redirect(new URL(accoglienzaBase, req.url));
+  }
+
+  if (pathMatches(path, accoglienzaBase) && !isAllowed("accoglienza")) {
     return NextResponse.redirect(new URL(participantBase, req.url));
   }
 

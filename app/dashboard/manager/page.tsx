@@ -40,6 +40,12 @@ import {
   participantMayNeedHostelCheckIn,
   type HostelCheckInGroupRow,
 } from "@/lib/alloggi/check-in";
+import { ArrivalGroupSummaryTable } from "@/app/dashboard/_components/arrival-group-summary-table";
+import { loadParticipantArrivalStatuses } from "@/lib/accoglienza/arrival-data";
+import {
+  buildArrivalGroupSummary,
+  type ArrivalGroupSummaryRow,
+} from "@/lib/accoglienza/arrivals";
 
 export const dynamic = "force-dynamic";
 
@@ -1079,6 +1085,40 @@ function HostelCheckInStatisticsSection({
   );
 }
 
+function EventArrivalStatisticsSection({
+  rows,
+  t,
+}: {
+  rows: ArrivalGroupSummaryRow[];
+  t: (key: string, values?: Record<string, string | number>) => string;
+}) {
+  return (
+    <section
+      id="event-arrivals"
+      className="rounded-xl border border-indigo-200 bg-white p-6 shadow-sm"
+    >
+      <h3 className="text-lg font-semibold text-slate-900">
+        {t("manager.eventArrivals.title")}
+      </h3>
+      <p className="mt-1 text-sm text-slate-500">
+        {t("manager.eventArrivals.subtitle")}
+      </p>
+      <div className="mt-5">
+        <ArrivalGroupSummaryTable
+          rows={rows}
+          labels={{
+            group: t("manager.eventArrivals.group"),
+            arrived: t("manager.eventArrivals.arrived"),
+            notArrived: t("manager.eventArrivals.notArrived"),
+            total: t("manager.eventArrivals.total"),
+            empty: t("manager.eventArrivals.empty"),
+          }}
+        />
+      </div>
+    </section>
+  );
+}
+
 function StaffAvailabilityMetric({
   label,
   value,
@@ -1681,8 +1721,9 @@ export async function StatisticsDashboard({
   const foodNeedsSummary = buildFoodNeedsSummary(participants);
   let staffAvailabilitySummary = emptyStaffAvailabilitySummary();
   let hostelCheckInGroupSummary: HostelCheckInGroupRow[] = [];
+  let eventArrivalGroupSummary: ArrivalGroupSummaryRow[] = [];
   if (!publicView) {
-    const [staffAvailabilityResult, hostelCheckInStatuses] = await Promise.all([
+    const [staffAvailabilityResult, hostelCheckInStatuses, eventArrivalStatuses] = await Promise.all([
       service
         .from("participant_staff_availability")
         .select("participant_id,areas,band_role,social_media_tasks"),
@@ -1691,6 +1732,10 @@ export async function StatisticsDashboard({
         participants
           .filter(participantMayNeedHostelCheckIn)
           .map((participant) => participant.id)
+      ),
+      loadParticipantArrivalStatuses(
+        service,
+        participants.map((participant) => participant.id)
       ),
     ]);
     const { data: staffAvailabilityData, error: staffAvailabilityError } =
@@ -1717,6 +1762,12 @@ export async function StatisticsDashboard({
         group: participantGroupValue(participant),
       })),
       hostelCheckInStatuses
+    );
+    eventArrivalGroupSummary = buildArrivalGroupSummary(
+      participants.map((participant) => ({
+        group: participantGroupValue(participant),
+        arrivedAt: eventArrivalStatuses.get(participant.id) ?? null,
+      }))
     );
   }
   const operatorAccommodationPreferenceCounts =
@@ -1883,6 +1934,7 @@ export async function StatisticsDashboard({
             dailyPresence: t("manager.statistics.dailyPresence"),
             participantBadges: t("manager.statistics.participantBadges"),
             hostelCheckIn: t("manager.statistics.hostelCheckIn"),
+            eventArrivals: t("manager.statistics.eventArrivals"),
             staffAvailability: t("manager.statistics.staffAvailability"),
             accessibility: t("manager.statistics.accessibility"),
             foodNeeds: t("manager.statistics.foodNeeds"),
@@ -1930,6 +1982,10 @@ export async function StatisticsDashboard({
 
             <DailyPresenceSection participants={participants} />
           </div>
+
+          {!publicView && (
+            <EventArrivalStatisticsSection rows={eventArrivalGroupSummary} t={t} />
+          )}
 
           {!publicView && (
             <HostelCheckInStatisticsSection rows={hostelCheckInGroupSummary} t={t} />

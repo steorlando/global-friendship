@@ -74,6 +74,8 @@ export default function LoginPage() {
             ? "capogruppo"
             : availableRoles.has("alloggi")
               ? "alloggi"
+              : availableRoles.has("accoglienza")
+                ? "accoglienza"
               : null;
       const destination = requestedRole
         ? ROLE_ROUTES[requestedRole]

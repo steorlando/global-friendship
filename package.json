@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test --experimental-strip-types tests/email-recipient-id-utils.test.ts tests/participant-campaign-filters.test.ts tests/bank-statement-import.test.ts tests/participant-staff-availability.test.ts tests/participant-staff-translations.test.ts tests/staff-availability-statistics.test.ts tests/accessibility-statistics.test.ts tests/food-needs-statistics.test.ts tests/participant-list-export.test.ts tests/participant-badges.test.ts tests/admin-profile-deletion.test.ts tests/participant-hostel-check-in.test.ts",
+    "test": "node --test --experimental-strip-types tests/email-recipient-id-utils.test.ts tests/participant-campaign-filters.test.ts tests/bank-statement-import.test.ts tests/participant-staff-availability.test.ts tests/participant-staff-translations.test.ts tests/staff-availability-statistics.test.ts tests/accessibility-statistics.test.ts tests/food-needs-statistics.test.ts tests/participant-list-export.test.ts tests/participant-badges.test.ts tests/admin-profile-deletion.test.ts tests/participant-hostel-check-in.test.ts tests/participant-event-arrivals.test.ts",
     "supabase:tables": "node scripts/supabase-admin.mjs list-tables",
     "supabase:select": "node scripts/supabase-admin.mjs select",
     "supabase:insert": "node scripts/supabase-admin.mjs insert",
@@ -21,6 +21,7 @@
     "@tiptap/extension-underline": "^3.20.0",
     "@tiptap/react": "^3.20.0",
     "@tiptap/starter-kit": "^3.20.0",
+    "@zxing/browser": "^0.2.1",
     "dejavu-fonts-ttf": "2.37.3",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",
@@ -28,6 +29,7 @@
     "nodemailer": "^8.0.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-qr-code": "^2.2.0",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
