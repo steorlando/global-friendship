@@ -1,5 +1,4 @@
 export const STATISTICS_SECTION_KEYS = [
-  "overview",
   "registrations",
   "trend",
   "daily-presence",
@@ -15,10 +14,6 @@ export const STATISTICS_SECTION_KEYS = [
 export type StatisticsSectionKey = (typeof STATISTICS_SECTION_KEYS)[number];
 
 export const STATISTICS_SECTION_GROUPS = [
-  {
-    key: "overview",
-    sections: ["overview"],
-  },
   {
     key: "participation",
     sections: ["registrations", "trend", "daily-presence"],
@@ -44,7 +39,12 @@ export function parseStatisticsSection(
   value: string | string[] | null | undefined
 ): StatisticsSectionKey {
   const candidate = Array.isArray(value) ? value[0] : value;
+
+  if (candidate === "overview") {
+    return "registrations";
+  }
+
   return STATISTICS_SECTION_KEYS.includes(candidate as StatisticsSectionKey)
     ? (candidate as StatisticsSectionKey)
-    : "overview";
+    : "registrations";
 }

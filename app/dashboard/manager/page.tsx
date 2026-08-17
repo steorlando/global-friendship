@@ -126,7 +126,6 @@ const SELECT_FIELDS_BASE_LEGACY =
 const SELECT_FIELDS_WITH_CITY = `${SELECT_FIELDS_BASE},citta:città`;
 const SELECT_FIELDS_WITH_CITY_LEGACY = `${SELECT_FIELDS_BASE_LEGACY},citta:città`;
 const SECTION_SELECT_FIELDS: Record<StatisticsSectionKey, string> = {
-  overview: "id,tipo_iscrizione,deleted_at",
   registrations:
     "id,tipo_iscrizione,paese_residenza,nazione,gruppo_label,gruppo_id,deleted_at,citta:città",
   trend: "id,created_at,deleted_at",
@@ -1672,7 +1671,7 @@ function RegistrationTrendSection({
 export async function StatisticsDashboard({
   publicView = false,
   sectionedView = false,
-  activeSection = "overview",
+  activeSection = "registrations",
   sectionBasePath = "/dashboard/manager",
 }: {
   publicView?: boolean;
@@ -2033,14 +2032,12 @@ export async function StatisticsDashboard({
               mobileLabel: t("manager.statistics.mobileLabel"),
               loading: t("manager.statistics.loadingSection"),
               groups: {
-                overview: t("manager.statistics.group.overview"),
                 participation: t("manager.statistics.group.participation"),
                 operations: t("manager.statistics.group.operations"),
                 needs: t("manager.statistics.group.needs"),
                 quality: t("manager.statistics.group.quality"),
               },
               sections: {
-                overview: t("manager.statistics.counters"),
                 registrations: t("manager.statistics.registrations"),
                 trend: t("manager.statistics.trend"),
                 "daily-presence": t("manager.statistics.dailyPresence"),
@@ -2078,7 +2075,7 @@ export async function StatisticsDashboard({
         )}
 
         <div className="space-y-6">
-          {showSection("overview") && (
+          {showSection("registrations") && (
             <section
               id="top-counters"
               className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"

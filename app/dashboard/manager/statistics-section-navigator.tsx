@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useTransition } from "react";
 import {
   STATISTICS_SECTION_GROUPS,
   type StatisticsSectionKey,
@@ -30,15 +30,14 @@ export function StatisticsSectionNavigator({
   labels,
 }: StatisticsSectionNavigatorProps) {
   const router = useRouter();
-  const [pendingSection, setPendingSection] =
-    useState<StatisticsSectionKey | null>(null);
-  const isPending =
-    pendingSection !== null && pendingSection !== activeSection;
+  const [isPending, startTransition] = useTransition();
 
   const navigateToSection = (section: StatisticsSectionKey) => {
-    if (section === activeSection) return;
-    setPendingSection(section);
-    router.push(sectionHref(basePath, section));
+    if (section === activeSection || isPending) return;
+
+    startTransition(() => {
+      router.push(sectionHref(basePath, section));
+    });
   };
 
   return (
@@ -64,6 +63,7 @@ export function StatisticsSectionNavigator({
               navigateToSection(event.target.value as StatisticsSectionKey)
             }
             aria-busy={isPending}
+            disabled={isPending}
             className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-base text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
           >
             {STATISTICS_SECTION_GROUPS.map((group) => (
@@ -102,9 +102,12 @@ export function StatisticsSectionNavigator({
                         navigateToSection(section);
                       }}
                       aria-current={active ? "page" : undefined}
+                      aria-disabled={isPending && !active ? true : undefined}
                       className={`flex min-h-11 items-center gap-3 rounded-lg border px-3 py-2.5 text-sm font-medium transition ${
                         active
                           ? "border-indigo-200 bg-indigo-50 text-indigo-800 shadow-sm"
+                          : isPending
+                            ? "cursor-wait border-transparent text-slate-400"
                           : "border-transparent text-slate-600 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-900"
                       }`}
                     >
