@@ -8,6 +8,7 @@ import {
   createSupabaseBrowserClient,
 } from "@/lib/supabase/client";
 import { ROLE_ROUTES, isAppRole } from "@/lib/auth/roles";
+import { safePostLoginPath } from "@/lib/auth/post-login";
 import { useI18n } from "@/lib/i18n/provider";
 
 const OTP_TYPES: readonly EmailOtpType[] = [
@@ -36,6 +37,7 @@ function AuthCallbackContent() {
       const token = searchParams.get("token");
       const otpType = searchParams.get("type");
       const requestedRoleFromQuery = searchParams.get("role");
+      const requestedNextFromQuery = searchParams.get("next");
       const requestedRoleFromStorage =
         window.localStorage.getItem("gf_requested_role");
 
@@ -106,7 +108,9 @@ function AuthCallbackContent() {
             : availableRoles.has("alloggi")
               ? "alloggi"
               : availableRoles.has("accoglienza")
-                ? "accoglienza"
+              ? "accoglienza"
+              : availableRoles.has("tour_manager")
+                ? "tour_manager"
               : null;
       const requestedRole = isAppRole(requestedRoleFromQuery)
         ? requestedRoleFromQuery
@@ -121,7 +125,10 @@ function AuthCallbackContent() {
         document.cookie = `gf_requested_role=${encodeURIComponent(requestedRole)}; path=/; max-age=604800; samesite=lax`;
       }
 
-      const target = requestedRole
+      const safeNext = safePostLoginPath(requestedNextFromQuery, requestedRole);
+      const target = safeNext
+        ? safeNext
+        : requestedRole
         ? ROLE_ROUTES[requestedRole]
         : isAppRole(roleFromProfile)
           ? ROLE_ROUTES[roleFromProfile]

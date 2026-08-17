@@ -3,10 +3,12 @@ import type { EmailOtpType } from "@supabase/supabase-js";
 import { checkLoginAccess } from "@/lib/auth/login-access";
 import { loadEmailSenderRuntimeSettings } from "@/lib/email/settings";
 import { sendGmailEmail } from "@/lib/email/gmail";
+import { safePostLoginPath } from "@/lib/auth/post-login";
 
 type MagicLinkBody = {
   email?: unknown;
   role?: unknown;
+  next?: unknown;
 };
 
 type GenerateLinkResponse = {
@@ -83,11 +85,13 @@ function buildCallbackUrl(request: Request, input: {
   tokenHash: string;
   type: EmailOtpType;
   role: string;
+  next?: string | null;
 }): string {
   const callbackUrl = new URL("/auth/callback", getAppBaseUrl(request));
   callbackUrl.searchParams.set("token_hash", input.tokenHash);
   callbackUrl.searchParams.set("type", input.type);
   callbackUrl.searchParams.set("role", input.role);
+  if (input.next) callbackUrl.searchParams.set("next", input.next);
   return callbackUrl.toString();
 }
 
@@ -131,10 +135,12 @@ export async function POST(request: Request) {
     requestTimestampsByEmail.set(access.email, now);
 
     const token = await generateMagicLinkToken(access.email);
+    const next = safePostLoginPath(body.next, access.role);
     const link = buildCallbackUrl(request, {
       tokenHash: token.tokenHash,
       type: token.type,
       role: access.role,
+      next,
     });
     const settings = await loadEmailSenderRuntimeSettings();
 

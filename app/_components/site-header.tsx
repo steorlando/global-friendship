@@ -28,6 +28,7 @@ export function SiteHeader({ userEmail, requestedRole }: SiteHeaderProps) {
     if (pathname.startsWith("/dashboard/capogruppo")) return "capogruppo";
     if (pathname.startsWith("/dashboard/partecipante")) return "partecipante";
     if (pathname.startsWith("/dashboard/alloggi")) return "alloggi";
+    if (pathname.startsWith("/dashboard/tour-manager")) return "tour_manager";
     return null;
   })();
   const resolvedRole = resolvedEmail ? initialRole ?? roleFromPath : null;

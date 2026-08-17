@@ -9,6 +9,7 @@ import {
   upsertProfiloByEmail,
 } from "@/lib/admin/profili";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { roleRequiresGroups } from "@/lib/auth/roles";
 
 export async function GET() {
   const auth = await requireAdminUser();
@@ -39,7 +40,7 @@ export async function POST(req: Request) {
       ? body.groups.map((group: unknown) => String(group).trim()).filter(Boolean)
       : [];
     const role = String(body.ruolo ?? "");
-    if (role !== "accoglienza" && groups.length === 0) {
+    if (roleRequiresGroups(role) && groups.length === 0) {
       return NextResponse.json(
         { error: "At least one group is required" },
         { status: 400 }
@@ -57,7 +58,7 @@ export async function POST(req: Request) {
       roma: body.roma !== undefined ? Boolean(body.roma) : null,
       capogruppoHost:
         body.capogruppo_host !== undefined ? Boolean(body.capogruppo_host) : null,
-      groups: role === "accoglienza" ? [] : groups,
+      groups: roleRequiresGroups(role) ? groups : [],
     });
     return NextResponse.json({ data });
   } catch (error) {
@@ -96,7 +97,7 @@ export async function PATCH(req: Request) {
       roma: body.roma !== undefined ? Boolean(body.roma) : undefined,
       capogruppoHost:
         body.capogruppo_host !== undefined ? Boolean(body.capogruppo_host) : undefined,
-      groups: role === "accoglienza" ? [] : groups,
+      groups: role && !roleRequiresGroups(role) ? [] : groups,
     });
 
     return NextResponse.json({ data });

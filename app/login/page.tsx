@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useI18n } from "@/lib/i18n/provider";
 import {
@@ -10,12 +11,14 @@ import {
   isAppRole,
   type AppRole,
 } from "@/lib/auth/roles";
+import { safePostLoginPath } from "@/lib/auth/post-login";
 
 export default function LoginPage() {
   const router = useRouter();
   const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<AppRole>("partecipante");
+  const [nextPath, setNextPath] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "sent" | "error">(
     "idle"
   );
@@ -36,6 +39,15 @@ export default function LoginPage() {
 
   useEffect(() => {
     async function redirectIfAuthenticated() {
+      const query = new URLSearchParams(window.location.search);
+      const roleValue = query.get("role");
+      const queryRole = isAppRole(roleValue) ? roleValue : null;
+      if (queryRole) setRole(queryRole);
+      const requestedNext = safePostLoginPath(
+        query.get("next") ?? query.get("redirectedFrom"),
+        queryRole ?? role
+      );
+      setNextPath(requestedNext);
       const supabase = createSupabaseBrowserClient();
       let session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"] =
         null;
@@ -75,9 +87,13 @@ export default function LoginPage() {
             : availableRoles.has("alloggi")
               ? "alloggi"
               : availableRoles.has("accoglienza")
-                ? "accoglienza"
+              ? "accoglienza"
+              : availableRoles.has("tour_manager")
+                ? "tour_manager"
               : null;
-      const destination = requestedRole
+      const destination = requestedNext
+        ? requestedNext
+        : requestedRole
         ? ROLE_ROUTES[requestedRole]
         : isAppRole(roleFromProfile)
           ? ROLE_ROUTES[roleFromProfile]
@@ -90,7 +106,7 @@ export default function LoginPage() {
     }
 
     redirectIfAuthenticated();
-  }, [router]);
+  }, [role, router]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -113,6 +129,12 @@ export default function LoginPage() {
         body: JSON.stringify({
           email: normalizedEmail,
           role,
+          next:
+            safePostLoginPath(
+              new URLSearchParams(window.location.search).get("next") ??
+                new URLSearchParams(window.location.search).get("redirectedFrom"),
+              role
+            ) ?? nextPath,
         }),
       });
 
@@ -200,6 +222,12 @@ export default function LoginPage() {
           </div>
         )}
       </form>
+      <Link
+        href="/tours"
+        className="mt-5 flex min-h-11 w-full items-center justify-center rounded-lg border border-indigo-300 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-800 transition hover:bg-indigo-100"
+      >
+        {t("auth.login.viewTours")}
+      </Link>
       </section>
     </main>
   );

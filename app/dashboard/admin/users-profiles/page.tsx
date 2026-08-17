@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AVAILABLE_ROLES, isAppRole, ROLE_LABELS } from "@/lib/auth/roles";
+import {
+  AVAILABLE_ROLES,
+  isAppRole,
+  ROLE_LABELS,
+  roleRequiresGroups,
+} from "@/lib/auth/roles";
 
 type Profilo = {
   id: string;
@@ -77,7 +82,7 @@ export default function AdminUsersProfilesPage() {
   const [groupFilter, setGroupFilter] = useState("all");
   const [italiaFilter, setItaliaFilter] = useState("all");
   const [romaFilter, setRomaFilter] = useState("all");
-  const newProfileRequiresGroup = newProfile.ruolo !== "accoglienza";
+  const newProfileRequiresGroup = roleRequiresGroups(newProfile.ruolo);
 
   const sorted = useMemo(
     () => [...profiles].sort((a, b) => a.email.localeCompare(b.email)),
@@ -488,7 +493,7 @@ export default function AdminUsersProfilesPage() {
           </div>
           ) : (
             <div className="md:col-span-3 rounded border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-              Reception users can access all active participants and do not need a group assignment.
+              This operational role does not need a participant-group assignment.
             </div>
           )}
           <div className="flex gap-2">
@@ -498,8 +503,8 @@ export default function AdminUsersProfilesPage() {
                 setNewProfile((prev) => ({
                   ...prev,
                   ruolo: e.target.value,
-                  groups: e.target.value === "accoglienza" ? [] : prev.groups,
-                  newGroup: e.target.value === "accoglienza" ? "" : prev.newGroup,
+                  groups: roleRequiresGroups(e.target.value) ? prev.groups : [],
+                  newGroup: roleRequiresGroups(e.target.value) ? prev.newGroup : "",
                 }))
               }
               className="w-full rounded border border-slate-300 px-4 py-3 text-sm"

@@ -40,6 +40,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       isActive: pathname.startsWith("/dashboard/alloggi"),
     },
     {
+      href: "/dashboard/admin/tours",
+      label: t("dashboard.admin.tab.tours"),
+      isActive: pathname.startsWith("/dashboard/admin/tours"),
+    },
+    {
       href: "/dashboard/admin/users-profiles",
       label: t("dashboard.admin.tab.usersProfiles"),
       isActive: pathname === "/dashboard/admin/users-profiles",

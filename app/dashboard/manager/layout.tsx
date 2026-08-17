@@ -23,6 +23,11 @@ export default function ManagerLayout({ children }: { children: ReactNode }) {
     { href: "/dashboard/manager/participation-fees", label: t("dashboard.manager.tab.fees") },
     { href: "/dashboard/manager/event-finance", label: t("dashboard.manager.tab.finance") },
     {
+      href: "/dashboard/manager/tours",
+      label: t("dashboard.manager.tab.tours"),
+      activePrefixes: ["/dashboard/manager/tours"],
+    },
+    {
       href: "/dashboard/manager/email-campaigns",
       label: t("dashboard.manager.tab.email"),
       activePrefix: "/dashboard/manager/email-campaigns",

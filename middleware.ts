@@ -48,7 +48,12 @@ export async function middleware(req: NextRequest) {
   if (userError || !user) {
     const loginUrl = req.nextUrl.clone();
     loginUrl.pathname = "/login";
-    loginUrl.searchParams.set("redirectedFrom", req.nextUrl.pathname);
+    if (req.nextUrl.pathname === `${ROLE_ROUTES.partecipante}/tours`) {
+      loginUrl.searchParams.set("role", "partecipante");
+      loginUrl.searchParams.set("next", req.nextUrl.pathname);
+    } else {
+      loginUrl.searchParams.set("redirectedFrom", req.nextUrl.pathname);
+    }
     const redirect = NextResponse.redirect(loginUrl);
     clearSupabaseCookies(req, redirect);
     return redirect;
@@ -95,6 +100,7 @@ export async function middleware(req: NextRequest) {
   const managerBase = ROLE_ROUTES.manager;
   const alloggiBase = ROLE_ROUTES.alloggi;
   const accoglienzaBase = ROLE_ROUTES.accoglienza;
+  const tourManagerBase = ROLE_ROUTES.tour_manager;
   const adminBase = ROLE_ROUTES.admin;
   const requestedRoleRaw = req.cookies.get("gf_requested_role")?.value ?? null;
   const requestedRole = isAppRole(requestedRoleRaw) ? requestedRoleRaw : null;
@@ -117,6 +123,9 @@ export async function middleware(req: NextRequest) {
     if (roleSet.has("accoglienza")) {
       return NextResponse.redirect(new URL(accoglienzaBase, req.url));
     }
+    if (roleSet.has("tour_manager")) {
+      return NextResponse.redirect(new URL(tourManagerBase, req.url));
+    }
     if (roleSet.has("capogruppo")) return NextResponse.redirect(new URL(capogruppoBase, req.url));
     if (roleSet.has("alloggi")) return NextResponse.redirect(new URL(alloggiBase, req.url));
     return NextResponse.redirect(new URL(participantBase, req.url));
@@ -127,7 +136,16 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL(accoglienzaBase, req.url));
   }
 
+  const tourManagerOnly = roleSet.size === 1 && roleSet.has("tour_manager");
+  if (tourManagerOnly && !pathMatches(path, tourManagerBase)) {
+    return NextResponse.redirect(new URL(tourManagerBase, req.url));
+  }
+
   if (pathMatches(path, accoglienzaBase) && !isAllowed("accoglienza")) {
+    return NextResponse.redirect(new URL(participantBase, req.url));
+  }
+
+  if (pathMatches(path, tourManagerBase) && !isAllowed("tour_manager")) {
     return NextResponse.redirect(new URL(participantBase, req.url));
   }
 

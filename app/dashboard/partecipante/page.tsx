@@ -1,6 +1,7 @@
 import { PartecipanteForm } from "./partecipante-form";
 import { OrganizersContactCard } from "./organizers-contact-card";
 import { getServerTranslator } from "@/lib/i18n/server";
+import { ParticipantTourSummary } from "./participant-tour-summary";
 
 export default async function PartecipantePage() {
   const { t } = await getServerTranslator();
@@ -11,6 +12,7 @@ export default async function PartecipantePage() {
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
         <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <ParticipantTourSummary />
           <PartecipanteForm />
         </section>
 

@@ -50,6 +50,7 @@ Common env vars used by the app:
 - `GMAIL_APP_PASSWORD`
 - `PARTECIPANTE_CONTACT_FROM_EMAIL`
 - `TALLY_WEBHOOK_SECRET`
+- `CRON_SECRET`
 
 Important:
 - Do not copy secrets into commits or docs.
@@ -303,6 +304,39 @@ Main files:
 - `app/api/accoglienza/scan/route.ts`
 - `lib/accoglienza/arrival-data.ts`
 - `supabase/participant_event_arrivals_migration.sql`
+- `supabase/tours_migration.sql`
+
+## Tours
+
+Main routes:
+
+- Public presentation: `app/tours/page.tsx`
+- Participant booking: `app/dashboard/partecipante/tours/page.tsx`
+- Admin management: `app/dashboard/admin/tours/*`
+- Manager management: `app/dashboard/manager/tours/*`
+- Tour manager dashboard: `app/dashboard/tour-manager/*`
+- Public/staff/participant APIs: `app/api/tours/*` and `app/api/partecipante/tours/route.ts`
+- Waitlist cron: `app/api/cron/tour-waitlist/route.ts` (every minute via `vercel.json`)
+
+Tables and storage:
+
+- `tour_settings`
+- `tours`
+- `tour_bookings`
+- `tour_waitlist`
+- private Storage bucket `tour-attachments`
+
+Business rules:
+
+- `tour_manager` can see only tour data and participant name, phone, email, group, and tour assignment.
+- Admin and manager share the same tour-management components and server-side role guard.
+- A participant can hold one confirmed booking and one active waitlist position for a different full tour.
+- An offered waitlist place is reserved for 30 minutes and counts against availability.
+- A free place cannot bypass an existing waiting queue, including in the interval between an offer expiring and the next cron run.
+- Waitlist notifications are atomically claimed before sending so concurrent cron or booking requests do not send duplicate emails; abandoned claims can be retried after five minutes.
+- Booking/move/remove/waitlist/settings operations use PostgreSQL advisory locking and security-definer RPCs from `supabase/tours_migration.sql`; a database trigger also prevents capacity reductions below confirmed bookings and active offers.
+- Turning off participant changes leaves tours and the saved choice visible but blocks booking, cancellation, waitlist changes, and offer acceptance.
+- Tour attachments are private and are downloaded only through the guarded application route; accepted files are PDF, JPEG, PNG, WebP, DOC, and DOCX up to 10 MB.
 
 The `accoglienza` role has one dedicated dashboard and no group scope. Admins create these
 profiles from Users & Profiles without assigning groups. Reception users see all active
