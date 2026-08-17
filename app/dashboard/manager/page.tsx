@@ -42,6 +42,7 @@ import {
   type HostelCheckInStatus,
   type HostelCheckInGroupRow,
 } from "@/lib/alloggi/check-in";
+import { loadAssignedHostelNameByParticipant } from "@/lib/alloggi/assigned-hostels-server";
 import { ArrivalGroupSummaryTable } from "@/app/dashboard/_components/arrival-group-summary-table";
 import { loadParticipantArrivalStatuses } from "@/lib/accoglienza/arrival-data";
 import {
@@ -130,7 +131,7 @@ const SECTION_SELECT_FIELDS: Record<StatisticsSectionKey, string> = {
     "id,tipo_iscrizione,paese_residenza,nazione,gruppo_label,gruppo_id,deleted_at,citta:città",
   trend: "id,created_at,deleted_at",
   "daily-presence":
-    "id,data_arrivo,data_partenza,alloggio_short,alloggio,deleted_at",
+    "id,data_arrivo,data_partenza,alloggio_short,alloggio,tipo_iscrizione,preferenza_alloggio_operatore,deleted_at",
   "event-arrivals": "id,gruppo_label,gruppo_id,deleted_at",
   "hostel-check-in":
     "id,tipo_iscrizione,preferenza_alloggio_operatore,gruppo_label,gruppo_id,alloggio_short,alloggio,deleted_at",
@@ -1792,6 +1793,49 @@ export async function StatisticsDashboard({
   const participants = ((data ?? []) as unknown as ParticipantStatRow[]).filter(
     (participant) => !participant.deleted_at
   );
+  let dailyPresenceHostelNames: string[] = [];
+  let dailyPresenceAssignedHostelNames = new Map<string, string>();
+  if (showSection("daily-presence")) {
+    try {
+      const [assignedHostelNames, hostelResult] = await Promise.all([
+        loadAssignedHostelNameByParticipant(
+          service,
+          participants.map((participant) => participant.id),
+        ),
+        service.from("alberghi").select("nome").order("nome", { ascending: true }),
+      ]);
+      if (hostelResult.error) throw new Error(hostelResult.error.message);
+
+      dailyPresenceAssignedHostelNames = assignedHostelNames;
+      dailyPresenceHostelNames = ((hostelResult.data ?? []) as Array<{ nome: string | null }>)
+        .flatMap((hostel) => {
+          const name = hostel.nome?.trim();
+          return name ? [name] : [];
+        });
+    } catch (dailyPresenceError) {
+      return (
+        <section className="rounded border border-red-200 bg-red-50 p-6">
+          <h2 className="text-xl font-bold text-red-800">{t("manager.statistics.title")}</h2>
+          <p className="mt-2 text-sm text-red-700">
+            {dailyPresenceError instanceof Error
+              ? dailyPresenceError.message
+              : t("manager.presence.loadError")}
+          </p>
+        </section>
+      );
+    }
+  }
+  const dailyPresenceParticipants = participants.map((participant) => ({
+    id: participant.id,
+    data_arrivo: participant.data_arrivo,
+    data_partenza: participant.data_partenza,
+    alloggio_short: participant.alloggio_short,
+    alloggio: participant.alloggio,
+    tipo_iscrizione: participant.tipo_iscrizione,
+    preferenza_alloggio_operatore: participant.preferenza_alloggio_operatore,
+    assigned_hostel_name:
+      dailyPresenceAssignedHostelNames.get(participant.id) ?? null,
+  }));
   const accessibilitySummary = buildAccessibilitySummary(participants);
   const foodNeedsSummary = buildFoodNeedsSummary(participants);
   let staffAvailabilitySummary = emptyStaffAvailabilitySummary();
@@ -2120,7 +2164,10 @@ export async function StatisticsDashboard({
                 groupRows={groupRows}
                 italianCityRows={italianCityRows}
               />
-              <DailyPresenceSection participants={participants} />
+              <DailyPresenceSection
+                participants={dailyPresenceParticipants}
+                hostelNames={dailyPresenceHostelNames}
+              />
             </div>
           ) : (
             <>
@@ -2133,7 +2180,10 @@ export async function StatisticsDashboard({
                 />
               )}
               {showSection("daily-presence") && (
-                <DailyPresenceSection participants={participants} />
+                <DailyPresenceSection
+                  participants={dailyPresenceParticipants}
+                  hostelNames={dailyPresenceHostelNames}
+                />
               )}
             </>
           )}
