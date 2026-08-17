@@ -38,3 +38,21 @@ test("multiple registration types use the same OR matching", () => {
     false
   );
 });
+
+test("multiple assigned hostels use OR matching", () => {
+  const selectedHostels = new Set(["Maverick Athenaeum", "Wombat's City Hostel"]);
+
+  assert.equal(
+    matchesParticipantFilterSelection("Maverick Athenaeum", selectedHostels),
+    true,
+  );
+  assert.equal(
+    matchesParticipantFilterSelection("wombat's city hostel", selectedHostels),
+    true,
+  );
+  assert.equal(
+    matchesParticipantFilterSelection("Equity Point Budapest", selectedHostels),
+    false,
+  );
+  assert.equal(matchesParticipantFilterSelection(null, selectedHostels), false);
+});

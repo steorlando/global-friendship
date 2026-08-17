@@ -635,6 +635,9 @@ Capabilities:
 
 - Manage reusable email templates
 - Send campaigns to filtered recipients
+- Filter participant recipients by one or more currently assigned hostels; this is separate
+  from the accommodation-type filter, which distinguishes organization-provided and
+  autonomous accommodation.
 - View send logs and recipient logs
 
 Template tables:

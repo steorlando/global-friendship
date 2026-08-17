@@ -30,6 +30,7 @@ import {
   participantMayNeedHostelCheckIn,
   type HostelCheckInStatus,
 } from "@/lib/alloggi/check-in";
+import { loadAssignedHostelNameByParticipant } from "@/lib/alloggi/assigned-hostels-server";
 
 type ParticipantRow = {
   id: string;
@@ -424,24 +425,32 @@ export async function GET(req: Request) {
     ]
       .filter((group) => group && group !== "-")
       .sort((a, b) => a.localeCompare(b));
-    const hostelCheckInStatuses = await loadHostelCheckInStatuses(
-      auth.service,
-      participants
-        .filter(participantMayNeedHostelCheckIn)
-        .map((participant) => participant.id)
-    );
+    const [hostelCheckInStatuses, assignedHostelNames] = await Promise.all([
+      loadHostelCheckInStatuses(
+        auth.service,
+        participants
+          .filter(participantMayNeedHostelCheckIn)
+          .map((participant) => participant.id)
+      ),
+      loadAssignedHostelNameByParticipant(
+        auth.service,
+        participants.map((participant) => participant.id),
+      ),
+    ]);
 
     return NextResponse.json({
       groups,
       assignableGroups,
       showGroupColumn: true,
       staffAvailabilityFilter,
-      participants: participants.map((participant) =>
-        toResponseParticipant(
+      participants: participants.map((participant) => ({
+        ...toResponseParticipant(
           participant,
           hostelCheckInStatuses.get(participant.id) ?? "not_applicable"
-        )
-      ),
+        ),
+        assigned_hostel_name:
+          assignedHostelNames.get(participant.id) ?? null,
+      })),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to load participants";

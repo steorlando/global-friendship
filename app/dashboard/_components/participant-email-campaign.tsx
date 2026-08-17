@@ -33,6 +33,7 @@ type RecipientType = "participants" | "group_leaders";
 type Participant = ParticipantTemplateData & {
   citta: string | null;
   fee_paid: number | null;
+  assigned_hostel_name: string | null;
 };
 
 type GroupLeader = GroupLeaderTemplateData;
@@ -47,6 +48,7 @@ type ParticipantSortKey =
   | "data_arrivo"
   | "data_partenza"
   | "alloggio"
+  | "assigned_hostel_name"
   | "quota_totale";
 
 type GroupLeaderSortKey =
@@ -378,6 +380,9 @@ export function ParticipantEmailCampaign() {
   const [participantArrivoFilter, setParticipantArrivoFilter] = useState("");
   const [participantPartenzaFilter, setParticipantPartenzaFilter] = useState("");
   const [participantAlloggioFilter, setParticipantAlloggioFilter] = useState("");
+  const [participantHostelFilters, setParticipantHostelFilters] = useState<Set<string>>(
+    new Set(),
+  );
   const [participantPaymentFilter, setParticipantPaymentFilter] = useState("all");
   const [participantSortKey, setParticipantSortKey] = useState<ParticipantSortKey>("cognome");
   const [participantSortDirection, setParticipantSortDirection] = useState<SortDirection>("asc");
@@ -501,6 +506,32 @@ export function ParticipantEmailCampaign() {
     [participants]
   );
 
+  const participantAccommodationTypes = useMemo(() => {
+    const counts = new Map<string, number>();
+    participants.forEach((participant) => {
+      const accommodationType = (participant.alloggio ?? "").trim();
+      if (!accommodationType) return;
+      counts.set(accommodationType, (counts.get(accommodationType) ?? 0) + 1);
+    });
+
+    return [...counts.entries()]
+      .map(([value, count]) => ({ value, count }))
+      .sort((a, b) => a.value.localeCompare(b.value));
+  }, [participants]);
+
+  const participantHostels = useMemo(() => {
+    const counts = new Map<string, number>();
+    participants.forEach((participant) => {
+      const hostel = (participant.assigned_hostel_name ?? "").trim();
+      if (!hostel) return;
+      counts.set(hostel, (counts.get(hostel) ?? 0) + 1);
+    });
+
+    return [...counts.entries()]
+      .map(([value, count]) => ({ value, count }))
+      .sort((a, b) => a.value.localeCompare(b.value));
+  }, [participants]);
+
   const filteredSortedParticipants = useMemo(() => {
     const positiveFiltered = participants.filter((participant) => {
       if (participantSearch) {
@@ -510,7 +541,8 @@ export function ParticipantEmailCampaign() {
           safeIncludes(participant.cognome, s) ||
           safeIncludes(participant.email, s) ||
           safeIncludes(participant.citta, s) ||
-          safeIncludes(participant.group, s);
+          safeIncludes(participant.group, s) ||
+          safeIncludes(participant.assigned_hostel_name, s);
         if (!matches) return false;
       }
 
@@ -541,6 +573,14 @@ export function ParticipantEmailCampaign() {
         return false;
       }
       if (participantAlloggioFilter && (participant.alloggio ?? "") !== participantAlloggioFilter) {
+        return false;
+      }
+      if (
+        !matchesParticipantFilterSelection(
+          participant.assigned_hostel_name,
+          participantHostelFilters,
+        )
+      ) {
         return false;
       }
       if (
@@ -577,6 +617,7 @@ export function ParticipantEmailCampaign() {
     participantArrivoFilter,
     participantCityFilter,
     participantGroupFilters,
+    participantHostelFilters,
     participantRegistrationTypeFilters,
     participantPartenzaFilter,
     participantPaymentFilter,
@@ -993,6 +1034,18 @@ export function ParticipantEmailCampaign() {
         next.delete(registrationType);
       } else {
         next.add(registrationType);
+      }
+      return next;
+    });
+  }
+
+  function toggleParticipantHostelFilter(hostel: string) {
+    setParticipantHostelFilters((current) => {
+      const next = new Set(current);
+      if (next.has(hostel)) {
+        next.delete(hostel);
+      } else {
+        next.add(hostel);
       }
       return next;
     });
@@ -1443,7 +1496,7 @@ export function ParticipantEmailCampaign() {
         </div>
 
         {activeRecipientType === "participants" ? (
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-8">
+          <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             <div>
               <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Search
@@ -1452,7 +1505,7 @@ export function ParticipantEmailCampaign() {
                 type="text"
                 value={participantSearch}
                 onChange={(event) => setParticipantSearch(event.target.value)}
-                placeholder="Name, surname, email, city, group"
+                placeholder="Name, surname, email, city, group, hostel"
                 className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
               />
             </div>
@@ -1541,13 +1594,41 @@ export function ParticipantEmailCampaign() {
             </div>
             <div>
               <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Accommodation
+                Accommodation type
               </label>
-              <input
-                type="text"
+              <select
                 value={participantAlloggioFilter}
                 onChange={(event) => setParticipantAlloggioFilter(event.target.value)}
                 className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
+              >
+                <option value="">All accommodation types</option>
+                {participantAccommodationTypes.map((accommodationType) => (
+                  <option key={accommodationType.value} value={accommodationType.value}>
+                    {accommodationType.value} ({accommodationType.count})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label
+                id="participant-hostel-filter-label"
+                htmlFor="participant-hostel-filter"
+                className="text-xs font-semibold uppercase tracking-wide text-slate-500"
+              >
+                Assigned hostel
+              </label>
+              <CheckboxMultiSelect
+                buttonId="participant-hostel-filter"
+                labelId="participant-hostel-filter-label"
+                options={participantHostels.map((hostel) => ({
+                  value: hostel.value,
+                  label: `${hostel.value} (${hostel.count})`,
+                }))}
+                selectedValues={participantHostelFilters}
+                allLabel="All assigned hostels"
+                selectedPluralLabel="hostels"
+                onToggle={toggleParticipantHostelFilter}
+                onClear={() => setParticipantHostelFilters(new Set())}
               />
             </div>
             <div>
@@ -1734,7 +1815,15 @@ export function ParticipantEmailCampaign() {
                     </th>
                     <th className="px-4 py-3 font-semibold">
                       <button type="button" onClick={() => toggleParticipantSort("alloggio")}>
-                        Accommodation
+                        Accommodation type
+                      </button>
+                    </th>
+                    <th className="px-4 py-3 font-semibold">
+                      <button
+                        type="button"
+                        onClick={() => toggleParticipantSort("assigned_hostel_name")}
+                      >
+                        Assigned hostel
                       </button>
                     </th>
                     <th className="px-4 py-3 font-semibold">
@@ -1751,7 +1840,7 @@ export function ParticipantEmailCampaign() {
                   {filteredSortedParticipants.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={showGroupColumn ? 11 : 10}
+                        colSpan={showGroupColumn ? 12 : 11}
                         className="px-3 py-3 text-slate-500"
                       >
                         No participants match current filters.
@@ -1785,6 +1874,9 @@ export function ParticipantEmailCampaign() {
                           {participant.data_partenza || "-"}
                         </td>
                         <td className="px-4 py-3 text-slate-700">{participant.alloggio || "-"}</td>
+                        <td className="px-4 py-3 text-slate-700">
+                          {participant.assigned_hostel_name || "-"}
+                        </td>
                         <td className="px-4 py-3 text-slate-700">
                           {participant.quota_totale == null ? "-" : participant.quota_totale}
                         </td>
