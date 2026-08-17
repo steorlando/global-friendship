@@ -163,33 +163,39 @@ test("buildLegacyParticipantRoomFields keeps legacy participant room fields in s
   );
 });
 
-test("validateGroupLeaderRoomAssignment blocks secure gender mismatch", () => {
-  assert.throws(
-    () =>
-      validateGroupLeaderRoomAssignment({
-        allowedGroupIds: ["G1"],
-        participant: {
-          id: "p1",
-          groupId: "G1",
-          groupLabel: null,
-          accommodation: "Provided by organization",
-          accommodationShort: "Provided by organization",
-          arrivalDate: "2026-08-27",
-          departureDate: "2026-08-30",
-          sex: "Female",
-        },
-        room: {
-          id: "r1",
-          capacity: 4,
-          genderPolicy: "male_only",
-          availableFrom: "2026-08-27",
-          availableTo: "2026-08-31",
-        },
-        roomScopeGroupIds: ["G1"],
-        existingOccupants: [],
-      }),
-    /male-only/
-  );
+test("validateGroupLeaderRoomAssignment allows gender-policy mismatches", () => {
+  const result = validateGroupLeaderRoomAssignment({
+    allowedGroupIds: ["G1"],
+    participant: {
+      id: "p1",
+      groupId: "G1",
+      groupLabel: null,
+      accommodation: "Provided by organization",
+      accommodationShort: "Provided by organization",
+      arrivalDate: "2026-08-27",
+      departureDate: "2026-08-30",
+      sex: "Male",
+    },
+    room: {
+      id: "r1",
+      capacity: 4,
+      genderPolicy: "female_only",
+      availableFrom: "2026-08-27",
+      availableTo: "2026-08-31",
+    },
+    roomScopeGroupIds: ["G1"],
+    existingOccupants: [
+      {
+        participantId: "p2",
+        arrivalDate: "2026-08-27",
+        departureDate: "2026-08-30",
+        sex: "Female",
+      },
+    ],
+  });
+
+  assert.equal(result.resolvedGroupId, "G1");
+  assert.deepEqual(result.warnings, []);
 });
 
 test("validateGroupLeaderRoomAssignment allows early arrivals with a warning", () => {
@@ -387,34 +393,33 @@ test("manager and admin receive the same late-departure warning", () => {
   assert.equal(result.warnings[0]?.code, "room_availability_ends_before_departure");
 });
 
-test("manager and admin still cannot bypass room gender policy", () => {
-  assert.throws(
-    () =>
-      validateGroupLeaderRoomAssignment({
-        allowedGroupIds: ["G1"],
-        allowCrossGroupAssignment: true,
-        participant: {
-          id: "p1",
-          groupId: "G1",
-          groupLabel: null,
-          accommodation: "Provided by organization",
-          accommodationShort: "Provided by organization",
-          arrivalDate: "2026-08-28",
-          departureDate: "2026-08-31",
-          sex: "Female",
-        },
-        room: {
-          id: "r1",
-          capacity: 2,
-          genderPolicy: "male_only",
-          availableFrom: "2026-08-28",
-          availableTo: "2026-08-31",
-        },
-        roomScopeGroupIds: ["G2"],
-        existingOccupants: [],
-      }),
-    /male-only/i
-  );
+test("manager and admin can assign across groups despite room gender policy", () => {
+  const result = validateGroupLeaderRoomAssignment({
+    allowedGroupIds: ["G1"],
+    allowCrossGroupAssignment: true,
+    participant: {
+      id: "p1",
+      groupId: "G1",
+      groupLabel: null,
+      accommodation: "Provided by organization",
+      accommodationShort: "Provided by organization",
+      arrivalDate: "2026-08-28",
+      departureDate: "2026-08-31",
+      sex: "Female",
+    },
+    room: {
+      id: "r1",
+      capacity: 2,
+      genderPolicy: "male_only",
+      availableFrom: "2026-08-28",
+      availableTo: "2026-08-31",
+    },
+    roomScopeGroupIds: ["G2"],
+    existingOccupants: [],
+  });
+
+  assert.equal(result.resolvedGroupId, "G1");
+  assert.deepEqual(result.warnings, []);
 });
 
 test("manager and admin still cannot bypass room capacity", () => {

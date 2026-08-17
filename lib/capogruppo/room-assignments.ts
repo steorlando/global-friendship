@@ -419,13 +419,6 @@ export function validateGroupLeaderRoomAssignment(
     });
   }
 
-  if (input.room.genderPolicy === "male_only" && participantSexCategory === "female") {
-    throw new Error("Female participants cannot be assigned to a male-only room");
-  }
-  if (input.room.genderPolicy === "female_only" && participantSexCategory === "male") {
-    throw new Error("Male participants cannot be assigned to a female-only room");
-  }
-
   const occupancyByDate = new Map<string, number>();
 
   for (const occupant of input.existingOccupants) {
@@ -447,13 +440,6 @@ export function validateGroupLeaderRoomAssignment(
         message: "An already assigned participant has missing or ambiguous sex/gender data.",
         meta: { participantId: occupant.participantId },
       });
-    }
-
-    if (input.room.genderPolicy === "male_only" && occupantSexCategory === "female") {
-      throw new Error("Room already contains occupants incompatible with a male-only policy");
-    }
-    if (input.room.genderPolicy === "female_only" && occupantSexCategory === "male") {
-      throw new Error("Room already contains occupants incompatible with a female-only policy");
     }
 
     for (const date of occupantStayDates) {
