@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { buildAccommodationHotelRosterXlsxColumns } from "../lib/alloggi/operations-presentation.ts";
+import {
+  buildAccommodationHotelRosterEnglishXlsxColumns,
+  buildAccommodationHotelRosterXlsxColumns,
+} from "../lib/alloggi/operations-presentation.ts";
 import en from "../lib/i18n/locales/en.ts";
 
 const itSource = readFileSync(
@@ -65,6 +68,32 @@ test("hotel roster XLSX exposes both physical room number and internal ID number
     [
       { key: "room", label: "Internal ID Number" },
       { key: "realRoom", label: "Room number" },
+    ],
+  );
+});
+
+test("hotel roster XLSX column headers are always English", () => {
+  assert.deepEqual(
+    buildAccommodationHotelRosterEnglishXlsxColumns().map((column) => column.label),
+    [
+      "Hotel",
+      "Internal ID Number",
+      "Available from",
+      "Available until (check-out)",
+      "Room number",
+      "Group",
+      "Participant",
+      "Sex",
+      "Age",
+      "Arrival",
+      "Departure",
+      "Email",
+      "Identity document type",
+      "Identity document number",
+      "Identity document country",
+      "Identity document issuing city",
+      "Identity document issue date",
+      "Identity document expiration date",
     ],
   );
 });

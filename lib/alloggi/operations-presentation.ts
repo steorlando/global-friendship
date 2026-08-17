@@ -141,6 +141,29 @@ export function buildAccommodationHotelRosterXlsxColumns(headers: {
   ];
 }
 
+export function buildAccommodationHotelRosterEnglishXlsxColumns(): OperationalExportColumn[] {
+  return buildAccommodationHotelRosterXlsxColumns({
+    hotel: "Hotel",
+    room: "Internal ID Number",
+    availableFrom: "Available from",
+    availableTo: "Available until (check-out)",
+    realRoom: "Room number",
+    group: "Group",
+    participant: "Participant",
+    sex: "Sex",
+    age: "Age",
+    arrival: "Arrival",
+    departure: "Departure",
+    email: "Email",
+    identityDocumentType: "Identity document type",
+    identityDocumentNumber: "Identity document number",
+    identityDocumentCountry: "Identity document country",
+    identityDocumentIssuingCity: "Identity document issuing city",
+    identityDocumentIssueDate: "Identity document issue date",
+    identityDocumentExpirationDate: "Identity document expiration date",
+  });
+}
+
 export function buildAccommodationRoomRosterColumns(headers: {
   hotel: string;
   room: string;
