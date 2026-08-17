@@ -8,6 +8,7 @@ import {
   formatRoomSequenceLabel,
   normalizeAccommodationHotelInput,
   normalizeAccommodationRoomImportRow,
+  normalizeEnsuiteBathroomValue,
   isOrganizationProvidedAccommodation,
   normalizeAccommodationRoomInput,
 } from "../lib/alloggi/inventory.ts";
@@ -49,6 +50,7 @@ test("normalizeAccommodationRoomInput parses a valid room payload", () => {
   const result = normalizeAccommodationRoomInput({
     hotelId: "hotel-1",
     realRoomNumber: "203",
+    hasEnsuiteBathroom: "yes",
     capacity: "4",
     genderPolicy: "mixed",
     availableFrom: "2026-08-27",
@@ -59,6 +61,7 @@ test("normalizeAccommodationRoomInput parses a valid room payload", () => {
   assert.deepEqual(result.data, {
     hotelId: "hotel-1",
     realRoomNumber: "203",
+    hasEnsuiteBathroom: true,
     capacity: 4,
     genderPolicy: "mixed",
     availableFrom: "2026-08-27",
@@ -88,6 +91,7 @@ test("normalizeAccommodationRoomInput can merge partial updates with current dat
     {
       hotelId: "hotel-1",
       realRoomNumber: "301",
+      hasEnsuiteBathroom: true,
       capacity: 4,
       genderPolicy: "female_only",
       availableFrom: "2026-08-27",
@@ -99,6 +103,7 @@ test("normalizeAccommodationRoomInput can merge partial updates with current dat
   assert.deepEqual(result.data, {
     hotelId: "hotel-1",
     realRoomNumber: null,
+    hasEnsuiteBathroom: true,
     capacity: 6,
     genderPolicy: "female_only",
     availableFrom: "2026-08-27",
@@ -147,6 +152,7 @@ test("normalizeAccommodationRoomImportRow validates Excel rows", () => {
   const result = normalizeAccommodationRoomImportRow({
     capienza: "8",
     numero_reale: "",
+    bagno_in_camera: "X",
     available_at: "27/08/2026",
     available_to: "31/08/2026",
   });
@@ -154,6 +160,7 @@ test("normalizeAccommodationRoomImportRow validates Excel rows", () => {
   assert.equal(result.error, null);
   assert.deepEqual(result.data, {
     realRoomNumber: null,
+    hasEnsuiteBathroom: true,
     capacity: 8,
     availableFrom: "2026-08-27",
     availableTo: "2026-08-31",
@@ -182,9 +189,40 @@ test("normalizeAccommodationRoomImportRow accepts ISO-like datetime strings", ()
   assert.equal(result.error, null);
   assert.deepEqual(result.data, {
     realRoomNumber: null,
+    hasEnsuiteBathroom: null,
     capacity: 4,
     availableFrom: "2026-08-27",
     availableTo: "2026-08-31",
+  });
+});
+
+test("normalizeEnsuiteBathroomValue preserves yes, no, and unknown as distinct states", () => {
+  for (const value of [true, 1, "yes", "X", "sì", "bagno privato"]) {
+    assert.deepEqual(normalizeEnsuiteBathroomValue(value), {
+      value: true,
+      error: null,
+    });
+  }
+
+  for (const value of [false, 0, "no", "false", "shared", "bagno condiviso"]) {
+    assert.deepEqual(normalizeEnsuiteBathroomValue(value), {
+      value: false,
+      error: null,
+    });
+  }
+
+  for (const value of [undefined, null, "", "?", "N/A", "da confermare"]) {
+    assert.deepEqual(normalizeEnsuiteBathroomValue(value), {
+      value: null,
+      error: null,
+    });
+  }
+});
+
+test("normalizeEnsuiteBathroomValue rejects ambiguous non-empty values", () => {
+  assert.deepEqual(normalizeEnsuiteBathroomValue("maybe"), {
+    value: null,
+    error: "bagno_in_camera must be a recognizable yes/no value or left empty",
   });
 });
 

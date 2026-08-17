@@ -727,6 +727,12 @@ Recent state:
   the participant hostel check-in. Document types are exported with localized readable
   labels; participants without a completed check-in and empty-bed rows keep those cells blank.
   CSV/PDF roster exports intentionally remain unchanged.
+- `stanze.bagno_in_camera` is a nullable boolean: `true` means a confirmed private ensuite,
+  `false` means the hotel confirmed there is no ensuite, and `null` means the hotel has not
+  provided the information. Room Excel imports normalize common values such as yes/no,
+  true/false, 1/0, and X. Assignment-room cards use distinct icons for all three states.
+- The participant hostel check-in shows `numero_reale` prominently and `codice_interno` as a
+  secondary reference; while the real room number is missing it shows an explicit pending mark.
 
 ## Supabase / Database Notes
 
@@ -776,6 +782,7 @@ High-value migrations to know:
 - `supabase/participant_staff_availability_migration.sql`
 - `supabase/participant_hostel_check_in_migration.sql`
 - `supabase/participant_event_arrivals_migration.sql`
+- `supabase/room_ensuite_bathroom_migration.sql`
 
 Main business tables encountered frequently:
 

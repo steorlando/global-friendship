@@ -32,6 +32,7 @@ export type AccommodationRoom = {
   legacyName: string;
   internalCode: string;
   realRoomNumber: string | null;
+  hasEnsuiteBathroom: boolean | null;
   capacity: number;
   genderPolicy: RoomGenderPolicy;
   availableFrom: string | null;
@@ -52,6 +53,7 @@ export type AccommodationRoomOccupant = {
 export type AccommodationRoomMutationInput = {
   hotelId: string;
   realRoomNumber: string | null;
+  hasEnsuiteBathroom: boolean | null;
   capacity: number;
   genderPolicy: RoomGenderPolicy;
   availableFrom: string | null;
@@ -60,6 +62,7 @@ export type AccommodationRoomMutationInput = {
 
 export type AccommodationRoomImportRowInput = {
   realRoomNumber: string | null;
+  hasEnsuiteBathroom: boolean | null;
   capacity: number;
   availableFrom: string | null;
   availableTo: string | null;
@@ -83,6 +86,7 @@ type RoomRow = {
   nome: string | null;
   codice_interno: string | null;
   numero_reale: string | null;
+  bagno_in_camera: boolean | null;
   capienza: number | null;
   gender_policy: RoomGenderPolicy | null;
   available_from: string | null;
@@ -115,7 +119,7 @@ type OccupantParticipantRow = {
 
 const HOTEL_SELECT_FIELDS = "*";
 const ROOM_SELECT_FIELDS =
-  "id,albergo_id,nome,codice_interno,numero_reale,capienza,gender_policy,available_from,available_to,created_at,updated_at";
+  "id,albergo_id,nome,codice_interno,numero_reale,bagno_in_camera,capienza,gender_policy,available_from,available_to,created_at,updated_at";
 const DATE_ONLY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const DAY_FIRST_DATE_REGEX = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
 const SUPABASE_IN_FILTER_BATCH_SIZE = 50;
@@ -215,6 +219,81 @@ function normalizePositiveInteger(value: unknown): number | null {
     return null;
   }
   return numeric;
+}
+
+export function normalizeEnsuiteBathroomValue(
+  value: unknown,
+  fieldName = "bagno_in_camera"
+): { value: boolean | null; error: string | null } {
+  if (value === undefined || value === null) {
+    return { value: null, error: null };
+  }
+  if (typeof value === "boolean") {
+    return { value, error: null };
+  }
+  if (typeof value === "number") {
+    if (value === 1) return { value: true, error: null };
+    if (value === 0) return { value: false, error: null };
+  }
+
+  const normalized = String(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+
+  if (
+    ["", "-", "?", "n/a", "na", "unknown", "not known", "not provided", "tbd", "da confermare"].includes(
+      normalized
+    )
+  ) {
+    return { value: null, error: null };
+  }
+
+  if (
+    [
+      "1",
+      "x",
+      "y",
+      "yes",
+      "true",
+      "si",
+      "oui",
+      "ja",
+      "sim",
+      "tak",
+      "private",
+      "ensuite",
+      "en-suite",
+      "bagno privato",
+    ].includes(normalized)
+  ) {
+    return { value: true, error: null };
+  }
+
+  if (
+    [
+      "0",
+      "n",
+      "no",
+      "false",
+      "non",
+      "nein",
+      "nao",
+      "shared",
+      "comune",
+      "bagno condiviso",
+      "no ensuite",
+      "no en-suite",
+    ].includes(normalized)
+  ) {
+    return { value: false, error: null };
+  }
+
+  return {
+    value: null,
+    error: `${fieldName} must be a recognizable yes/no value or left empty`,
+  };
 }
 
 function normalizeOptionalUrl(
@@ -321,6 +400,7 @@ function roomRowToMutationDefaults(row: RoomRow): AccommodationRoomMutationInput
   return {
     hotelId: row.albergo_id,
     realRoomNumber: row.numero_reale,
+    hasEnsuiteBathroom: row.bagno_in_camera,
     capacity: row.capienza ?? 1,
     genderPolicy: row.gender_policy ?? "mixed",
     availableFrom: row.available_from,
@@ -407,6 +487,22 @@ export function normalizeAccommodationRoomInput(
       ? current.realRoomNumber ?? null
       : normalizeText(realRoomNumberRaw);
 
+  const hasEnsuiteBathroomRaw = getObjectValue(value, [
+    "hasEnsuiteBathroom",
+    "bagnoInCamera",
+    "bagno_in_camera",
+    "ensuite",
+    "with_ensuite",
+    "with ensuite? (yes/no)",
+  ]);
+  const hasEnsuiteBathroomResult =
+    hasEnsuiteBathroomRaw === undefined
+      ? { value: current.hasEnsuiteBathroom ?? null, error: null }
+      : normalizeEnsuiteBathroomValue(hasEnsuiteBathroomRaw);
+  if (hasEnsuiteBathroomResult.error) {
+    return { data: null, error: hasEnsuiteBathroomResult.error };
+  }
+
   const capacityRaw = getObjectValue(value, ["capacity", "capienza"]);
   const capacity =
     capacityRaw === undefined
@@ -461,6 +557,7 @@ export function normalizeAccommodationRoomInput(
     data: {
       hotelId,
       realRoomNumber,
+      hasEnsuiteBathroom: hasEnsuiteBathroomResult.value,
       capacity,
       genderPolicy,
       availableFrom: availableFromResult.value,
@@ -522,6 +619,7 @@ function mapRoomRow(args: {
     legacyName: args.row.nome ?? "",
     internalCode: args.row.codice_interno ?? args.row.nome ?? "",
     realRoomNumber: args.row.numero_reale,
+    hasEnsuiteBathroom: args.row.bagno_in_camera,
     capacity: args.row.capienza ?? 0,
     genderPolicy: args.row.gender_policy ?? "mixed",
     availableFrom: args.row.available_from,
@@ -947,6 +1045,7 @@ export async function createAccommodationRoom(
       nome: buildRoomLegacyName(internalCode),
       codice_interno: internalCode,
       numero_reale: roomInput.realRoomNumber,
+      bagno_in_camera: roomInput.hasEnsuiteBathroom,
       capienza: roomInput.capacity,
       gender_policy: roomInput.genderPolicy,
       available_from: roomInput.availableFrom,
@@ -975,6 +1074,21 @@ export function normalizeAccommodationRoomImportRow(
   const realRoomNumber = normalizeText(
     getObjectValue(value, ["numero_reale", "real_room_number", "realRoomNumber"])
   );
+
+  const hasEnsuiteBathroomResult = normalizeEnsuiteBathroomValue(
+    getObjectValue(value, [
+      "bagno_in_camera",
+      "bagno in camera",
+      "bagno privato",
+      "ensuite",
+      "en-suite",
+      "with_ensuite",
+      "with ensuite? (yes/no)",
+    ])
+  );
+  if (hasEnsuiteBathroomResult.error) {
+    return { data: null, error: hasEnsuiteBathroomResult.error };
+  }
 
   const capacity = normalizePositiveInteger(
     getObjectValue(value, ["capienza", "capacity"])
@@ -1013,6 +1127,7 @@ export function normalizeAccommodationRoomImportRow(
   return {
     data: {
       realRoomNumber,
+      hasEnsuiteBathroom: hasEnsuiteBathroomResult.value,
       capacity,
       availableFrom: availableFromResult.value,
       availableTo: availableToResult.value,
@@ -1067,6 +1182,7 @@ export async function importAccommodationRooms(
       nome: buildRoomLegacyName(internalCode),
       codice_interno: internalCode,
       numero_reale: row.realRoomNumber,
+      bagno_in_camera: row.hasEnsuiteBathroom,
       capienza: row.capacity,
       gender_policy: args.genderPolicy,
       available_from: row.availableFrom,
@@ -1204,6 +1320,7 @@ export async function updateAccommodationRoom(
       nome: buildRoomLegacyName(internalCode),
       codice_interno: internalCode,
       numero_reale: roomInput.realRoomNumber,
+      bagno_in_camera: roomInput.hasEnsuiteBathroom,
       capienza: roomInput.capacity,
       gender_policy: roomInput.genderPolicy,
       available_from: roomInput.availableFrom,

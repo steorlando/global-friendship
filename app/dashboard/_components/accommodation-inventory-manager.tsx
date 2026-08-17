@@ -10,6 +10,7 @@ import {
 } from "react";
 import type { RoomGenderPolicy } from "@/lib/alloggi/inventory";
 import { useI18n } from "@/lib/i18n/provider";
+import { RoomEnsuiteBathroomIcon } from "./room-ensuite-bathroom-icon";
 
 type Hotel = {
   id: string;
@@ -27,6 +28,7 @@ type Room = {
   legacyName: string;
   internalCode: string;
   realRoomNumber: string | null;
+  hasEnsuiteBathroom: boolean | null;
   capacity: number;
   genderPolicy: RoomGenderPolicy;
   availableFrom: string | null;
@@ -91,6 +93,7 @@ type RoomFormState = {
   id: string | null;
   hotelId: string;
   realRoomNumber: string;
+  ensuiteBathroom: "unknown" | "yes" | "no";
   capacity: string;
   genderPolicy: RoomGenderPolicy;
   availableFrom: string;
@@ -101,6 +104,7 @@ const EMPTY_FORM: RoomFormState = {
   id: null,
   hotelId: "",
   realRoomNumber: "",
+  ensuiteBathroom: "unknown",
   capacity: "1",
   genderPolicy: "mixed",
   availableFrom: "",
@@ -148,6 +152,12 @@ function toRoomFormState(room: Room): RoomFormState {
     id: room.id,
     hotelId: room.hotelId,
     realRoomNumber: room.realRoomNumber ?? "",
+    ensuiteBathroom:
+      room.hasEnsuiteBathroom === true
+        ? "yes"
+        : room.hasEnsuiteBathroom === false
+          ? "no"
+          : "unknown",
     capacity: String(room.capacity),
     genderPolicy: room.genderPolicy,
     availableFrom: room.availableFrom ?? "",
@@ -302,6 +312,30 @@ function RoomFormCard({
             />
           </label>
 
+          <label className="block text-sm font-medium text-slate-700">
+            {t("accommodation.inventory.form.ensuiteBathroom")}
+            <select
+              value={form.ensuiteBathroom}
+              onChange={(event) =>
+                onChange((current) => ({
+                  ...current,
+                  ensuiteBathroom: event.target.value as RoomFormState["ensuiteBathroom"],
+                }))
+              }
+              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+            >
+              <option value="unknown">
+                {t("accommodation.inventory.ensuite.unknown")}
+              </option>
+              <option value="yes">
+                {t("accommodation.inventory.ensuite.available")}
+              </option>
+              <option value="no">
+                {t("accommodation.inventory.ensuite.unavailable")}
+              </option>
+            </select>
+          </label>
+
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block text-sm font-medium text-slate-700">
               {t("accommodation.inventory.form.capacity")}
@@ -425,6 +459,14 @@ export function AccommodationInventoryManager() {
   const [searchTerm, setSearchTerm] = useState("");
   const [editRoomOccupants, setEditRoomOccupants] = useState<RoomOccupant[]>([]);
   const deferredSearchTerm = useDeferredValue(searchTerm);
+  const ensuiteBathroomLabels = useMemo(
+    () => ({
+      available: t("accommodation.inventory.ensuite.available"),
+      unavailable: t("accommodation.inventory.ensuite.unavailable"),
+      unknown: t("accommodation.inventory.ensuite.unknown"),
+    }),
+    [t]
+  );
 
   const loadInventory = useCallback(async () => {
     setLoading(true);
@@ -572,6 +614,12 @@ export function AccommodationInventoryManager() {
         body: JSON.stringify({
           hotelId: createForm.hotelId,
           realRoomNumber: createForm.realRoomNumber,
+          hasEnsuiteBathroom:
+            createForm.ensuiteBathroom === "yes"
+              ? true
+              : createForm.ensuiteBathroom === "no"
+                ? false
+                : null,
           capacity: createForm.capacity,
           genderPolicy: createForm.genderPolicy,
           availableFrom: createForm.availableFrom,
@@ -610,6 +658,12 @@ export function AccommodationInventoryManager() {
           id: editForm.id,
           hotelId: editForm.hotelId,
           realRoomNumber: editForm.realRoomNumber,
+          hasEnsuiteBathroom:
+            editForm.ensuiteBathroom === "yes"
+              ? true
+              : editForm.ensuiteBathroom === "no"
+                ? false
+                : null,
           capacity: editForm.capacity,
           genderPolicy: editForm.genderPolicy,
           availableFrom: editForm.availableFrom,
@@ -1347,6 +1401,9 @@ export function AccommodationInventoryManager() {
                       {t("accommodation.inventory.table.realRoomNumber")}
                     </th>
                     <th className="px-4 py-3 font-semibold">
+                      {t("accommodation.inventory.table.ensuiteBathroom")}
+                    </th>
+                    <th className="px-4 py-3 font-semibold">
                       {t("accommodation.inventory.table.capacity")}
                     </th>
                     <th className="px-4 py-3 font-semibold">
@@ -1387,6 +1444,12 @@ export function AccommodationInventoryManager() {
                       </td>
                       <td className="px-4 py-3 text-slate-700">
                         {room.realRoomNumber || "-"}
+                      </td>
+                      <td className="px-4 py-3 text-slate-700">
+                        <RoomEnsuiteBathroomIcon
+                          value={room.hasEnsuiteBathroom}
+                          labels={ensuiteBathroomLabels}
+                        />
                       </td>
                       <td className="px-4 py-3 text-slate-700">{room.capacity}</td>
                       <td className="px-4 py-3">
@@ -1471,6 +1534,7 @@ export function AccommodationInventoryManager() {
                 <ul className="mt-3 list-disc space-y-2 pl-5">
                   <li>{t("accommodation.inventory.import.helpColumnCapacity")}</li>
                   <li>{t("accommodation.inventory.import.helpColumnRealRoom")}</li>
+                  <li>{t("accommodation.inventory.import.helpColumnEnsuite")}</li>
                   <li>{t("accommodation.inventory.import.helpColumnAvailableFrom")}</li>
                   <li>{t("accommodation.inventory.import.helpColumnAvailableTo")}</li>
                 </ul>
@@ -1486,6 +1550,7 @@ export function AccommodationInventoryManager() {
                       <tr className="bg-slate-50 text-slate-600">
                         <th className="border border-slate-200 px-3 py-2">capienza</th>
                         <th className="border border-slate-200 px-3 py-2">numero_reale</th>
+                        <th className="border border-slate-200 px-3 py-2">bagno_in_camera</th>
                         <th className="border border-slate-200 px-3 py-2">available_from</th>
                         <th className="border border-slate-200 px-3 py-2">available_to</th>
                       </tr>
@@ -1494,12 +1559,14 @@ export function AccommodationInventoryManager() {
                       <tr>
                         <td className="border border-slate-200 px-3 py-2">4</td>
                         <td className="border border-slate-200 px-3 py-2">203</td>
+                        <td className="border border-slate-200 px-3 py-2">yes</td>
                         <td className="border border-slate-200 px-3 py-2">2026-08-27</td>
                         <td className="border border-slate-200 px-3 py-2">2026-08-31</td>
                       </tr>
                       <tr>
                         <td className="border border-slate-200 px-3 py-2">2</td>
                         <td className="border border-slate-200 px-3 py-2"></td>
+                        <td className="border border-slate-200 px-3 py-2">X</td>
                         <td className="border border-slate-200 px-3 py-2">2026-08-28</td>
                         <td className="border border-slate-200 px-3 py-2">2026-08-31</td>
                       </tr>

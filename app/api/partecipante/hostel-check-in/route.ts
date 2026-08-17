@@ -203,6 +203,9 @@ export async function GET(req: Request) {
         hotelName: hotelResult.data.nome,
         hotelAddress: hotelResult.data.indirizzo,
         googleMapsUrl: hotelResult.data.google_maps_url,
+        roomNumber: normalizeText(room.numero_reale),
+        internalRoomCode:
+          normalizeText(room.codice_interno) ?? normalizeText(room.nome) ?? "-",
         roomLabel:
           normalizeText(room.numero_reale) ??
           normalizeText(room.nome) ??

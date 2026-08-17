@@ -17,7 +17,8 @@ type HostelCheckInResponse = {
     hotelName: string;
     hotelAddress: string | null;
     googleMapsUrl: string | null;
-    roomLabel: string;
+    roomNumber: string | null;
+    internalRoomCode: string;
     roommates: Array<{ id: string; name: string }>;
   };
   stay?: {
@@ -249,12 +250,33 @@ export function HostelCheckInSection({ participantId }: { participantId: string 
                   {accommodation.hotelName}
                 </dd>
               </div>
-              <div>
+              <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3">
                 <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                   {t("participant.hostelCheckIn.room")}
                 </dt>
-                <dd className="mt-1 font-semibold text-slate-900">
-                  {accommodation.roomLabel}
+                <dd className="mt-1">
+                  {accommodation.roomNumber ? (
+                    <span className="block text-3xl font-black tracking-tight text-indigo-950">
+                      {accommodation.roomNumber}
+                    </span>
+                  ) : (
+                    <>
+                      <span
+                        className="block text-3xl font-black leading-none text-amber-700"
+                        aria-label={t("participant.hostelCheckIn.roomNumberMissing")}
+                      >
+                        —
+                      </span>
+                      <span className="mt-1 block text-xs font-medium text-amber-800">
+                        {t("participant.hostelCheckIn.roomNumberMissing")}
+                      </span>
+                    </>
+                  )}
+                  <span className="mt-1.5 block text-xs font-medium text-slate-500">
+                    {t("participant.hostelCheckIn.internalRoomCode", {
+                      code: accommodation.internalRoomCode,
+                    })}
+                  </span>
                 </dd>
               </div>
               <div className="sm:col-span-2">

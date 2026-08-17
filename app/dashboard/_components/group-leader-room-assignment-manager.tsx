@@ -3,6 +3,7 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/lib/i18n/provider";
 import type { AccommodationRoom, RoomGenderPolicy } from "@/lib/alloggi/inventory";
+import { RoomEnsuiteBathroomIcon } from "./room-ensuite-bathroom-icon";
 import type {
   GroupLeaderParticipant,
   GroupLeaderParticipantRoomAssignment,
@@ -151,6 +152,14 @@ export function GroupLeaderRoomAssignmentManager({
   const deferredSearchTerm = useDeferredValue(searchTerm);
   const deferredRoomCodeFilter = useDeferredValue(roomCodeFilter);
   const hasSearch = deferredSearchTerm.trim().length > 0;
+  const ensuiteBathroomLabels = useMemo(
+    () => ({
+      available: t("groupLeader.roomAssignment.rooms.ensuite.available"),
+      unavailable: t("groupLeader.roomAssignment.rooms.ensuite.unavailable"),
+      unknown: t("groupLeader.roomAssignment.rooms.ensuite.unknown"),
+    }),
+    [t]
+  );
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -808,6 +817,10 @@ export function GroupLeaderRoomAssignmentManager({
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <h3 className="text-lg font-bold text-slate-900">{room.internalCode}</h3>
+                          <RoomEnsuiteBathroomIcon
+                            value={room.hasEnsuiteBathroom}
+                            labels={ensuiteBathroomLabels}
+                          />
                           {hasMatchingOccupant ? (
                             <span className="rounded-full bg-indigo-100 px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-indigo-700">
                               {t("groupLeader.roomAssignment.rooms.searchMatch")}

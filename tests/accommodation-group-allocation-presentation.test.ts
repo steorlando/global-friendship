@@ -98,6 +98,7 @@ test("buildAccommodationRoomOptionLabel includes room code, hotel, and sharing i
     legacyName: "WO-04-A",
     internalCode: "WO-04-A",
     realRoomNumber: null,
+    hasEnsuiteBathroom: null,
     capacity: 4,
     genderPolicy: "mixed",
     availableFrom: null,

@@ -34,6 +34,7 @@ import {
   type RoomAvailabilityFilter,
   type RoomAvailabilityWarningFilter,
 } from "@/lib/capogruppo/room-assignment-presentation";
+import { RoomEnsuiteBathroomIcon } from "./room-ensuite-bathroom-icon";
 
 type RoomScope = {
   groupId: string;
@@ -164,6 +165,14 @@ export function DesktopRoomAssignmentWorkspace({
   const deferredUnassignedDialogSearch = useDeferredValue(unassignedDialogSearch);
   const deferredNonRoomSearch = useDeferredValue(nonRoomSearch);
   const hasSearch = deferredSearchTerm.trim().length > 0;
+  const ensuiteBathroomLabels = useMemo(
+    () => ({
+      available: t("groupLeader.roomAssignment.rooms.ensuite.available"),
+      unavailable: t("groupLeader.roomAssignment.rooms.ensuite.unavailable"),
+      unknown: t("groupLeader.roomAssignment.rooms.ensuite.unknown"),
+    }),
+    [t]
+  );
 
   const loadData = useCallback(
     async (showLoadingState = true) => {
@@ -1088,7 +1097,13 @@ export function DesktopRoomAssignmentWorkspace({
                               </td>
                               <td rowSpan={rowCount} className={`border-b-2 border-r border-slate-400 px-3 py-2 align-top ${roomHasSearchMatch ? "bg-indigo-50" : "bg-white"}`}>
                                 <div className="flex items-center justify-between gap-2">
-                                  <span className="font-black text-slate-900">{room.internalCode}</span>
+                                  <span className="inline-flex items-center gap-1.5">
+                                    <span className="font-black text-slate-900">{room.internalCode}</span>
+                                    <RoomEnsuiteBathroomIcon
+                                      value={room.hasEnsuiteBathroom}
+                                      labels={ensuiteBathroomLabels}
+                                    />
+                                  </span>
                                   <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${roomTone}`}>{occupancy}/{room.capacity}</span>
                                 </div>
                                 <p className="mt-1 text-[10px] text-slate-500">{buildPolicyLabel(room.genderPolicy, t)}</p>

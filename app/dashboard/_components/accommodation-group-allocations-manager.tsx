@@ -40,6 +40,7 @@ type Room = {
   legacyName: string;
   internalCode: string;
   realRoomNumber: string | null;
+  hasEnsuiteBathroom: boolean | null;
   capacity: number;
   genderPolicy: RoomGenderPolicy;
   availableFrom: string | null;
