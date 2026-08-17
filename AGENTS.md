@@ -316,7 +316,7 @@ Main routes:
 - Manager management: `app/dashboard/manager/tours/*`
 - Tour manager dashboard: `app/dashboard/tour-manager/*`
 - Public/staff/participant APIs: `app/api/tours/*` and `app/api/partecipante/tours/route.ts`
-- Waitlist cron: `app/api/cron/tour-waitlist/route.ts` (every minute via `vercel.json`)
+- Waitlist cron endpoint: `app/api/cron/tour-waitlist/route.ts` (called every minute by the Hetzner host scheduler because the Vercel Hobby plan supports only daily cron jobs)
 
 Tables and storage:
 
