@@ -69,6 +69,8 @@ type ParticipantStatRow = {
   nazione: string | null;
   gruppo_label: string | null;
   gruppo_id: string | null;
+  partecipa_intero_evento?: boolean | null;
+  presenza_dettaglio?: Record<string, unknown> | null;
   data_arrivo: string | null;
   data_partenza: string | null;
   alloggio_short: string | null;
@@ -121,7 +123,7 @@ const ENROLLMENT_BUCKET_LABEL_KEYS: Record<EnrollmentBucket, string> = {
 };
 
 const SELECT_FIELDS_BASE =
-  "id,nome,cognome,email,tipo_iscrizione,preferenza_alloggio_operatore,paese_residenza,nazione,gruppo_label,gruppo_id,data_arrivo,data_partenza,alloggio_short,alloggio,created_at,deleted_at,dati_tally,disabilita_accessibilita,difficolta_accessibilita,esigenze_alimentari,allergie";
+  "id,nome,cognome,email,tipo_iscrizione,preferenza_alloggio_operatore,paese_residenza,nazione,gruppo_label,gruppo_id,data_arrivo,data_partenza,partecipa_intero_evento,presenza_dettaglio,alloggio_short,alloggio,created_at,deleted_at,dati_tally,disabilita_accessibilita,difficolta_accessibilita,esigenze_alimentari,allergie";
 const SELECT_FIELDS_BASE_LEGACY =
   "id,nome,cognome,email,tipo_iscrizione,paese_residenza,nazione,gruppo_label,gruppo_id,data_arrivo,data_partenza,alloggio_short,alloggio,created_at";
 const SELECT_FIELDS_WITH_CITY = `${SELECT_FIELDS_BASE},citta:città`;
@@ -131,7 +133,7 @@ const SECTION_SELECT_FIELDS: Record<StatisticsSectionKey, string> = {
     "id,tipo_iscrizione,paese_residenza,nazione,gruppo_label,gruppo_id,deleted_at,citta:città",
   trend: "id,created_at,deleted_at",
   "daily-presence":
-    "id,data_arrivo,data_partenza,alloggio_short,alloggio,tipo_iscrizione,preferenza_alloggio_operatore,deleted_at",
+    "id,data_arrivo,data_partenza,partecipa_intero_evento,presenza_dettaglio,alloggio_short,alloggio,tipo_iscrizione,preferenza_alloggio_operatore,deleted_at,citta:città",
   "event-arrivals": "id,gruppo_label,gruppo_id,deleted_at",
   "hostel-check-in":
     "id,tipo_iscrizione,preferenza_alloggio_operatore,gruppo_label,gruppo_id,alloggio_short,alloggio,deleted_at",
@@ -1718,7 +1720,7 @@ export async function StatisticsDashboard({
     !sectionedView || activeSection === section;
 
   const executeSelect = async (selectFields: string) =>
-    service.from("partecipanti").select(selectFields);
+    service.from("partecipanti").select(selectFields).is("deleted_at", null);
 
   const primarySelectFields = sectionedView
     ? SECTION_SELECT_FIELDS[activeSection]
@@ -1795,18 +1797,21 @@ export async function StatisticsDashboard({
   );
   let dailyPresenceHostelNames: string[] = [];
   let dailyPresenceAssignedHostelNames = new Map<string, string>();
+  let dailyPresenceEventSettings: Awaited<ReturnType<typeof loadEventRuntimeSettings>> | null = null;
   if (showSection("daily-presence")) {
     try {
-      const [assignedHostelNames, hostelResult] = await Promise.all([
+      const [assignedHostelNames, hostelResult, eventSettings] = await Promise.all([
         loadAssignedHostelNameByParticipant(
           service,
           participants.map((participant) => participant.id),
         ),
         service.from("alberghi").select("nome").order("nome", { ascending: true }),
+        loadEventRuntimeSettings(service),
       ]);
       if (hostelResult.error) throw new Error(hostelResult.error.message);
 
       dailyPresenceAssignedHostelNames = assignedHostelNames;
+      dailyPresenceEventSettings = eventSettings;
       dailyPresenceHostelNames = ((hostelResult.data ?? []) as Array<{ nome: string | null }>)
         .flatMap((hostel) => {
           const name = hostel.nome?.trim();
@@ -1827,8 +1832,11 @@ export async function StatisticsDashboard({
   }
   const dailyPresenceParticipants = participants.map((participant) => ({
     id: participant.id,
+    citta: participant.citta ?? null,
     data_arrivo: participant.data_arrivo,
     data_partenza: participant.data_partenza,
+    partecipa_intero_evento: participant.partecipa_intero_evento ?? null,
+    presenza_dettaglio: participant.presenza_dettaglio ?? null,
     alloggio_short: participant.alloggio_short,
     alloggio: participant.alloggio,
     tipo_iscrizione: participant.tipo_iscrizione,
@@ -2167,6 +2175,9 @@ export async function StatisticsDashboard({
               <DailyPresenceSection
                 participants={dailyPresenceParticipants}
                 hostelNames={dailyPresenceHostelNames}
+                eventStartDate={dailyPresenceEventSettings?.eventStartDate ?? ""}
+                eventEndDate={dailyPresenceEventSettings?.eventEndDate ?? ""}
+                hostCity={dailyPresenceEventSettings?.hostCity ?? ""}
               />
             </div>
           ) : (
@@ -2183,6 +2194,9 @@ export async function StatisticsDashboard({
                 <DailyPresenceSection
                   participants={dailyPresenceParticipants}
                   hostelNames={dailyPresenceHostelNames}
+                  eventStartDate={dailyPresenceEventSettings?.eventStartDate ?? ""}
+                  eventEndDate={dailyPresenceEventSettings?.eventEndDate ?? ""}
+                  hostCity={dailyPresenceEventSettings?.hostCity ?? ""}
                 />
               )}
             </>

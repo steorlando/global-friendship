@@ -11,8 +11,11 @@ function participant(
 ): DailyPresenceParticipant {
   return {
     id: overrides.id ?? crypto.randomUUID(),
+    citta: null,
     data_arrivo: "2026-08-27",
     data_partenza: "2026-08-29",
+    partecipa_intero_evento: null,
+    presenza_dettaglio: null,
     alloggio_short: "Provided by organization",
     alloggio:
       "I'm staying at the accommodation provided by the organization / Alloggero presso la struttura fornita dall'organizzazione",
@@ -64,6 +67,11 @@ test("builds the daily accommodation matrix with requested rows and coherent tot
       }),
     ],
     ["Hostel A", "Hostel B"],
+    {
+      eventStartDate: "2026-08-28",
+      eventEndDate: "2026-08-30",
+      hostCity: "Budapest",
+    },
   );
 
   assert.deepEqual(matrix.days, ["2026-08-27", "2026-08-28", "2026-08-29"]);
@@ -93,6 +101,11 @@ test("keeps an assigned hostel visible even when it is missing from inventory in
   const matrix = buildDailyPresenceMatrix(
     [participant({ assigned_hostel_name: "Unexpected Hostel" })],
     ["Configured Hostel"],
+    {
+      eventStartDate: "2026-08-28",
+      eventEndDate: "2026-08-30",
+      hostCity: "Budapest",
+    },
   );
 
   assert.deepEqual(
@@ -100,6 +113,57 @@ test("keeps an assigned hostel visible even when it is missing from inventory in
     [
       ["Configured Hostel", [0, 0, 0]],
       ["Unexpected Hostel", [1, 1, 1]],
+    ],
+  );
+});
+
+test("counts host-city participants without travel dates as external on declared event days", () => {
+  const matrix = buildDailyPresenceMatrix(
+    [
+      participant({
+        id: "host-city-full-event",
+        citta: "Budapest",
+        data_arrivo: null,
+        data_partenza: null,
+        partecipa_intero_evento: true,
+        assigned_hostel_name: "Hostel A",
+      }),
+      participant({
+        id: "host-city-selected-days",
+        citta: " BUDAPEST ",
+        data_arrivo: null,
+        data_partenza: null,
+        presenza_dettaglio: {
+          "(Opening ceremony Friday 28th August)": true,
+          "(Lunch – August 29)": false,
+          "Dinner and party – August 30": "yes",
+          general: false,
+        },
+      }),
+      participant({
+        id: "other-city-without-dates",
+        citta: "Rome",
+        data_arrivo: null,
+        data_partenza: null,
+        partecipa_intero_evento: true,
+      }),
+    ],
+    ["Hostel A"],
+    {
+      eventStartDate: "2026-08-28",
+      eventEndDate: "2026-08-30",
+      hostCity: "Budapest",
+    },
+  );
+
+  assert.deepEqual(matrix.days, ["2026-08-28", "2026-08-29", "2026-08-30"]);
+  assert.deepEqual(
+    matrix.rows.map((row) => [row.key, row.counts]),
+    [
+      ["hostel:Hostel A", [0, 0, 0]],
+      ["external", [2, 1, 2]],
+      ["unassigned", [0, 0, 0]],
+      ["total", [2, 1, 2]],
     ],
   );
 });

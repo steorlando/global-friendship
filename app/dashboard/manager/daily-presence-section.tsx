@@ -10,6 +10,9 @@ import {
 type DailyPresenceSectionProps = {
   participants: DailyPresenceParticipant[];
   hostelNames: string[];
+  eventStartDate: string;
+  eventEndDate: string;
+  hostCity: string;
 };
 
 function formatDayLabel(day: string): string {
@@ -20,11 +23,18 @@ function formatDayLabel(day: string): string {
 export function DailyPresenceSection({
   participants,
   hostelNames,
+  eventStartDate,
+  eventEndDate,
+  hostCity,
 }: DailyPresenceSectionProps) {
   const { t } = useI18n();
   const matrix = useMemo(
-    () => buildDailyPresenceMatrix(participants, hostelNames),
-    [hostelNames, participants],
+    () => buildDailyPresenceMatrix(participants, hostelNames, {
+      eventStartDate,
+      eventEndDate,
+      hostCity,
+    }),
+    [eventEndDate, eventStartDate, hostCity, hostelNames, participants],
   );
 
   return (
