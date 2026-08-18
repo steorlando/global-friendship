@@ -12,6 +12,7 @@ import {
   type AppRole,
 } from "@/lib/auth/roles";
 import { safePostLoginPath } from "@/lib/auth/post-login";
+import { toursArePublicFromApiPayload } from "@/lib/tours/visibility";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,6 +20,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<AppRole>("partecipante");
   const [nextPath, setNextPath] = useState<string | null>(null);
+  const [showToursLink, setShowToursLink] = useState(false);
   const [status, setStatus] = useState<"idle" | "loading" | "sent" | "error">(
     "idle"
   );
@@ -36,6 +38,27 @@ export default function LoginPage() {
         return t("auth.login.error");
     }
   };
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadTourVisibility() {
+      try {
+        const response = await fetch("/api/tours/public", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (!response.ok) return;
+        const payload: unknown = await response.json();
+        setShowToursLink(toursArePublicFromApiPayload(payload));
+      } catch {
+        // Fail closed: the tour link remains hidden when settings cannot be loaded.
+      }
+    }
+
+    void loadTourVisibility();
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     async function redirectIfAuthenticated() {
@@ -222,12 +245,14 @@ export default function LoginPage() {
           </div>
         )}
       </form>
-      <Link
-        href="/tours"
-        className="mt-5 flex min-h-11 w-full items-center justify-center rounded-lg border border-indigo-300 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-800 transition hover:bg-indigo-100"
-      >
-        {t("auth.login.viewTours")}
-      </Link>
+      {showToursLink ? (
+        <Link
+          href="/tours"
+          className="mt-5 flex min-h-11 w-full items-center justify-center rounded-lg border border-indigo-300 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-800 transition hover:bg-indigo-100"
+        >
+          {t("auth.login.viewTours")}
+        </Link>
+      ) : null}
       </section>
     </main>
   );

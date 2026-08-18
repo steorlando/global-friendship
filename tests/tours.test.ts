@@ -7,6 +7,7 @@ import {
   safeAttachmentFileName,
   tourApiErrorCode,
 } from "../lib/tours/validation.ts";
+import { toursArePublicFromApiPayload } from "../lib/tours/visibility.ts";
 
 test("tour_manager is a first-class app role without participant group scope", () => {
   assert.equal(isAppRole("tour_manager"), true);
@@ -24,6 +25,19 @@ test("post-login redirect accepts only the participant tours destination", () =>
   assert.equal(safePostLoginPath("https://example.com", "partecipante"), null);
   assert.equal(safePostLoginPath("/dashboard/admin", "partecipante"), null);
   assert.equal(safePostLoginPath("/dashboard/partecipante/tours", "admin"), null);
+});
+
+test("the login tour link is enabled only by the explicit public setting", () => {
+  assert.equal(
+    toursArePublicFromApiPayload({ settings: { publicEnabled: true } }),
+    true
+  );
+  assert.equal(
+    toursArePublicFromApiPayload({ settings: { publicEnabled: false } }),
+    false
+  );
+  assert.equal(toursArePublicFromApiPayload({ settings: {} }), false);
+  assert.equal(toursArePublicFromApiPayload(null), false);
 });
 
 test("tour input is normalized and capacity is bounded", () => {
