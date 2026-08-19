@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   buildDailyPresenceMatrix,
+  buildNightlyStayMatrix,
   type DailyPresenceParticipant,
 } from "../lib/statistics/daily-presence.ts";
 
@@ -166,4 +167,77 @@ test("counts host-city participants without travel dates as external on declared
       ["total", [2, 1, 2]],
     ],
   );
+});
+
+test("counts overnight stays with the departure date excluded", () => {
+  const matrix = buildNightlyStayMatrix(
+    [
+      participant({ id: "hostel-a", assigned_hostel_name: "Hostel A" }),
+      participant({
+        id: "hostel-b",
+        assigned_hostel_name: "Hostel B",
+        data_arrivo: "2026-08-28",
+      }),
+      participant({
+        id: "autonomous-same-day",
+        alloggio_short: "Atonoumous",
+        data_arrivo: "2026-08-28",
+        data_partenza: "2026-08-28",
+      }),
+      participant({
+        id: "operator-hotel",
+        tipo_iscrizione: "Operator - Operatore",
+        preferenza_alloggio_operatore: "Hotel",
+        data_partenza: "2026-08-28",
+      }),
+      participant({
+        id: "hostel-unassigned",
+        data_arrivo: "2026-08-29",
+        data_partenza: "2026-08-30",
+      }),
+      participant({
+        id: "missing-accommodation",
+        alloggio_short: null,
+        alloggio: null,
+        data_partenza: "2026-08-28",
+      }),
+      participant({
+        id: "host-city-without-dates",
+        citta: "Budapest",
+        data_arrivo: null,
+        data_partenza: null,
+        partecipa_intero_evento: true,
+      }),
+    ],
+    ["Hostel A", "Hostel B"],
+  );
+
+  assert.deepEqual(matrix.days, ["2026-08-27", "2026-08-28", "2026-08-29"]);
+  assert.deepEqual(
+    matrix.rows.map((row) => [row.key, row.counts]),
+    [
+      ["hostel:Hostel A", [1, 1, 0]],
+      ["hostel:Hostel B", [0, 1, 0]],
+      ["external", [1, 0, 0]],
+      ["unassigned", [1, 0, 1]],
+      ["total", [3, 2, 1]],
+    ],
+  );
+});
+
+test("shows the night before checkout and omits a checkout date with no sleepers", () => {
+  const matrix = buildNightlyStayMatrix(
+    [
+      participant({
+        data_arrivo: "2026-08-30",
+        data_partenza: "2026-08-31",
+        assigned_hostel_name: "Hostel A",
+      }),
+    ],
+    ["Hostel A"],
+  );
+
+  assert.deepEqual(matrix.days, ["2026-08-30"]);
+  assert.deepEqual(matrix.rows[0]?.counts, [1]);
+  assert.deepEqual(matrix.rows.at(-1)?.counts, [1]);
 });

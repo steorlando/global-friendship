@@ -42,6 +42,10 @@ type ResolvedPresence = {
   forceExternal: boolean;
 };
 
+type PresenceResolver = (
+  participant: DailyPresenceParticipant,
+) => ResolvedPresence | null;
+
 function parseDateOnly(value: string | null): Date | null {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
   const date = new Date(`${value}T00:00:00Z`);
@@ -124,6 +128,20 @@ function resolvePresence(
   return { participant, days, forceExternal: true };
 }
 
+function resolveNightlyStay(
+  participant: DailyPresenceParticipant,
+): ResolvedPresence | null {
+  const arrival = parseDateOnly(participant.data_arrivo);
+  const departure = parseDateOnly(participant.data_partenza);
+  if (!arrival || !departure || departure <= arrival) return null;
+
+  return {
+    participant,
+    days: dateRange(arrival, addDays(departure, -1)),
+    forceExternal: false,
+  };
+}
+
 function isExternalAccommodation(participant: DailyPresenceParticipant): boolean {
   const autonomous = [participant.alloggio_short, participant.alloggio].some(
     isAutonomousAccommodation,
@@ -168,13 +186,13 @@ function uniqueHostelNames(
   return names;
 }
 
-export function buildDailyPresenceMatrix(
+function buildAccommodationMatrix(
   participants: readonly DailyPresenceParticipant[],
   configuredHostelNames: readonly string[],
-  options: DailyPresenceOptions,
+  resolveParticipantPresence: PresenceResolver,
 ): DailyPresenceMatrix {
   const validParticipants = participants.flatMap((participant) => {
-    const resolved = resolvePresence(participant, options);
+    const resolved = resolveParticipantPresence(participant);
     return resolved ? [resolved] : [];
   });
 
@@ -240,4 +258,27 @@ export function buildDailyPresenceMatrix(
       },
     ],
   };
+}
+
+export function buildDailyPresenceMatrix(
+  participants: readonly DailyPresenceParticipant[],
+  configuredHostelNames: readonly string[],
+  options: DailyPresenceOptions,
+): DailyPresenceMatrix {
+  return buildAccommodationMatrix(
+    participants,
+    configuredHostelNames,
+    (participant) => resolvePresence(participant, options),
+  );
+}
+
+export function buildNightlyStayMatrix(
+  participants: readonly DailyPresenceParticipant[],
+  configuredHostelNames: readonly string[],
+): DailyPresenceMatrix {
+  return buildAccommodationMatrix(
+    participants,
+    configuredHostelNames,
+    resolveNightlyStay,
+  );
 }

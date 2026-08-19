@@ -528,6 +528,11 @@ const it: TranslationDictionary = {
   "manager.trend.averageYears": "Media 2023-2025",
   "manager.trend.forecastLabel": "Previsione",
   "manager.presence.title": "Presenze giornaliere",
+  "manager.presence.dailyHint":
+    "Indica chi è presente in ciascun giorno, compreso il giorno di partenza.",
+  "manager.presence.nightlyTitle": "Persone che dormono per notte",
+  "manager.presence.nightlyHint":
+    "La data indica la notte che inizia quel giorno. Il giorno di partenza non è conteggiato: chi parte il 31 dorme nella notte del 30.",
   "manager.presence.filter": "Filtro alloggio",
   "manager.presence.filter.both": "Entrambi",
   "manager.presence.filter.organization": "Fornito dall'organizzazione",

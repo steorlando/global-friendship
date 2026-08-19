@@ -555,6 +555,11 @@ const en: TranslationDictionary = {
   "manager.trend.forecastLabel": "Forecast",
 
   "manager.presence.title": "Daily attendance",
+  "manager.presence.dailyHint":
+    "Shows who is present on each day, including the departure day.",
+  "manager.presence.nightlyTitle": "People staying overnight by night",
+  "manager.presence.nightlyHint":
+    "The date identifies the night starting on that day. Checkout is excluded: someone leaving on the 31st slept on the night of the 30th.",
   "manager.presence.filter": "Accommodation filter",
   "manager.presence.filter.both": "Both",
   "manager.presence.filter.organization": "Provided by the organization",
