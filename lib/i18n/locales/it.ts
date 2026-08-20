@@ -780,6 +780,7 @@ const it: TranslationDictionary = {
   "accommodation.roomAssignmentTest.rack.selectedPeople": "{count} persone da assegnare",
   "accommodation.roomAssignmentTest.table.hostel": "Ostello",
   "accommodation.roomAssignmentTest.table.room": "Stanza",
+  "accommodation.roomAssignmentTest.table.realRoomNumber": "N. reale {number}",
   "accommodation.roomAssignmentTest.table.bed": "Posto",
   "accommodation.roomAssignmentTest.table.person": "Persona",
   "accommodation.roomAssignmentTest.table.group": "Gruppo",

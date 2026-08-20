@@ -1051,6 +1051,7 @@ export function DesktopRoomAssignmentWorkspace({
                       getGroupLeaderRoomShorteningSuggestion(room, occupants);
                     const roomHasSearchMatch =
                       hasSearch && occupants.some((occupant) => matchingRoomOccupantIds.has(occupant.participantId));
+                    const realRoomNumber = room.realRoomNumber?.trim();
                     const roomTone =
                       occupancy > room.capacity
                         ? "bg-red-50 text-red-800"
@@ -1106,7 +1107,22 @@ export function DesktopRoomAssignmentWorkspace({
                                   </span>
                                   <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${roomTone}`}>{occupancy}/{room.capacity}</span>
                                 </div>
-                                <p className="mt-1 text-[10px] text-slate-500">{buildPolicyLabel(room.genderPolicy, t)}</p>
+                                <p className="mt-1 flex flex-wrap items-baseline gap-x-1 text-[10px] text-slate-500">
+                                  {realRoomNumber ? (
+                                    <>
+                                      <span
+                                        data-testid="room-real-number"
+                                        className="whitespace-nowrap font-semibold text-slate-700"
+                                      >
+                                        {t("accommodation.roomAssignmentTest.table.realRoomNumber", {
+                                          number: realRoomNumber,
+                                        })}
+                                      </span>
+                                      <span aria-hidden="true">·</span>
+                                    </>
+                                  ) : null}
+                                  <span>{buildPolicyLabel(room.genderPolicy, t)}</span>
+                                </p>
                                 <p className="mt-0.5 whitespace-nowrap text-[9px] text-slate-400">{formatGroupLeaderRoomAvailability(room)}</p>
                                 {(earlyArrivalOccupants.length > 0 &&
                                   requiredAvailableFrom &&
