@@ -5,6 +5,7 @@ export type TourSettings = {
 
 export type TourOverview = {
   id: string;
+  tourNumber: number;
   title: string;
   description: string;
   maxParticipants: number;

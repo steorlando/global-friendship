@@ -1,7 +1,13 @@
 import { PublicTours } from "./public-tours";
 import { getServerTranslator } from "@/lib/i18n/server";
 
-export default async function ToursPage() {
+export default async function ToursPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ preview?: string | string[] }>;
+}) {
+  const params = await searchParams;
+  const staffPreview = params.preview === "1";
   const { t } = await getServerTranslator();
   return (
     <main className="mx-auto max-w-7xl px-5 py-10 sm:px-6">
@@ -14,7 +20,7 @@ export default async function ToursPage() {
         </h1>
         <p className="mt-3 text-base leading-7 text-slate-600">{t("tours.public.subtitle")}</p>
       </header>
-      <PublicTours />
+      <PublicTours staffPreview={staffPreview} />
     </main>
   );
 }

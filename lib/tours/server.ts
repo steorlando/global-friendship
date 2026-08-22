@@ -45,13 +45,13 @@ export async function loadToursOverview(options: {
   service?: SupabaseClient;
 } = {}): Promise<TourOverview[]> {
   const service = options.service ?? createSupabaseServiceClient({ noStore: true });
-  let toursQuery = service
+  const toursQuery = service
     .from("tours")
     .select(
       "id,title,description,max_participants,contact_name,contact_phone,contact_email,attachment_path,attachment_name,attachment_mime_type,attachment_size_bytes,is_active,created_at,updated_at"
     )
-    .order("created_at", { ascending: true });
-  if (!options.includeInactive) toursQuery = toursQuery.eq("is_active", true);
+    .order("created_at", { ascending: true })
+    .order("id", { ascending: true });
 
   const now = new Date().toISOString();
   const [toursResult, bookingsResult, activeWaitlistResult] = await Promise.all([
@@ -84,11 +84,12 @@ export async function loadToursOverview(options: {
     }
   }
 
-  return ((toursResult.data ?? []) as TourRow[]).map((tour) => {
+  return ((toursResult.data ?? []) as TourRow[]).map((tour, index) => {
     const bookedCount = bookedByTour.get(tour.id) ?? 0;
     const heldCount = heldByTour.get(tour.id) ?? 0;
     return {
       id: tour.id,
+      tourNumber: index + 1,
       title: tour.title,
       description: tour.description,
       maxParticipants: tour.max_participants,
@@ -109,5 +110,5 @@ export async function loadToursOverview(options: {
       createdAt: tour.created_at,
       updatedAt: tour.updated_at,
     };
-  });
+  }).filter((tour) => options.includeInactive || tour.isActive);
 }

@@ -156,7 +156,7 @@ export function ParticipantTourBooking() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="text-xs font-semibold uppercase tracking-wide text-indigo-700">{t("tours.participant.current")}</div>
-            <h2 className="mt-2 text-xl font-semibold text-slate-900">{currentTour?.title ?? t("tours.participant.none")}</h2>
+            <h2 className="mt-2 text-xl font-semibold text-slate-900">{currentTour ? `${t("tours.number", { number: currentTour.tourNumber })} · ${currentTour.title}` : t("tours.participant.none")}</h2>
             {currentTour ? <p className="mt-2 text-sm text-slate-600">{currentTour.description}</p> : null}
           </div>
           {booking && settings.participantChangesEnabled ? (
@@ -178,7 +178,7 @@ export function ParticipantTourBooking() {
       {waitlist?.status === "offered" && waitlistTour && offerRemainingSeconds !== null ? (
         <section className="rounded-2xl border-2 border-emerald-400 bg-emerald-50 p-6 shadow-sm">
           <div className="text-xs font-semibold uppercase tracking-wide text-emerald-700">{t("tours.participant.offerAvailable")}</div>
-          <h2 className="mt-2 text-xl font-bold text-slate-900">{waitlistTour.title}</h2>
+          <h2 className="mt-2 text-xl font-bold text-slate-900">{t("tours.number", { number: waitlistTour.tourNumber })} · {waitlistTour.title}</h2>
           <p className="mt-2 text-sm text-slate-700">
             {t("tours.participant.offerCountdown", {
               minutes: Math.floor(offerRemainingSeconds / 60),
@@ -197,7 +197,7 @@ export function ParticipantTourBooking() {
       ) : waitlist && waitlistTour ? (
         <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
           <div className="text-xs font-semibold uppercase tracking-wide text-amber-700">{t("tours.participant.waitlist")}</div>
-          <h2 className="mt-2 text-lg font-semibold text-slate-900">{waitlistTour.title}</h2>
+          <h2 className="mt-2 text-lg font-semibold text-slate-900">{t("tours.number", { number: waitlistTour.tourNumber })} · {waitlistTour.title}</h2>
           <p className="mt-1 text-sm text-slate-600">
             {waitlist.position ? t("tours.participant.waitlistPosition", { position: waitlist.position }) : t("tours.participant.waiting")}
           </p>
@@ -216,7 +216,10 @@ export function ParticipantTourBooking() {
           return (
             <article key={tour.id} className={`rounded-2xl border bg-white p-6 shadow-sm ${isCurrent ? "border-indigo-400 ring-2 ring-indigo-100" : "border-slate-200"}`}>
               <div className="flex items-start justify-between gap-4">
-                <h2 className="text-xl font-semibold text-slate-900">{tour.title}</h2>
+                <div className="min-w-0">
+                  <div className="mb-1 inline-flex rounded-md bg-indigo-100 px-2 py-1 text-xs font-bold text-indigo-800">{t("tours.number", { number: tour.tourNumber })}</div>
+                  <h2 className="text-xl font-semibold text-slate-900">{tour.title}</h2>
+                </div>
                 <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${tour.availableSpots > 0 ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
                   {t("tours.availableCount", { count: tour.availableSpots })}
                 </span>
