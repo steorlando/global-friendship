@@ -10,7 +10,7 @@ export type GroupLeaderTemplateData = {
   gruppi: string[];
 };
 
-export const GROUP_LEADER_CAMPAIGN_ROLES = ["capogruppo", "manager"] as const;
+export const GROUP_LEADER_CAMPAIGN_ROLES = ["capogruppo", "manager", "admin"] as const;
 
 type TemplateField = {
   key: string;

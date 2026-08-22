@@ -52,8 +52,8 @@ test("group leader campaign table formats all associated groups", () => {
   assert.equal(formatGroupLeaderGroups([]), "");
 });
 
-test("group leader campaigns include managers but not admins", () => {
-  assert.deepEqual(GROUP_LEADER_CAMPAIGN_ROLES, ["capogruppo", "manager"]);
+test("group leader campaigns include group leaders, managers, and admins", () => {
+  assert.deepEqual(GROUP_LEADER_CAMPAIGN_ROLES, ["capogruppo", "manager", "admin"]);
 });
 
 test("parseRecipientIdsFromText parses comma-separated IDs", () => {

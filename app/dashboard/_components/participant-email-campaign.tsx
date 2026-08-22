@@ -1220,7 +1220,7 @@ export function ParticipantEmailCampaign() {
             <h2 className="text-xl font-bold text-slate-900">Email Campaigns</h2>
             <p className="mt-2 text-sm text-slate-500">
               Compose a personalized email and send it to selected participants, group leaders,
-              or managers.
+              managers, or admins.
             </p>
           </div>
           <NextLink
@@ -1491,7 +1491,7 @@ export function ParticipantEmailCampaign() {
                 : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
             }`}
           >
-            Group leaders &amp; managers ({groupLeaders.length})
+            Group leaders, managers &amp; admins ({groupLeaders.length})
           </button>
         </div>
 
@@ -1888,7 +1888,9 @@ export function ParticipantEmailCampaign() {
             </div>
           )
         ) : groupLeadersLoading ? (
-          <p className="mt-4 text-sm text-slate-500">Loading group leaders and managers...</p>
+          <p className="mt-4 text-sm text-slate-500">
+            Loading group leaders, managers, and admins...
+          </p>
         ) : groupLeadersError ? (
           <p className="mt-4 text-sm text-red-700">{groupLeadersError}</p>
         ) : (
@@ -1901,7 +1903,7 @@ export function ParticipantEmailCampaign() {
                       type="checkbox"
                       checked={allVisibleSelected}
                       onChange={toggleVisibleSelection}
-                      aria-label="Select all visible group leaders and managers"
+                      aria-label="Select all visible group leaders, managers, and admins"
                     />
                   </th>
                   <th className="px-4 py-3 font-semibold">
@@ -1934,7 +1936,7 @@ export function ParticipantEmailCampaign() {
                 {filteredSortedGroupLeaders.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="px-3 py-3 text-slate-500">
-                      No group leaders or managers match current filters.
+                      No group leaders, managers, or admins match current filters.
                     </td>
                   </tr>
                 ) : (
