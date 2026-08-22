@@ -35,6 +35,7 @@ export type HostelCheckInGroupRow = {
 type HostelCheckInAccessInput = {
   accountEmail: string | null | undefined;
   participantEmail: string | null | undefined;
+  hasStaffAccess?: boolean;
   groupLeaderGroups?: readonly string[];
   participantGroupId?: string | null;
   participantGroupLabel?: string | null;
@@ -62,6 +63,8 @@ export function canManageParticipantHostelCheckIn(
   if (accountEmail === normalizeAccessValue(input.participantEmail)) {
     return true;
   }
+
+  if (input.hasStaffAccess === true) return true;
 
   const allowedGroups = new Set(
     (input.groupLeaderGroups ?? []).map(normalizeAccessValue).filter(Boolean)

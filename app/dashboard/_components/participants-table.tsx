@@ -1550,7 +1550,7 @@ export function ParticipantsTable({
               <div className="mb-5">
                 <HostelCheckInSection
                   participantId={editingParticipant.id}
-                  context="groupLeader"
+                  context="staff"
                   onCompleted={() =>
                     setParticipants((current) =>
                       current.map((participant) =>

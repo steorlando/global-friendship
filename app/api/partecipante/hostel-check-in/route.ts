@@ -41,7 +41,7 @@ function normalizeText(value: unknown): string | null {
   return normalized || null;
 }
 
-async function requireParticipantOrAssignedGroupLeader(participantId: string) {
+async function requireParticipantOrAuthorizedStaff(participantId: string) {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
@@ -88,13 +88,11 @@ async function requireParticipantOrAssignedGroupLeader(participantId: string) {
     return { service, participant };
   }
 
-  const { data: profile, error: profileError } = await service
+  const { data: profiles, error: profileError } = await service
     .from("profili")
-    .select("id")
+    .select("id,ruolo")
     .ilike("email", email)
-    .eq("ruolo", "capogruppo")
-    .order("created_at", { ascending: false })
-    .maybeSingle();
+    .in("ruolo", ["manager", "admin", "capogruppo"]);
 
   if (profileError) {
     return {
@@ -104,7 +102,24 @@ async function requireParticipantOrAssignedGroupLeader(participantId: string) {
       ),
     };
   }
-  if (!profile?.id) {
+  const hasStaffAccess = (profiles ?? []).some(
+    (profile) => profile.ruolo === "manager" || profile.ruolo === "admin"
+  );
+  if (
+    canManageParticipantHostelCheckIn({
+      accountEmail: email,
+      participantEmail: participant.email,
+      hasStaffAccess,
+    })
+  ) {
+    return { service, participant };
+  }
+
+  const groupLeaderProfileIds = (profiles ?? [])
+    .filter((profile) => profile.ruolo === "capogruppo")
+    .map((profile) => String(profile.id ?? "").trim())
+    .filter(Boolean);
+  if (groupLeaderProfileIds.length === 0) {
     return {
       errorResponse: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
     };
@@ -113,7 +128,7 @@ async function requireParticipantOrAssignedGroupLeader(participantId: string) {
   const { data: links, error: linksError } = await service
     .from("profili_gruppi")
     .select("gruppo_id")
-    .eq("profilo_id", profile.id);
+    .in("profilo_id", groupLeaderProfileIds);
 
   if (linksError) {
     return {
@@ -185,7 +200,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "participantId is required" }, { status: 400 });
   }
 
-  const auth = await requireParticipantOrAssignedGroupLeader(participantId);
+  const auth = await requireParticipantOrAuthorizedStaff(participantId);
   if ("errorResponse" in auth) return auth.errorResponse;
 
   try {
@@ -327,7 +342,7 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: input.error }, { status: 400 });
   }
 
-  const auth = await requireParticipantOrAssignedGroupLeader(participantId);
+  const auth = await requireParticipantOrAuthorizedStaff(participantId);
   if ("errorResponse" in auth) return auth.errorResponse;
 
   try {

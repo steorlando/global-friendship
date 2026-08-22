@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   buildHostelCheckInGroupSummary,
@@ -8,11 +9,27 @@ import {
   type HostelCheckInStatus,
 } from "../lib/alloggi/check-in.ts";
 
-test("allows only the participant or an assigned group leader to manage hostel check-in", () => {
+test("allows participants, managers, admins, or assigned group leaders to manage hostel check-in", () => {
   assert.equal(
     canManageParticipantHostelCheckIn({
       accountEmail: "participant@example.org",
       participantEmail: " Participant@example.org ",
+    }),
+    true
+  );
+  assert.equal(
+    canManageParticipantHostelCheckIn({
+      accountEmail: "manager@example.org",
+      participantEmail: "participant@example.org",
+      hasStaffAccess: true,
+    }),
+    true
+  );
+  assert.equal(
+    canManageParticipantHostelCheckIn({
+      accountEmail: "admin@example.org",
+      participantEmail: "participant@example.org",
+      hasStaffAccess: true,
     }),
     true
   );
@@ -33,6 +50,35 @@ test("allows only the participant or an assigned group leader to manage hostel c
       participantGroupLabel: "Roma",
     }),
     false
+  );
+});
+
+test("exposes hostel check-in editing on manager and admin participant cards", () => {
+  const managerPage = readFileSync(
+    new URL("../app/dashboard/manager/participants/page.tsx", import.meta.url),
+    "utf8"
+  );
+  const adminPage = readFileSync(
+    new URL("../app/dashboard/admin/participants/page.tsx", import.meta.url),
+    "utf8"
+  );
+  const statisticsModal = readFileSync(
+    new URL(
+      "../app/dashboard/manager/statistics-participant-edit-modal.tsx",
+      import.meta.url
+    ),
+    "utf8"
+  );
+
+  assert.match(managerPage, /allowHostelCheckInEditing/);
+  assert.match(adminPage, /allowHostelCheckInEditing/);
+  assert.match(
+    statisticsModal,
+    /pathname\.startsWith\("\/dashboard\/manager"\)/
+  );
+  assert.match(
+    statisticsModal,
+    /pathname\.startsWith\("\/dashboard\/admin"\)/
   );
 });
 

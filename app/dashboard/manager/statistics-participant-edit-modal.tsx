@@ -30,6 +30,10 @@ export function StatisticsParticipantEditModal() {
       showRegistrationDate
       showTotalFee={false}
       canEditGroupAssignment
+      allowHostelCheckInEditing={
+        pathname.startsWith("/dashboard/manager") ||
+        pathname.startsWith("/dashboard/admin")
+      }
       initialEditParticipantId={editParticipantId}
       modalOnly
       onCloseEditModal={closeModal}

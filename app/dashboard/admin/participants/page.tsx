@@ -11,6 +11,7 @@ export default async function AdminParticipantsPage() {
         showRegistrationDate
         showTotalFee
         canEditGroupAssignment
+        allowHostelCheckInEditing
         excelExportPath="/api/manager/participants/export"
       />
     </section>
