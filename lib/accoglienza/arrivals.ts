@@ -29,6 +29,39 @@ export type ArrivalGroupSummaryRow = {
   total: number;
 };
 
+export type ReceptionGroupLeaderContact = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  groups: string[];
+  isRomeSubgroup: boolean;
+  romeSubgroups: string[];
+};
+
+export type ReceptionGroupHostelRow = {
+  group: string;
+  hostels: Array<{
+    name: string;
+    count: number;
+  }>;
+  assignedCount: number;
+  unassignedCount: number;
+  hostelParticipantCount: number;
+};
+
+export type ReceptionHostelArrivalDayRow = {
+  arrivalDate: string | null;
+  hostels: Array<{
+    name: string;
+    count: number;
+  }>;
+  assignedCount: number;
+  unassignedCount: number;
+  total: number;
+};
+
 export function buildArrivalQrPayload(token: string): string {
   return `${ARRIVAL_QR_PREFIX}${token.trim().toLowerCase()}`;
 }
@@ -44,6 +77,40 @@ export function parseArrivalQrPayload(value: string): string | null {
   )
     ? candidate.toLowerCase()
     : null;
+}
+
+export function isReceptionRomeCity(city: string | null | undefined): boolean {
+  const normalizedCity = (city ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+
+  return normalizedCity === "roma" || normalizedCity === "rome";
+}
+
+export function resolveReceptionGroupName(input: {
+  group: string | null | undefined;
+  city: string | null | undefined;
+}): string {
+
+  if (isReceptionRomeCity(input.city)) {
+    return "Roma";
+  }
+
+  return input.group?.trim() || "-";
+}
+
+export function isReceptionRomeSubgroupContact(input: {
+  profileRoma: boolean | null | undefined;
+  linkedGroupIds: string[];
+  romeGroupIds: ReadonlySet<string>;
+}): boolean {
+  return (
+    input.profileRoma === true ||
+    (input.linkedGroupIds.length > 0 &&
+      input.linkedGroupIds.every((groupId) => input.romeGroupIds.has(groupId)))
+  );
 }
 
 export function resolveArrivalAccommodationType(input: {
@@ -98,4 +165,121 @@ export function buildArrivalGroupSummary(
     if (b.group === "-") return -1;
     return a.group.localeCompare(b.group);
   });
+}
+
+export function buildReceptionGroupHostelRows(
+  participants: ReadonlyArray<
+    Pick<ArrivalParticipant, "group" | "accommodationType" | "accommodationLocation">
+  >
+): ReceptionGroupHostelRow[] {
+  const rows = new Map<
+    string,
+    {
+      hostelCounts: Map<string, number>;
+      unassignedCount: number;
+      hostelParticipantCount: number;
+    }
+  >();
+
+  for (const participant of participants) {
+    const group = participant.group.trim() || "-";
+    const row = rows.get(group) ?? {
+      hostelCounts: new Map<string, number>(),
+      unassignedCount: 0,
+      hostelParticipantCount: 0,
+    };
+
+    if (participant.accommodationType === "Ostello") {
+      row.hostelParticipantCount += 1;
+      const hostel = participant.accommodationLocation?.trim();
+      if (hostel) {
+        row.hostelCounts.set(hostel, (row.hostelCounts.get(hostel) ?? 0) + 1);
+      } else {
+        row.unassignedCount += 1;
+      }
+    }
+
+    rows.set(group, row);
+  }
+
+  return [...rows.entries()]
+    .map(([group, row]) => {
+      const hostels = [...row.hostelCounts.entries()]
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+
+      return {
+        group,
+        hostels,
+        assignedCount: hostels.reduce((sum, hostel) => sum + hostel.count, 0),
+        unassignedCount: row.unassignedCount,
+        hostelParticipantCount: row.hostelParticipantCount,
+      };
+    })
+    .sort((a, b) => {
+      if (a.group === "-") return 1;
+      if (b.group === "-") return -1;
+      return a.group.localeCompare(b.group);
+    });
+}
+
+export function buildReceptionHostelArrivalDayRows(
+  participants: ReadonlyArray<
+    Pick<
+      ArrivalParticipant,
+      "arrivalDate" | "accommodationType" | "accommodationLocation"
+    >
+  >
+): ReceptionHostelArrivalDayRow[] {
+  const rows = new Map<
+    string,
+    {
+      arrivalDate: string | null;
+      hostelCounts: Map<string, number>;
+      unassignedCount: number;
+      total: number;
+    }
+  >();
+
+  for (const participant of participants) {
+    if (participant.accommodationType !== "Ostello") continue;
+
+    const arrivalDate = participant.arrivalDate?.trim() || null;
+    const key = arrivalDate ?? "__missing_date__";
+    const row = rows.get(key) ?? {
+      arrivalDate,
+      hostelCounts: new Map<string, number>(),
+      unassignedCount: 0,
+      total: 0,
+    };
+    row.total += 1;
+
+    const hostel = participant.accommodationLocation?.trim();
+    if (hostel) {
+      row.hostelCounts.set(hostel, (row.hostelCounts.get(hostel) ?? 0) + 1);
+    } else {
+      row.unassignedCount += 1;
+    }
+    rows.set(key, row);
+  }
+
+  return [...rows.values()]
+    .map((row) => {
+      const hostels = [...row.hostelCounts.entries()]
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+
+      return {
+        arrivalDate: row.arrivalDate,
+        hostels,
+        assignedCount: hostels.reduce((sum, hostel) => sum + hostel.count, 0),
+        unassignedCount: row.unassignedCount,
+        total: row.total,
+      };
+    })
+    .sort((a, b) => {
+      if (!a.arrivalDate) return 1;
+      if (!b.arrivalDate) return -1;
+      return a.arrivalDate.localeCompare(b.arrivalDate);
+    });
 }

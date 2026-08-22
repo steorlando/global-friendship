@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ArrivalParticipant } from "@/lib/accoglienza/arrivals";
+import type {
+  ArrivalAccommodationType,
+  ArrivalParticipant,
+} from "@/lib/accoglienza/arrivals";
 import { useI18n } from "@/lib/i18n/provider";
 
 type ScannerControls = {
@@ -26,6 +29,11 @@ export function ArrivalQrScanner({
   const [error, setError] = useState<string | null>(null);
   const [manualValue, setManualValue] = useState("");
   const [torchOn, setTorchOn] = useState(false);
+  const accommodationLabels: Record<ArrivalAccommodationType, string> = {
+    Hotel: t("reception.accommodation.hotel"),
+    Ostello: t("reception.accommodation.hostel"),
+    Autonomo: t("reception.accommodation.autonomous"),
+  };
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const controlsRef = useRef<ScannerControls | null>(null);
   const scanLockedRef = useRef(false);
@@ -276,7 +284,7 @@ export function ArrivalQrScanner({
                     <div>
                       <dt className="text-slate-500">{t("reception.table.accommodation")}</dt>
                       <dd className="font-semibold text-slate-900">
-                        {found.accommodationType}
+                        {accommodationLabels[found.accommodationType]}
                       </dd>
                     </div>
                     <div>

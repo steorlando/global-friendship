@@ -4,12 +4,17 @@ import { useMemo, useState } from "react";
 import { ArrivalGroupSummaryTable } from "@/app/dashboard/_components/arrival-group-summary-table";
 import {
   buildArrivalGroupSummary,
+  type ArrivalAccommodationType,
   type ArrivalParticipant,
+  type ReceptionGroupLeaderContact,
 } from "@/lib/accoglienza/arrivals";
 import { useI18n } from "@/lib/i18n/provider";
 import { ArrivalQrScanner } from "./arrival-qr-scanner";
+import { ReceptionGroupLeaderContacts } from "./reception-group-leader-contacts";
+import { ReceptionLogisticsSection } from "./reception-logistics-section";
 
 type ArrivalStatusFilter = "all" | "pending" | "arrived";
+type ReceptionSection = "logistics" | "contacts" | "arrivals";
 
 function normalized(value: string): string {
   return value
@@ -21,11 +26,14 @@ function normalized(value: string): string {
 
 export function ArrivalDashboard({
   initialParticipants,
+  groupLeaders,
 }: {
   initialParticipants: ArrivalParticipant[];
+  groupLeaders: ReceptionGroupLeaderContact[];
 }) {
   const { t, formatDate } = useI18n();
   const [participants, setParticipants] = useState(initialParticipants);
+  const [activeSection, setActiveSection] = useState<ReceptionSection>("logistics");
   const [search, setSearch] = useState("");
   const [group, setGroup] = useState("all");
   const [country, setCountry] = useState("all");
@@ -36,6 +44,11 @@ export function ArrivalDashboard({
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const accommodationLabels: Record<ArrivalAccommodationType, string> = {
+    Hotel: t("reception.accommodation.hotel"),
+    Ostello: t("reception.accommodation.hostel"),
+    Autonomo: t("reception.accommodation.autonomous"),
+  };
 
   const groups = useMemo(
     () => [...new Set(participants.map((row) => row.group))].sort((a, b) => a.localeCompare(b)),
@@ -89,6 +102,36 @@ export function ArrivalDashboard({
     selectableFilteredIds.length > 0 &&
     selectableFilteredIds.every((participantId) => selected.has(participantId));
   const arrivedCount = participants.filter((row) => row.arrivedAt).length;
+  const pendingCount = participants.length - arrivedCount;
+  const sectionOptions: Array<{
+    id: ReceptionSection;
+    icon: string;
+    title: string;
+    description: string;
+    count: number;
+  }> = [
+    {
+      id: "logistics",
+      icon: "⌂",
+      title: t("reception.sections.logistics.title"),
+      description: t("reception.sections.logistics.description"),
+      count: groups.length,
+    },
+    {
+      id: "contacts",
+      icon: "☎",
+      title: t("reception.sections.contacts.title"),
+      description: t("reception.sections.contacts.description"),
+      count: groupLeaders.filter((contact) => !contact.isRomeSubgroup).length,
+    },
+    {
+      id: "arrivals",
+      icon: "✓",
+      title: t("reception.sections.arrivals.title"),
+      description: t("reception.sections.arrivals.description"),
+      count: pendingCount,
+    },
+  ];
 
   function toggleOne(participantId: string) {
     setSelected((current) => {
@@ -195,26 +238,120 @@ export function ArrivalDashboard({
   return (
     <div className="space-y-6">
       <header className="rounded-2xl bg-gradient-to-br from-indigo-700 via-indigo-600 to-cyan-600 p-5 text-white shadow-sm sm:p-7">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-sm font-bold uppercase tracking-[0.18em] text-indigo-100">
-              {t("roles.accoglienza")}
-            </p>
-            <h1 className="mt-2 text-3xl font-bold sm:text-4xl">
-              {t("reception.title")}
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-indigo-50 sm:text-base">
-              {t("reception.subtitle")}
-            </p>
-          </div>
-          <ArrivalQrScanner
-            participants={participants}
-            onMarkArrived={markFromScanner}
-          />
+        <div>
+          <p className="text-sm font-bold uppercase tracking-[0.18em] text-indigo-100">
+            {t("roles.accoglienza")}
+          </p>
+          <h1 className="mt-2 text-3xl font-bold sm:text-4xl">
+            {t("reception.title")}
+          </h1>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-indigo-50 sm:text-base">
+            {t("reception.subtitle")}
+          </p>
         </div>
       </header>
 
-      <section className="grid grid-cols-3 gap-2 sm:gap-4">
+      <nav
+        className="grid gap-2 sm:grid-cols-3 sm:gap-3"
+        aria-label={t("reception.sections.label")}
+        role="tablist"
+      >
+        {sectionOptions.map((section) => {
+          const selectedSection = activeSection === section.id;
+          return (
+            <button
+              key={section.id}
+              id={`reception-${section.id}-tab`}
+              type="button"
+              role="tab"
+              aria-selected={selectedSection}
+              aria-controls={`reception-${section.id}-panel`}
+              onClick={() => setActiveSection(section.id)}
+              className={`flex min-h-20 items-center gap-3 rounded-2xl border p-3 text-left shadow-sm transition sm:min-h-28 sm:items-start sm:p-4 ${
+                selectedSection
+                  ? "border-indigo-600 bg-indigo-600 text-white shadow-indigo-100"
+                  : "border-slate-200 bg-white text-slate-900 hover:border-indigo-300 hover:bg-indigo-50/40"
+              }`}
+            >
+              <span
+                aria-hidden="true"
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl font-bold ${
+                  selectedSection
+                    ? "bg-white/15 text-white"
+                    : "bg-indigo-50 text-indigo-700"
+                }`}
+              >
+                {section.icon}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center justify-between gap-2">
+                  <span className="font-bold">{section.title}</span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                      selectedSection
+                        ? "bg-white/15 text-white"
+                        : "bg-slate-100 text-slate-600"
+                    }`}
+                  >
+                    {section.count}
+                  </span>
+                </span>
+                <span
+                  className={`mt-1 hidden text-xs leading-5 sm:block ${
+                    selectedSection ? "text-indigo-100" : "text-slate-500"
+                  }`}
+                >
+                  {section.description}
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </nav>
+
+      {activeSection === "logistics" ? (
+        <div
+          id="reception-logistics-panel"
+          role="tabpanel"
+          aria-labelledby="reception-logistics-tab"
+        >
+          <ReceptionLogisticsSection participants={participants} />
+        </div>
+      ) : null}
+
+      {activeSection === "contacts" ? (
+        <div
+          id="reception-contacts-panel"
+          role="tabpanel"
+          aria-labelledby="reception-contacts-tab"
+        >
+          <ReceptionGroupLeaderContacts contacts={groupLeaders} />
+        </div>
+      ) : null}
+
+      {activeSection === "arrivals" ? (
+        <div
+          id="reception-arrivals-panel"
+          role="tabpanel"
+          aria-labelledby="reception-arrivals-tab"
+          className="space-y-6"
+        >
+          <section className="flex flex-col gap-4 rounded-2xl border border-indigo-200 bg-indigo-50 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+            <div>
+              <h2 className="text-xl font-bold text-indigo-950">
+                {t("reception.arrivalsWorkspace.title")}
+              </h2>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-indigo-700">
+                {t("reception.arrivalsWorkspace.subtitle")}
+              </p>
+            </div>
+            <ArrivalQrScanner
+              participants={participants}
+              onMarkArrived={markFromScanner}
+            />
+          </section>
+
+          <section className="grid grid-cols-3 gap-2 sm:gap-4">
         <article className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:p-5">
           <p className="text-[11px] font-bold uppercase text-slate-500 sm:text-xs">
             {t("reception.summary.total")}
@@ -236,7 +373,7 @@ export function ArrivalDashboard({
             {t("reception.summary.pending")}
           </p>
           <p className="mt-1 text-2xl font-bold text-amber-950 sm:text-3xl">
-            {participants.length - arrivedCount}
+            {pendingCount}
           </p>
         </article>
       </section>
@@ -339,9 +476,9 @@ export function ArrivalDashboard({
               aria-label={t("reception.filters.accommodation")}
             >
               <option value="all">{t("reception.filters.allAccommodation")}</option>
-              <option value="Hotel">Hotel</option>
-              <option value="Ostello">Ostello</option>
-              <option value="Autonomo">Autonomo</option>
+              <option value="Hotel">{t("reception.accommodation.hotel")}</option>
+              <option value="Ostello">{t("reception.accommodation.hostel")}</option>
+              <option value="Autonomo">{t("reception.accommodation.autonomous")}</option>
             </select>
           </div>
 
@@ -451,7 +588,7 @@ export function ArrivalDashboard({
                   <div>
                     <dt className="text-xs text-slate-500">{t("reception.table.accommodation")}</dt>
                     <dd className="font-semibold text-slate-900">
-                      {participant.accommodationType}
+                      {accommodationLabels[participant.accommodationType]}
                     </dd>
                   </div>
                   <div className="col-span-2">
@@ -530,7 +667,9 @@ export function ArrivalDashboard({
                     <td className="whitespace-nowrap px-3 py-3 text-slate-700">
                       {participant.arrivalDate ? formatDate(participant.arrivalDate) : "-"}
                     </td>
-                    <td className="px-3 py-3 text-slate-700">{participant.accommodationType}</td>
+                    <td className="px-3 py-3 text-slate-700">
+                      {accommodationLabels[participant.accommodationType]}
+                    </td>
                     <td className="px-3 py-3 text-slate-700">
                       {participant.accommodationLocation || "-"}
                     </td>
@@ -554,6 +693,8 @@ export function ArrivalDashboard({
           </div>
         </div>
       </section>
+        </div>
+      ) : null}
     </div>
   );
 }

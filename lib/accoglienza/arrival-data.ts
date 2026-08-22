@@ -2,9 +2,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { groupDisplayName, loadGroupDisplayNamesById } from "@/lib/groups/display-names";
 import {
   buildArrivalGroupSummary,
+  isReceptionRomeCity,
+  isReceptionRomeSubgroupContact,
+  resolveReceptionGroupName,
   resolveArrivalAccommodationType,
   type ArrivalGroupSummaryRow,
   type ArrivalParticipant,
+  type ReceptionGroupLeaderContact,
 } from "./arrivals";
 
 type ParticipantRow = {
@@ -14,6 +18,7 @@ type ParticipantRow = {
   cognome: string | null;
   paese_residenza: string | null;
   nazione: string | null;
+  citta: string | null;
   gruppo_id: string | null;
   gruppo_label: string | null;
   gruppo_leader: string | null;
@@ -55,6 +60,8 @@ type LeaderProfileRow = {
   nome: string | null;
   cognome: string | null;
   email: string | null;
+  telefono: string | null;
+  roma: boolean | null;
 };
 
 const BATCH_SIZE = 100;
@@ -96,47 +103,47 @@ async function loadInBatches<T>(
   return rows;
 }
 
-export async function loadArrivalParticipants(
+async function loadArrivalDashboardSource(
   service: SupabaseClient
-): Promise<ArrivalParticipant[]> {
+): Promise<{
+  participants: ArrivalParticipant[];
+  groupLeaders: ReceptionGroupLeaderContact[];
+}> {
   const { data: participantData, error: participantError } = await service
     .from("partecipanti")
     .select(
-      "id,personal_code,nome,cognome,paese_residenza,nazione,gruppo_id,gruppo_label,gruppo_leader,data_arrivo,alloggio,alloggio_short,tipo_iscrizione,preferenza_alloggio_operatore,deleted_at"
+      "id,personal_code,nome,cognome,paese_residenza,nazione,citta:città,gruppo_id,gruppo_label,gruppo_leader,data_arrivo,alloggio,alloggio_short,tipo_iscrizione,preferenza_alloggio_operatore,deleted_at"
     )
     .is("deleted_at", null)
     .order("cognome", { ascending: true })
     .order("nome", { ascending: true });
 
   if (participantError) throw new Error(participantError.message);
-  const participants = (participantData ?? []) as ParticipantRow[];
-  if (participants.length === 0) return [];
+  const participants = (participantData ?? []) as unknown as ParticipantRow[];
 
   const participantIds = participants.map((participant) => participant.id);
-  const groupIds = [
+  const participantGroupIds = [
     ...new Set(participants.map((participant) => participant.gruppo_id).filter(Boolean)),
   ] as string[];
 
-  const [arrivalRows, assignmentRows, groupNamesById, leaderProfilesResult] =
-    await Promise.all([
-      loadInBatches<ArrivalRow>(participantIds, (batch) =>
-        service
-          .from("participant_event_arrivals")
-          .select("participant_id,arrived_at")
-          .in("participant_id", batch)
-      ),
-      loadInBatches<AssignmentRow>(participantIds, (batch) =>
-        service
-          .from("partecipanti_stanze")
-          .select("partecipante_id,stanza_id")
-          .in("partecipante_id", batch)
-      ),
-      loadGroupDisplayNamesById(service, groupIds),
+  const [arrivalRows, assignmentRows, leaderProfilesResult] = await Promise.all([
+    loadInBatches<ArrivalRow>(participantIds, (batch) =>
       service
-        .from("profili")
-        .select("id,nome,cognome,email")
-        .eq("ruolo", "capogruppo"),
-    ]);
+        .from("participant_event_arrivals")
+        .select("participant_id,arrived_at")
+        .in("participant_id", batch)
+    ),
+    loadInBatches<AssignmentRow>(participantIds, (batch) =>
+      service
+        .from("partecipanti_stanze")
+        .select("partecipante_id,stanza_id")
+        .in("partecipante_id", batch)
+    ),
+    service
+      .from("profili")
+      .select("id,nome,cognome,email,telefono,roma")
+      .eq("ruolo", "capogruppo"),
+  ]);
 
   if (leaderProfilesResult.error) {
     throw new Error(leaderProfilesResult.error.message);
@@ -156,9 +163,18 @@ export async function loadArrivalParticipants(
     service.from("stanze").select("id,albergo_id").in("id", batch)
   );
   const hotelIds = [...new Set(roomRows.map((row) => row.albergo_id).filter(Boolean))];
-  const hotelRows = await loadInBatches<HotelRow>(hotelIds, (batch) =>
-    service.from("alberghi").select("id,nome").in("id", batch)
-  );
+  const allGroupIds = [
+    ...new Set([
+      ...participantGroupIds,
+      ...leaderLinks.map((link) => link.gruppo_id).filter(Boolean),
+    ]),
+  ];
+  const [hotelRows, groupNamesById] = await Promise.all([
+    loadInBatches<HotelRow>(hotelIds, (batch) =>
+      service.from("alberghi").select("id,nome").in("id", batch)
+    ),
+    loadGroupDisplayNamesById(service, allGroupIds),
+  ]);
 
   const arrivedAtByParticipant = new Map(
     arrivalRows.map((row) => [row.participant_id, row.arrived_at] as const)
@@ -173,22 +189,58 @@ export async function loadArrivalParticipants(
   }
 
   const leaderById = new Map(leaderProfiles.map((profile) => [profile.id, profile] as const));
+  const romeGroupIds = new Set(
+    participants
+      .filter((participant) => isReceptionRomeCity(participant.citta))
+      .map((participant) => participant.gruppo_id)
+      .filter((groupId): groupId is string => Boolean(groupId))
+  );
   const leadersByGroup = new Map<string, string[]>();
+  const groupsByLeader = new Map<string, string[]>();
+  const groupIdsByLeader = new Map<string, string[]>();
+  const romeSubgroupsByLeader = new Map<string, string[]>();
   for (const link of leaderLinks) {
     const profile = leaderById.get(link.profilo_id);
     if (!profile) continue;
     const current = leadersByGroup.get(link.gruppo_id) ?? [];
     current.push(leaderLabel(profile));
     leadersByGroup.set(link.gruppo_id, current);
+
+    const linkedGroupIds = groupIdsByLeader.get(link.profilo_id) ?? [];
+    linkedGroupIds.push(link.gruppo_id);
+    groupIdsByLeader.set(link.profilo_id, linkedGroupIds);
+
+    if (profile.roma === true || romeGroupIds.has(link.gruppo_id)) {
+      const originalGroupName = groupDisplayName(link.gruppo_id, groupNamesById);
+      if (originalGroupName) {
+        const subgroups = romeSubgroupsByLeader.get(link.profilo_id) ?? [];
+        subgroups.push(originalGroupName);
+        romeSubgroupsByLeader.set(link.profilo_id, subgroups);
+      }
+    }
+
+    const groupName =
+      profile.roma === true || romeGroupIds.has(link.gruppo_id)
+        ? "Roma"
+        : groupDisplayName(link.gruppo_id, groupNamesById);
+    if (groupName) {
+      const linkedGroups = groupsByLeader.get(link.profilo_id) ?? [];
+      linkedGroups.push(groupName);
+      groupsByLeader.set(link.profilo_id, linkedGroups);
+    }
   }
 
-  return participants.map((participant) => {
-    const group =
+  const arrivalParticipants = participants.map((participant) => {
+    const storedGroup =
       groupDisplayName(
         participant.gruppo_id,
         groupNamesById,
         participant.gruppo_label
       ) ?? "-";
+    const group = resolveReceptionGroupName({
+      group: storedGroup,
+      city: participant.citta,
+    });
     const linkedLeaders = participant.gruppo_id
       ? leadersByGroup.get(participant.gruppo_id) ?? []
       : [];
@@ -223,16 +275,53 @@ export async function loadArrivalParticipants(
       arrivedAt: arrivedAtByParticipant.get(participant.id) ?? null,
     };
   });
+
+  const groupLeaders = leaderProfiles
+    .map((profile) => ({
+      id: profile.id,
+      firstName: text(profile.nome, ""),
+      lastName: text(profile.cognome, ""),
+      email: text(profile.email, ""),
+      phone: text(profile.telefono, ""),
+      groups: [...new Set(groupsByLeader.get(profile.id) ?? [])].sort((a, b) =>
+        a.localeCompare(b)
+      ),
+      isRomeSubgroup: isReceptionRomeSubgroupContact({
+        profileRoma: profile.roma,
+        linkedGroupIds: groupIdsByLeader.get(profile.id) ?? [],
+        romeGroupIds,
+      }),
+      romeSubgroups: [...new Set(romeSubgroupsByLeader.get(profile.id) ?? [])].sort((a, b) =>
+        a.localeCompare(b)
+      ),
+    }))
+    .sort(
+      (a, b) =>
+        a.lastName.localeCompare(b.lastName) ||
+        a.firstName.localeCompare(b.firstName) ||
+        a.email.localeCompare(b.email)
+    );
+
+  return { participants: arrivalParticipants, groupLeaders };
+}
+
+export async function loadArrivalParticipants(
+  service: SupabaseClient
+): Promise<ArrivalParticipant[]> {
+  const data = await loadArrivalDashboardSource(service);
+  return data.participants;
 }
 
 export async function loadArrivalDashboardData(service: SupabaseClient): Promise<{
   participants: ArrivalParticipant[];
   groups: ArrivalGroupSummaryRow[];
+  groupLeaders: ReceptionGroupLeaderContact[];
 }> {
-  const participants = await loadArrivalParticipants(service);
+  const { participants, groupLeaders } = await loadArrivalDashboardSource(service);
   return {
     participants,
     groups: buildArrivalGroupSummary(participants),
+    groupLeaders,
   };
 }
 

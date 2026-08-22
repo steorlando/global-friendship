@@ -17,15 +17,17 @@ export default async function AccoglienzaPage() {
   }
 
   let participants;
+  let groupLeaders;
   let loadError: string | null = null;
   try {
     const data = await loadArrivalDashboardData(auth.service);
     participants = data.participants;
+    groupLeaders = data.groupLeaders;
   } catch (error) {
     loadError = error instanceof Error ? error.message : "Impossibile caricare gli arrivi.";
   }
 
-  if (loadError || !participants) {
+  if (loadError || !participants || !groupLeaders) {
     return (
       <main className="mx-auto max-w-xl px-4 py-10">
         <section className="rounded-xl border border-red-200 bg-red-50 p-6 text-red-800">
@@ -37,7 +39,10 @@ export default async function AccoglienzaPage() {
 
   return (
     <main className="mx-auto max-w-[1800px] px-3 py-4 sm:px-6 sm:py-8">
-      <ArrivalDashboard initialParticipants={participants} />
+      <ArrivalDashboard
+        initialParticipants={participants}
+        groupLeaders={groupLeaders}
+      />
     </main>
   );
 }
