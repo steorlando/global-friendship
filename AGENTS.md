@@ -150,6 +150,11 @@ Main files:
 
 Current behavior:
 
+- One Supabase Auth account can have multiple `profili` rows, one for each application role.
+  `profili.auth_user_id` identifies the shared Auth account, while `profili.id` identifies the
+  role-specific profile. The database enforces uniqueness on normalized email plus role.
+- To add a second role, admins must use `Add User` with the same email and the additional role;
+  editing the existing row replaces that row's role instead.
 - The admin Users & Profiles table includes a `Host Group Leader` column.
 - In row edit mode, admins can set `capogruppo_host` through a checkbox.
 - The host checkbox is enabled only when role is `capogruppo`; for other roles it is forced to `false`.
