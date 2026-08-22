@@ -44,8 +44,19 @@ function documentTypeLabel(
   return t(`participant.hostelCheckIn.documentType.${documentType}`);
 }
 
-export function HostelCheckInSection({ participantId }: { participantId: string }) {
+type HostelCheckInSectionProps = {
+  participantId: string;
+  context?: "participant" | "groupLeader";
+  onCompleted?: () => void;
+};
+
+export function HostelCheckInSection({
+  participantId,
+  context = "participant",
+  onCompleted,
+}: HostelCheckInSectionProps) {
   const { t, formatDate } = useI18n();
+  const isGroupLeaderContext = context === "groupLeader";
   const [data, setData] = useState<HostelCheckInResponse | null>(null);
   const [form, setForm] = useState<HostelCheckInInput>(EMPTY_CHECK_IN);
   const [loading, setLoading] = useState(true);
@@ -136,7 +147,14 @@ export function HostelCheckInSection({ participantId }: { participantId: string 
             }
           : current
       );
-      setSuccess(t("participant.hostelCheckIn.saveSuccess"));
+      setSuccess(
+        t(
+          isGroupLeaderContext
+            ? "participants.table.modal.hostelCheckIn.saveSuccess"
+            : "participant.hostelCheckIn.saveSuccess"
+        )
+      );
+      onCompleted?.();
       setIsOpen(false);
     } catch (error) {
       setSaveError(
@@ -167,6 +185,7 @@ export function HostelCheckInSection({ participantId }: { participantId: string 
   }
 
   if (!data?.enabled) {
+    if (isGroupLeaderContext) return null;
     return (
       <section
         className="rounded-xl border border-slate-200 bg-slate-100/80 px-5 py-5 text-slate-600"
@@ -191,10 +210,18 @@ export function HostelCheckInSection({ participantId }: { participantId: string 
     return (
       <section className="rounded-xl border border-slate-200 bg-slate-50 px-5 py-5 text-slate-700">
         <h2 className="text-base font-semibold text-slate-900">
-          {t("participant.hostelCheckIn.title")}
+          {t(
+            isGroupLeaderContext
+              ? "participants.table.modal.hostelCheckIn.title"
+              : "participant.hostelCheckIn.title"
+          )}
         </h2>
         <p className="mt-1 text-sm">
-          {t("participant.hostelCheckIn.awaitingAssignment")}
+          {t(
+            isGroupLeaderContext
+              ? "participants.table.modal.hostelCheckIn.awaitingAssignment"
+              : "participant.hostelCheckIn.awaitingAssignment"
+          )}
         </p>
       </section>
     );
@@ -226,7 +253,11 @@ export function HostelCheckInSection({ participantId }: { participantId: string 
                 id={`hostel-check-in-title-${participantId}`}
                 className="text-xl font-bold text-slate-950"
               >
-                {t("participant.hostelCheckIn.title")}
+                {t(
+                  isGroupLeaderContext
+                    ? "participants.table.modal.hostelCheckIn.title"
+                    : "participant.hostelCheckIn.title"
+                )}
               </h2>
               <span
                 className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
@@ -327,8 +358,16 @@ export function HostelCheckInSection({ participantId }: { participantId: string 
             }`}
           >
             {completed
-              ? t("participant.hostelCheckIn.reviewButton")
-              : t("participant.hostelCheckIn.openButton")}
+              ? t(
+                  isGroupLeaderContext
+                    ? "participants.table.modal.hostelCheckIn.reviewButton"
+                    : "participant.hostelCheckIn.reviewButton"
+                )
+              : t(
+                  isGroupLeaderContext
+                    ? "participants.table.modal.hostelCheckIn.openButton"
+                    : "participant.hostelCheckIn.openButton"
+                )}
           </button>
         </div>
       </div>

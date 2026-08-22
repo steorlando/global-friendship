@@ -18,6 +18,7 @@ import {
 import { useI18n } from "@/lib/i18n/provider";
 import type { StaffAvailabilityFilter } from "@/lib/statistics/staff-availability";
 import type { ParticipantStaffAvailability } from "@/lib/partecipante/staff-availability";
+import { HostelCheckInSection } from "../partecipante/hostel-check-in-section";
 
 type PresenceDettaglioMap = Record<string, boolean>;
 
@@ -105,6 +106,7 @@ type ParticipantsTableProps = {
   allowExcelExport?: boolean;
   excelExportPath?: string;
   canEditGroupAssignment?: boolean;
+  allowHostelCheckInEditing?: boolean;
   initialEditParticipantId?: string | null;
   modalOnly?: boolean;
   onCloseEditModal?: () => void;
@@ -354,6 +356,7 @@ export function ParticipantsTable({
   allowExcelExport = false,
   excelExportPath,
   canEditGroupAssignment = false,
+  allowHostelCheckInEditing = false,
   initialEditParticipantId: initialEditParticipantIdProp = null,
   modalOnly = false,
   onCloseEditModal,
@@ -1542,6 +1545,24 @@ export function ParticipantsTable({
                 {t("participants.table.modal.close")}
               </button>
             </div>
+
+            {allowHostelCheckInEditing ? (
+              <div className="mb-5">
+                <HostelCheckInSection
+                  participantId={editingParticipant.id}
+                  context="groupLeader"
+                  onCompleted={() =>
+                    setParticipants((current) =>
+                      current.map((participant) =>
+                        participant.id === editingParticipant.id
+                          ? { ...participant, hostel_check_in_status: "completed" }
+                          : participant
+                      )
+                    )
+                  }
+                />
+              </div>
+            ) : null}
 
             <form onSubmit={handleSave} className="space-y-5">
               <section

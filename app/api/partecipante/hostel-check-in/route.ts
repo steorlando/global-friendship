@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { loadEventRuntimeSettings } from "@/lib/event/settings";
 import {
+  canManageParticipantHostelCheckIn,
   isMissingHostelCheckInTable,
   normalizeHostelCheckInInput,
   participantMayNeedHostelCheckIn,
@@ -10,6 +11,9 @@ import {
 
 type ParticipantRow = {
   id: string;
+  email: string | null;
+  gruppo_id: string | null;
+  gruppo_label: string | null;
   nome: string | null;
   cognome: string | null;
   tipo_iscrizione: string | null;
@@ -37,7 +41,7 @@ function normalizeText(value: unknown): string | null {
   return normalized || null;
 }
 
-async function requireParticipant(participantId: string) {
+async function requireParticipantOrAssignedGroupLeader(participantId: string) {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
@@ -54,10 +58,9 @@ async function requireParticipant(participantId: string) {
   const { data, error } = await service
     .from("partecipanti")
     .select(
-      "id,nome,cognome,tipo_iscrizione,preferenza_alloggio_operatore,alloggio,alloggio_short,data_arrivo,data_partenza"
+      "id,email,gruppo_id,gruppo_label,nome,cognome,tipo_iscrizione,preferenza_alloggio_operatore,alloggio,alloggio_short,data_arrivo,data_partenza"
     )
     .eq("id", participantId)
-    .ilike("email", email)
     .is("deleted_at", null)
     .maybeSingle();
 
@@ -69,13 +72,76 @@ async function requireParticipant(participantId: string) {
   if (!data) {
     return {
       errorResponse: NextResponse.json(
-        { error: "Participant not found for this account" },
+        { error: "Participant not found" },
         { status: 404 }
       ),
     };
   }
 
-  return { service, participant: data as ParticipantRow };
+  const participant = data as ParticipantRow;
+  if (
+    canManageParticipantHostelCheckIn({
+      accountEmail: email,
+      participantEmail: participant.email,
+    })
+  ) {
+    return { service, participant };
+  }
+
+  const { data: profile, error: profileError } = await service
+    .from("profili")
+    .select("id")
+    .ilike("email", email)
+    .eq("ruolo", "capogruppo")
+    .order("created_at", { ascending: false })
+    .maybeSingle();
+
+  if (profileError) {
+    return {
+      errorResponse: NextResponse.json(
+        { error: profileError.message },
+        { status: 500 }
+      ),
+    };
+  }
+  if (!profile?.id) {
+    return {
+      errorResponse: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+    };
+  }
+
+  const { data: links, error: linksError } = await service
+    .from("profili_gruppi")
+    .select("gruppo_id")
+    .eq("profilo_id", profile.id);
+
+  if (linksError) {
+    return {
+      errorResponse: NextResponse.json(
+        { error: linksError.message },
+        { status: 500 }
+      ),
+    };
+  }
+
+  const groupLeaderGroups = (links ?? []).map((row) =>
+    String(row.gruppo_id ?? "")
+  );
+  if (
+    !canManageParticipantHostelCheckIn({
+      accountEmail: email,
+      participantEmail: participant.email,
+      groupLeaderGroups,
+      participantGroupId: participant.gruppo_id,
+      participantGroupLabel: participant.gruppo_label,
+    })
+  ) {
+    return {
+      errorResponse: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+    };
+  }
+
+  return { service, participant };
 }
 
 async function loadRoomAssignment(
@@ -119,7 +185,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "participantId is required" }, { status: 400 });
   }
 
-  const auth = await requireParticipant(participantId);
+  const auth = await requireParticipantOrAssignedGroupLeader(participantId);
   if ("errorResponse" in auth) return auth.errorResponse;
 
   try {
@@ -261,7 +327,7 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: input.error }, { status: 400 });
   }
 
-  const auth = await requireParticipant(participantId);
+  const auth = await requireParticipantOrAssignedGroupLeader(participantId);
   if ("errorResponse" in auth) return auth.errorResponse;
 
   try {

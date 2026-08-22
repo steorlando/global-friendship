@@ -19,6 +19,7 @@ export default async function CapogruppoPage() {
           showTotalFee
           showPaymentSummary
           allowExcelExport
+          allowHostelCheckInEditing
         />
       </div>
     </>

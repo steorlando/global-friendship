@@ -2,10 +2,39 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildHostelCheckInGroupSummary,
+  canManageParticipantHostelCheckIn,
   normalizeHostelCheckInInput,
   participantMayNeedHostelCheckIn,
   type HostelCheckInStatus,
 } from "../lib/alloggi/check-in.ts";
+
+test("allows only the participant or an assigned group leader to manage hostel check-in", () => {
+  assert.equal(
+    canManageParticipantHostelCheckIn({
+      accountEmail: "participant@example.org",
+      participantEmail: " Participant@example.org ",
+    }),
+    true
+  );
+  assert.equal(
+    canManageParticipantHostelCheckIn({
+      accountEmail: "leader@example.org",
+      participantEmail: "participant@example.org",
+      groupLeaderGroups: ["Budapest", "Roma"],
+      participantGroupId: "Roma",
+    }),
+    true
+  );
+  assert.equal(
+    canManageParticipantHostelCheckIn({
+      accountEmail: "leader@example.org",
+      participantEmail: "participant@example.org",
+      groupLeaderGroups: ["Budapest"],
+      participantGroupLabel: "Roma",
+    }),
+    false
+  );
+});
 
 test("normalizes a complete hostel check-in payload", () => {
   const result = normalizeHostelCheckInInput({

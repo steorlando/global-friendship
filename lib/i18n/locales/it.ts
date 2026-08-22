@@ -255,6 +255,14 @@ const it: TranslationDictionary = {
   "participants.table.modal.staffAvailability.notSelected": "Non selezionato",
   "participants.table.modal.staffAvailability.noResponse":
     "Questo partecipante non ha ancora comunicato la propria disponibilità.",
+  "participants.table.modal.hostelCheckIn.title": "Check-in ostello del partecipante",
+  "participants.table.modal.hostelCheckIn.awaitingAssignment":
+    "Questo partecipante non ha ancora una stanza in ostello assegnata. Il modulo di check-in apparirà dopo l'assegnazione.",
+  "participants.table.modal.hostelCheckIn.openButton": "Inserisci i dati del check-in",
+  "participants.table.modal.hostelCheckIn.reviewButton":
+    "Check-in completato — controlla i dati",
+  "participants.table.modal.hostelCheckIn.saveSuccess":
+    "Il check-in in ostello del partecipante è stato completato correttamente.",
   "participant.form.multipleFoundTitle": "Trovate più registrazioni partecipante.",
   "participant.form.multipleFoundBody": "Seleziona il profilo partecipante che vuoi gestire con questa email.",
   "participant.form.profile": "Profilo partecipante",

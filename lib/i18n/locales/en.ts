@@ -274,6 +274,14 @@ const en: TranslationDictionary = {
   "participants.table.modal.staffAvailability.notSelected": "Not selected",
   "participants.table.modal.staffAvailability.noResponse":
     "This participant has not submitted their availability yet.",
+  "participants.table.modal.hostelCheckIn.title": "Participant hostel check-in",
+  "participants.table.modal.hostelCheckIn.awaitingAssignment":
+    "This participant does not have an assigned hostel room yet. The check-in form will appear after room assignment.",
+  "participants.table.modal.hostelCheckIn.openButton": "Enter check-in details",
+  "participants.table.modal.hostelCheckIn.reviewButton":
+    "Check-in completed — review details",
+  "participants.table.modal.hostelCheckIn.saveSuccess":
+    "The participant's hostel check-in has been completed successfully.",
 
   "participant.form.multipleFoundTitle": "Multiple participant registrations found.",
   "participant.form.multipleFoundBody": "Select the participant profile you want to manage with this email.",

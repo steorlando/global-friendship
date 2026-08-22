@@ -32,6 +32,14 @@ export type HostelCheckInGroupRow = {
   total: number;
 };
 
+type HostelCheckInAccessInput = {
+  accountEmail: string | null | undefined;
+  participantEmail: string | null | undefined;
+  groupLeaderGroups?: readonly string[];
+  participantGroupId?: string | null;
+  participantGroupLabel?: string | null;
+};
+
 type MaybeSupabaseError = {
   code?: string | null;
   message?: string | null;
@@ -40,6 +48,30 @@ type MaybeSupabaseError = {
 const DATE_ONLY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const PARTICIPANT_BATCH_SIZE = 100;
 const DOCUMENT_TYPE_SET = new Set<string>(HOSTEL_IDENTITY_DOCUMENT_TYPES);
+
+function normalizeAccessValue(value: string | null | undefined): string {
+  return (value ?? "").trim().toLowerCase();
+}
+
+export function canManageParticipantHostelCheckIn(
+  input: HostelCheckInAccessInput
+): boolean {
+  const accountEmail = normalizeAccessValue(input.accountEmail);
+  if (!accountEmail) return false;
+
+  if (accountEmail === normalizeAccessValue(input.participantEmail)) {
+    return true;
+  }
+
+  const allowedGroups = new Set(
+    (input.groupLeaderGroups ?? []).map(normalizeAccessValue).filter(Boolean)
+  );
+  if (allowedGroups.size === 0) return false;
+
+  return [input.participantGroupId, input.participantGroupLabel]
+    .map(normalizeAccessValue)
+    .some((group) => Boolean(group) && allowedGroups.has(group));
+}
 
 export function participantMayNeedHostelCheckIn(participant: {
   alloggio?: string | null;
