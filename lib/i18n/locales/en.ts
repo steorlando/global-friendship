@@ -446,6 +446,10 @@ const en: TranslationDictionary = {
   "manager.participantBadges.download": "Download PDF",
   "manager.participantBadges.preparing": "Preparing PDF...",
   "manager.participantBadges.retry": "Generation failed - retry",
+  "admin.participationReport.title": "Participation report",
+  "admin.participationReport.download": "Generate and download PDF",
+  "admin.participationReport.preparing": "Generating report...",
+  "admin.participationReport.retry": "Generation failed - retry",
   "manager.staffAvailability.title": "Event team availability",
   "manager.staffAvailability.subtitle":
     "Number of participants who have shared their availability. Each participant can select more than one area.",

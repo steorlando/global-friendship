@@ -10,6 +10,7 @@ import { StatisticsSectionsSidebar } from "./statistics-sections-sidebar";
 import { StatisticsSectionNavigator } from "./statistics-section-navigator";
 import { StatisticsParticipantEditModal } from "./statistics-participant-edit-modal";
 import { ParticipantBadgesDownloadButton } from "./participant-badges-download-button";
+import { ParticipationReportDownloadButton } from "./participation-report-download-button";
 import { getServerTranslator } from "@/lib/i18n/server";
 import {
   isOperatorRegistrationType,
@@ -53,6 +54,10 @@ import {
   parseStatisticsSection,
   type StatisticsSectionKey,
 } from "@/lib/statistics/dashboard-sections";
+import {
+  canGenerateParticipationReport,
+  type ParticipationReportAccessProfile,
+} from "@/lib/statistics/participation-report-access";
 
 export const dynamic = "force-dynamic";
 
@@ -1044,6 +1049,25 @@ function ParticipantBadgesControl({
   );
 }
 
+function ParticipationReportControl({
+  t,
+}: {
+  t: (key: string, values?: Record<string, string | number>) => string;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+        {t("admin.participationReport.title")}
+      </p>
+      <ParticipationReportDownloadButton
+        idleLabel={t("admin.participationReport.download")}
+        loadingLabel={t("admin.participationReport.preparing")}
+        errorLabel={t("admin.participationReport.retry")}
+      />
+    </div>
+  );
+}
+
 function HostelCheckInStatisticsSection({
   rows,
   t,
@@ -1684,6 +1708,7 @@ export async function StatisticsDashboard({
 } = {}) {
   const { t } = await getServerTranslator();
   const service = createSupabaseServiceClient({ noStore: sectionedView });
+  let canDownloadParticipationReport = false;
   if (!publicView) {
     const supabase = await createSupabaseServerClient();
     const {
@@ -1714,6 +1739,9 @@ export async function StatisticsDashboard({
         </section>
       );
     }
+    canDownloadParticipationReport = canGenerateParticipationReport(
+      profile as ParticipationReportAccessProfile[],
+    );
   }
 
   const showSection = (section: StatisticsSectionKey) =>
@@ -2136,7 +2164,14 @@ export async function StatisticsDashboard({
                 <h3 className="text-lg font-semibold text-slate-900">
                   {t("manager.statistics.topCounters")}
                 </h3>
-                {!publicView && <ParticipantBadgesControl t={t} />}
+                {!publicView && (
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <ParticipantBadgesControl t={t} />
+                    {canDownloadParticipationReport && (
+                      <ParticipationReportControl t={t} />
+                    )}
+                  </div>
+                )}
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <article className="rounded border border-slate-200 bg-slate-50 p-4">

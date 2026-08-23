@@ -424,6 +424,10 @@ const it: TranslationDictionary = {
   "manager.participantBadges.download": "Scarica PDF",
   "manager.participantBadges.preparing": "Preparazione PDF...",
   "manager.participantBadges.retry": "Generazione non riuscita - riprova",
+  "admin.participationReport.title": "Report partecipazione",
+  "admin.participationReport.download": "Genera e scarica PDF",
+  "admin.participationReport.preparing": "Generazione report...",
+  "admin.participationReport.retry": "Generazione non riuscita - riprova",
   "manager.staffAvailability.title": "Disponibilità per il team dell'evento",
   "manager.staffAvailability.subtitle":
     "Numeri dei partecipanti che hanno comunicato la propria disponibilità. Ogni partecipante può scegliere più attività.",
