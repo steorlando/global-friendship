@@ -828,7 +828,7 @@ function drawOperators(
   drawPageTitle(
     doc,
     `Lista operatori ${currentYear}`,
-    `${operators.length} operatori, ordinati per paese, città e nome. Ogni nominativo compare una sola volta.`,
+    `${operators.length} operatori, ordinati per paese, città e nome.`,
   );
 
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -1074,7 +1074,6 @@ export function buildParticipationReportPdf(args: {
   drawPageTitle(
     doc,
     "Partecipazione di quest'anno",
-    "Dettaglio delle città italiane e dei gruppi di Roma. Marconi è escluso dai gruppi perché comprende soltanto due operatori senza un gruppo specifico.",
   );
   const halfGap = 7;
   const halfWidth = (contentWidth - halfGap) / 2;
@@ -1101,7 +1100,7 @@ export function buildParticipationReportPdf(args: {
   drawPageTitle(
     doc,
     `Confronto ${args.previous.year}-${args.currentYear}`,
-    "Sono sommati studenti superiori, universitari e lavoratori. Operatori, autisti e gli ospiti eccezionali 2025 di Argentina, Colombia, Guatemala, Honduras, Messico e Perù sono esclusi. Se una voce compare in un solo anno, l'altro valore e le variazioni restano vuoti.",
+    "Sono sommati studenti superiori, universitari e lavoratori. Operatori e autisti sono esclusi. Se una voce compare in un solo anno, l'altro valore e le variazioni restano vuoti.",
   );
   drawComparisonTable(doc, {
     title: "Giovani per paese",
