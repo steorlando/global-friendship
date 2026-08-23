@@ -19,6 +19,10 @@ export default function ManagerLayout({ children }: { children: ReactNode }) {
       ],
     },
     { href: "/dashboard/manager/participants", label: t("dashboard.manager.tab.participants") },
+    {
+      href: "/dashboard/manager/participant-activity",
+      label: t("dashboard.manager.tab.participantActivity"),
+    },
     { href: "/dashboard/alloggi", label: t("dashboard.manager.tab.accommodation") },
     { href: "/dashboard/manager/participation-fees", label: t("dashboard.manager.tab.fees") },
     { href: "/dashboard/manager/event-finance", label: t("dashboard.manager.tab.finance") },

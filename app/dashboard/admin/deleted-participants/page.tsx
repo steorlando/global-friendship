@@ -1,5 +1,5 @@
-import { DeletedParticipantsTable } from "./deleted-participants-table";
+import { ParticipantActivityTable } from "../../_components/participant-activity-table";
 
 export default function AdminDeletedParticipantsPage() {
-  return <DeletedParticipantsTable />;
+  return <ParticipantActivityTable canRestore />;
 }

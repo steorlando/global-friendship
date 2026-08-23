@@ -18,6 +18,10 @@ import {
   normalizeOperatorAccommodationPreference,
   parseStoredDifficoltaAccessibilita,
 } from "@/lib/partecipante/constants";
+import {
+  buildStayDateAuditFields,
+  withoutStayDateAuditFields,
+} from "@/lib/participants/stay-date-audit";
 
 type PresenceDettaglioMap = Record<string, boolean>;
 
@@ -209,7 +213,7 @@ async function getCurrentUserEmail() {
     };
   }
 
-  return { email: user.email.toLowerCase() };
+  return { email: user.email.toLowerCase(), userId: user.id };
 }
 
 async function loadParticipantsByEmail(
@@ -600,6 +604,15 @@ export async function PATCH(req: Request) {
     quota_totale: calculated.quotaTotale,
     eta: calculated.eta,
     is_minorenne: calculated.isMinorenne,
+    ...buildStayDateAuditFields({
+      previousArrival: participant.data_arrivo,
+      previousDeparture: participant.data_partenza,
+      nextArrival: dataArrivo,
+      nextDeparture: dataPartenza,
+      actorId: auth.userId,
+      actorEmail: auth.email,
+      actorRole: "partecipante",
+    }),
   };
   if (canManageHostCityFields) {
     updatePayload.partecipa_intero_evento = partecipaInteroEvento;
@@ -616,7 +629,7 @@ export async function PATCH(req: Request) {
     .maybeSingle();
 
   if (updateError && canFallbackMissingColumn(updateError)) {
-    const fallbackPayload = { ...updatePayload };
+    const fallbackPayload = withoutStayDateAuditFields(updatePayload);
     delete fallbackPayload.preferenza_alloggio_operatore;
     const fallback = await service
       .from("partecipanti")

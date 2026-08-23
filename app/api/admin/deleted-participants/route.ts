@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdminUser } from "@/lib/admin/auth";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { alloggioLongToShort } from "@/lib/partecipante/constants";
+import { requireStaffAvailabilityManagerOrAdmin } from "@/lib/statistics/staff-availability-server";
 
 type DeletedParticipantRow = {
   id: string;
@@ -19,6 +20,22 @@ type DeletedParticipantRow = {
   alloggio_short: string | null;
   gruppo_id: string | null;
   gruppo_label: string | null;
+};
+
+type StayDateChangeRow = {
+  id: string;
+  nome: string | null;
+  cognome: string | null;
+  email: string | null;
+  gruppo_id: string | null;
+  gruppo_label: string | null;
+  data_arrivo: string | null;
+  data_partenza: string | null;
+  previous_data_arrivo: string | null;
+  previous_data_partenza: string | null;
+  stay_dates_changed_at: string | null;
+  stay_dates_changed_by_email: string | null;
+  stay_dates_changed_by_role: string | null;
 };
 
 const SELECT_FIELDS_BASE =
@@ -50,10 +67,10 @@ function toResponseParticipant(row: DeletedParticipantRow) {
 }
 
 export async function GET() {
-  const auth = await requireAdminUser();
+  const auth = await requireStaffAvailabilityManagerOrAdmin();
   if ("errorResponse" in auth) return auth.errorResponse;
 
-  const service = createSupabaseServiceClient();
+  const service = auth.service;
   const executeSelect = async (selectFields: string) =>
     service
       .from("partecipanti")
@@ -72,8 +89,31 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  const recentThreshold = new Date();
+  recentThreshold.setUTCDate(recentThreshold.getUTCDate() - 30);
+  const stayDateResult = await service
+    .from("partecipanti")
+    .select(
+      "id,nome,cognome,email,gruppo_id,gruppo_label,data_arrivo,data_partenza,previous_data_arrivo,previous_data_partenza,stay_dates_changed_at,stay_dates_changed_by_email,stay_dates_changed_by_role"
+    )
+    .is("deleted_at", null)
+    .gte("stay_dates_changed_at", recentThreshold.toISOString())
+    .order("stay_dates_changed_at", { ascending: false });
+
+  let stayDateChanges: StayDateChangeRow[] = [];
+  if (!stayDateResult.error) {
+    stayDateChanges = (stayDateResult.data ?? []) as unknown as StayDateChangeRow[];
+  } else if (!canFallbackMissingColumn(stayDateResult.error)) {
+    return NextResponse.json({ error: stayDateResult.error.message }, { status: 500 });
+  }
+
   return NextResponse.json({
     participants: ((data ?? []) as unknown as DeletedParticipantRow[]).map(toResponseParticipant),
+    stayDateChanges: stayDateChanges.map((row) => ({
+      ...row,
+      group: (row.gruppo_label ?? row.gruppo_id ?? "").trim() || "-",
+    })),
+    recentDays: 30,
   });
 }
 

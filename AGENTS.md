@@ -556,6 +556,9 @@ Important behavior:
 - Delete is available from the edit modal with confirmation
 - Participant deletion is a soft delete: records remain in `partecipanti` with `deleted_at` / deletion metadata and are hidden from operational dashboards, login, stats, accommodation, email campaigns, and fee screens.
 - Admins can review and restore soft-deleted participants at `/dashboard/admin/deleted-participants`.
+- Admins and managers can review deleted participants and the latest arrival/departure date
+  changes from their Participant Activity section. Date changes retain previous/current values,
+  timestamp, and actor; the view includes changes from the last 30 days. Restore remains admin-only.
 
 Optional columns feature:
 

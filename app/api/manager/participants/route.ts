@@ -31,6 +31,10 @@ import {
   type HostelCheckInStatus,
 } from "@/lib/alloggi/check-in";
 import { loadAssignedHostelNameByParticipant } from "@/lib/alloggi/assigned-hostels-server";
+import {
+  buildStayDateAuditFields,
+  withoutStayDateAuditFields,
+} from "@/lib/participants/stay-date-audit";
 
 type ParticipantRow = {
   id: string;
@@ -683,6 +687,15 @@ export async function PATCH(req: Request) {
       normalizedDifficolta.length > 0 ? normalizedDifficolta.join(", ") : null,
     eta: calculated.eta,
     is_minorenne: calculated.isMinorenne,
+    ...buildStayDateAuditFields({
+      previousArrival: normalizeText(current.data_arrivo),
+      previousDeparture: normalizeText(current.data_partenza),
+      nextArrival: dataArrivo,
+      nextDeparture: dataPartenza,
+      actorId: auth.user.id,
+      actorEmail: auth.user.email ?? null,
+      actorRole: auth.role,
+    }),
   };
 
   let { error: updateError } = await auth.service
@@ -693,7 +706,7 @@ export async function PATCH(req: Request) {
     .single();
 
   if (updateError && canFallbackMissingColumn(updateError)) {
-    const fallbackPayload = { ...updatePayload };
+    const fallbackPayload = withoutStayDateAuditFields(updatePayload);
     delete fallbackPayload.preferenza_alloggio_operatore;
     const fallback = await auth.service
       .from("partecipanti")

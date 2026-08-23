@@ -23,6 +23,10 @@ import {
   participantMayNeedHostelCheckIn,
   type HostelCheckInStatus,
 } from "@/lib/alloggi/check-in";
+import {
+  buildStayDateAuditFields,
+  withoutStayDateAuditFields,
+} from "@/lib/participants/stay-date-audit";
 
 type ParticipantRow = {
   id: string;
@@ -773,6 +777,15 @@ export async function PATCH(req: Request) {
     quota_totale: calculated.quotaTotale,
     eta: calculated.eta,
     is_minorenne: calculated.isMinorenne,
+    ...buildStayDateAuditFields({
+      previousArrival: normalizeText(current.data_arrivo),
+      previousDeparture: normalizeText(current.data_partenza),
+      nextArrival: dataArrivo,
+      nextDeparture: dataPartenza,
+      actorId: auth.user.id,
+      actorEmail: auth.user.email ?? null,
+      actorRole: "capogruppo",
+    }),
   };
 
   if (canManageHostCityParticipant) {
@@ -788,7 +801,7 @@ export async function PATCH(req: Request) {
     .single();
 
   if (updateError && canFallbackMissingColumn(updateError)) {
-    const fallbackPayload = { ...updatePayload };
+    const fallbackPayload = withoutStayDateAuditFields(updatePayload);
     delete fallbackPayload.preferenza_alloggio_operatore;
     const fallback = await auth.service
       .from("partecipanti")

@@ -21,7 +21,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     },
     {
       href: "/dashboard/admin/deleted-participants",
-      label: t("dashboard.admin.tab.deletedParticipants"),
+      label: t("dashboard.admin.tab.participantActivity"),
       isActive: pathname === "/dashboard/admin/deleted-participants",
     },
     {
