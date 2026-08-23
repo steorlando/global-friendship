@@ -191,9 +191,12 @@ const ROME_GROUP_ALIASES = new Map<string, string>([
 ]);
 
 const COMPARISON_EXCLUDED_COUNTRY_KEYS = new Set([
+  "argentina",
   "colombia",
   "guatemala",
   "honduras",
+  "mexico",
+  "peru",
 ]);
 
 const COLLATOR = new Intl.Collator("it", {
@@ -1098,7 +1101,7 @@ export function buildParticipationReportPdf(args: {
   drawPageTitle(
     doc,
     `Confronto ${args.previous.year}-${args.currentYear}`,
-    "Sono sommati studenti superiori, universitari e lavoratori. Operatori, autisti e gli ospiti eccezionali 2025 di Colombia, Guatemala e Honduras sono esclusi. Se una voce compare in un solo anno, l'altro valore e le variazioni restano vuoti.",
+    "Sono sommati studenti superiori, universitari e lavoratori. Operatori, autisti e gli ospiti eccezionali 2025 di Argentina, Colombia, Guatemala, Honduras, Messico e Perù sono esclusi. Se una voce compare in un solo anno, l'altro valore e le variazioni restano vuoti.",
   );
   drawComparisonTable(doc, {
     title: "Giovani per paese",

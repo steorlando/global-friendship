@@ -50,9 +50,12 @@ test("the report model uses app enrollment buckets and excludes drivers", () => 
       Italy: 5,
       Spain: 1,
       Argentina: 1,
+      France: 1,
       Colombia: 1,
       Guatemala: 1,
       Honduras: 1,
+      Mexico: 1,
+      Peru: 1,
     },
     youngByItalianCity: { Roma: 5 },
     youngByRomeGroup: {
@@ -112,12 +115,16 @@ test("the report model uses app enrollment buckets and excludes drivers", () => 
   assert.equal(comparison?.percentageChange, -0.6);
 
   const oldOnly = model.comparison.countryRows.find(
-    (row) => row.label === "Argentina",
+    (row) => row.label === "Francia",
   );
   assert.equal(oldOnly?.previous, 1);
   assert.equal(oldOnly?.current, null);
   assert.equal(oldOnly?.absoluteChange, null);
   assert.equal(oldOnly?.percentageChange, null);
+  assert.equal(
+    model.comparison.countryRows.some((row) => row.label === "Argentina"),
+    false,
+  );
   assert.equal(
     model.comparison.countryRows.some((row) => row.label === "Colombia"),
     false,
@@ -128,6 +135,14 @@ test("the report model uses app enrollment buckets and excludes drivers", () => 
   );
   assert.equal(
     model.comparison.countryRows.some((row) => row.label === "Honduras"),
+    false,
+  );
+  assert.equal(
+    model.comparison.countryRows.some((row) => row.label === "Messico"),
+    false,
+  );
+  assert.equal(
+    model.comparison.countryRows.some((row) => row.label === "Perù"),
     false,
   );
 });
