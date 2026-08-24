@@ -7,9 +7,13 @@ export async function GET(request: NextRequest) {
   if ("errorResponse" in auth) return auth.errorResponse;
 
   try {
+    const includeMaverickExportFields =
+      request.nextUrl.searchParams.get("includeMaverickExportFields") === "1";
     const rosters = await loadAccommodationOperationalRosters(auth.service, {
       includeCheckInDocuments:
-        request.nextUrl.searchParams.get("includeCheckInDocuments") === "1",
+        request.nextUrl.searchParams.get("includeCheckInDocuments") === "1" ||
+        includeMaverickExportFields,
+      includeMaverickExportFields,
     });
 
     return NextResponse.json({

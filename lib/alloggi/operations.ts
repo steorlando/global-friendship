@@ -18,9 +18,12 @@ type ServiceClient = SupabaseClient;
 
 type OperationalParticipantRow = {
   id: string;
+  personal_code?: string | null;
   nome: string | null;
   cognome: string | null;
   email: string | null;
+  nazione?: string | null;
+  data_nascita?: string | null;
   gruppo_id: string | null;
   gruppo_label: string | null;
   alloggio: string | null;
@@ -54,11 +57,14 @@ type ParticipantHostelCheckInRow = {
 
 export type AccommodationOperationalParticipant = {
   participantId: string;
+  personalCode?: string | null;
   assignmentId: string;
   firstName: string | null;
   lastName: string | null;
   fullName: string;
   email: string | null;
+  nationality?: string | null;
+  dateOfBirth?: string | null;
   groupId: string | null;
   groupName: string;
   sex: string | null;
@@ -368,6 +374,9 @@ export function buildAccommodationOperationalRosters(args: {
 
     const rosterParticipant: AccommodationOperationalParticipant = {
       participantId,
+      ...(participant.personal_code !== undefined
+        ? { personalCode: normalizeText(participant.personal_code) }
+        : {}),
       assignmentId: assignment.id,
       firstName: normalizeText(participant.nome),
       lastName: normalizeText(participant.cognome),
@@ -376,6 +385,12 @@ export function buildAccommodationOperationalRosters(args: {
           .filter(Boolean)
           .join(" ") || participant.email?.trim() || participantId,
       email: normalizeText(participant.email),
+      ...(participant.nazione !== undefined
+        ? { nationality: normalizeText(participant.nazione) }
+        : {}),
+      ...(participant.data_nascita !== undefined
+        ? { dateOfBirth: normalizeText(participant.data_nascita) }
+        : {}),
       groupId: normalizeText(participant.gruppo_id),
       groupName: resolveGroupName(participant, groupAliasMap),
       sex: normalizeText(participant.sesso),
@@ -467,17 +482,26 @@ export function buildAccommodationOperationalRosters(args: {
 
 export async function loadAccommodationOperationalRosters(
   service: ServiceClient,
-  options: { includeCheckInDocuments?: boolean } = {}
+  options: {
+    includeCheckInDocuments?: boolean;
+    includeMaverickExportFields?: boolean;
+  } = {}
 ): Promise<AccommodationOperationalRosters> {
+  const participantFields = [
+    "id,nome,cognome,email,gruppo_id,gruppo_label,alloggio,alloggio_short,sesso,eta,data_arrivo,data_partenza",
+    options.includeMaverickExportFields
+      ? "personal_code,nazione,data_nascita"
+      : null,
+  ]
+    .filter(Boolean)
+    .join(",");
   const [groups, rooms, participantsRes, assignmentsRes, roomScopesRes] =
     await Promise.all([
       loadAccommodationGroups(service),
       loadAccommodationRooms(service),
       service
         .from("partecipanti")
-        .select(
-          "id,nome,cognome,email,gruppo_id,gruppo_label,alloggio,alloggio_short,sesso,eta,data_arrivo,data_partenza"
-        )
+        .select(participantFields)
         .is("deleted_at", null),
       service.from("partecipanti_stanze").select("id,partecipante_id,stanza_id"),
       service.from("stanze_gruppi").select("stanza_id,gruppo_id"),
@@ -510,7 +534,7 @@ export async function loadAccommodationOperationalRosters(
   return buildAccommodationOperationalRosters({
     groups,
     rooms,
-    participants: (participantsRes.data ?? []) as OperationalParticipantRow[],
+    participants: (participantsRes.data ?? []) as unknown as OperationalParticipantRow[],
     assignments: (assignmentsRes.data ?? []) as ParticipantRoomAssignmentRow[],
     roomScopes: (roomScopesRes.data ?? []) as RoomScopeRow[],
     checkIns,

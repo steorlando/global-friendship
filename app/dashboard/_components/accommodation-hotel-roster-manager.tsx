@@ -16,6 +16,10 @@ import {
   exportRowsToXlsx,
   matchesOperationalRosterParticipantSearch,
 } from "@/lib/alloggi/operations-presentation";
+import {
+  buildMaverickReservationRows,
+  exportMaverickReservationsToXlsx,
+} from "@/lib/alloggi/maverick-reservations-export";
 
 type OperationalRosterResponse = {
   summary?: AccommodationOperationalSummary;
@@ -90,6 +94,7 @@ export function AccommodationHotelRosterManager() {
   const [selectedHotelId, setSelectedHotelId] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
+  const [maverickExporting, setMaverickExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const deferredSearchTerm = useDeferredValue(searchTerm);
 
@@ -296,6 +301,39 @@ export function AccommodationHotelRosterManager() {
     t,
   ]);
 
+  const handleMaverickExport = useCallback(async () => {
+    setMaverickExporting(true);
+    setError(null);
+
+    try {
+      const response = await fetch(
+        "/api/alloggi/operational-rosters?includeMaverickExportFields=1",
+        { cache: "no-store" }
+      );
+      const json = (await response.json()) as OperationalRosterResponse;
+      if (!response.ok) {
+        throw new Error(json.error || t("accommodation.rosters.status.exportError"));
+      }
+
+      const rows = buildMaverickReservationRows(json.hotels ?? []);
+      if (rows.length === 0) {
+        throw new Error(t("accommodation.rosters.status.maverickEmpty"));
+      }
+
+      const stamp = new Date().toISOString().slice(0, 10);
+      await exportMaverickReservationsToXlsx({
+        fileName: `maverick-reservations-${stamp}.xlsx`,
+        rows,
+      });
+    } catch (exportError) {
+      setError(
+        (exportError as Error).message || t("accommodation.rosters.status.exportError")
+      );
+    } finally {
+      setMaverickExporting(false);
+    }
+  }, [t]);
+
   return (
     <div className="space-y-6">
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -404,6 +442,17 @@ export function AccommodationHotelRosterManager() {
               className="rounded-lg border border-emerald-600 bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-500"
             >
               {t("accommodation.rosters.actions.exportXlsx")}
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleMaverickExport()}
+              disabled={maverickExporting}
+              title={t("accommodation.rosters.actions.exportMaverickHint")}
+              className="rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-800 transition hover:border-amber-400 hover:bg-amber-100 disabled:cursor-wait disabled:opacity-60"
+            >
+              {maverickExporting
+                ? t("accommodation.rosters.actions.exportMaverickLoading")
+                : t("accommodation.rosters.actions.exportMaverick")}
             </button>
           </div>
         </div>

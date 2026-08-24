@@ -891,6 +891,12 @@ const en: TranslationDictionary = {
   "accommodation.rosters.actions.exportPdf": "Export PDF",
   "accommodation.rosters.actions.exportCsv": "Export CSV",
   "accommodation.rosters.actions.exportXlsx": "Export XLSX",
+  "accommodation.rosters.actions.exportMaverick": "Maverick XLSX",
+  "accommodation.rosters.actions.exportMaverickLoading": "Maverick…",
+  "accommodation.rosters.actions.exportMaverickHint":
+    "Temporary export in Maverick's requested format",
+  "accommodation.rosters.status.maverickEmpty":
+    "There are no participants assigned to Maverick to export.",
   "accommodation.rosters.filters.search": "Search",
   "accommodation.rosters.filters.searchPlaceholder": "Search by participant, group, room, or hotel",
   "accommodation.rosters.filters.hotel": "Hotel",
