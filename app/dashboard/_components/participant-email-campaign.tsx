@@ -25,7 +25,11 @@ import {
   isRecipientIdExcluded,
   parseRecipientIdsFromText,
 } from "@/lib/email/recipient-id-utils";
-import { matchesParticipantFilterSelection } from "@/lib/email/participant-campaign-filters";
+import {
+  matchesParticipantFilterSelection,
+  matchesParticipantHostelCheckInFilter,
+  type ParticipantHostelCheckInFilter,
+} from "@/lib/email/participant-campaign-filters";
 import { hasOutstandingParticipationFee } from "@/lib/participation-fees/payment-status";
 
 type RecipientType = "participants" | "group_leaders";
@@ -34,6 +38,7 @@ type Participant = ParticipantTemplateData & {
   citta: string | null;
   fee_paid: number | null;
   assigned_hostel_name: string | null;
+  hostel_check_in_status: "completed" | "pending" | "not_applicable";
 };
 
 type GroupLeader = GroupLeaderTemplateData;
@@ -383,6 +388,8 @@ export function ParticipantEmailCampaign() {
   const [participantHostelFilters, setParticipantHostelFilters] = useState<Set<string>>(
     new Set(),
   );
+  const [participantHostelCheckInFilter, setParticipantHostelCheckInFilter] =
+    useState<ParticipantHostelCheckInFilter>("all");
   const [participantPaymentFilter, setParticipantPaymentFilter] = useState("all");
   const [participantSortKey, setParticipantSortKey] = useState<ParticipantSortKey>("cognome");
   const [participantSortDirection, setParticipantSortDirection] = useState<SortDirection>("asc");
@@ -589,6 +596,14 @@ export function ParticipantEmailCampaign() {
       ) {
         return false;
       }
+      if (
+        !matchesParticipantHostelCheckInFilter(
+          participant.hostel_check_in_status,
+          participantHostelCheckInFilter,
+        )
+      ) {
+        return false;
+      }
 
       return true;
     });
@@ -617,6 +632,7 @@ export function ParticipantEmailCampaign() {
     participantArrivoFilter,
     participantCityFilter,
     participantGroupFilters,
+    participantHostelCheckInFilter,
     participantHostelFilters,
     participantRegistrationTypeFilters,
     participantPartenzaFilter,
@@ -1642,6 +1658,23 @@ export function ParticipantEmailCampaign() {
               >
                 <option value="all">All payment statuses</option>
                 <option value="outstanding">Fee outstanding</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Hostel check-in
+              </label>
+              <select
+                value={participantHostelCheckInFilter}
+                onChange={(event) =>
+                  setParticipantHostelCheckInFilter(
+                    event.target.value as ParticipantHostelCheckInFilter,
+                  )
+                }
+                className="mt-1 w-full rounded border border-slate-300 px-4 py-3 text-sm"
+              >
+                <option value="all">All check-in statuses</option>
+                <option value="pending">Required information missing</option>
               </select>
             </div>
           </div>

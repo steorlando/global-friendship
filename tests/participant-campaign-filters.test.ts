@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { matchesParticipantFilterSelection } from "../lib/email/participant-campaign-filters.ts";
+import {
+  matchesParticipantFilterSelection,
+  matchesParticipantHostelCheckInFilter,
+} from "../lib/email/participant-campaign-filters.ts";
 
 test("an empty group selection includes every participant", () => {
   assert.equal(matchesParticipantFilterSelection("Rome", new Set()), true);
@@ -55,4 +58,11 @@ test("multiple assigned hostels use OR matching", () => {
     false,
   );
   assert.equal(matchesParticipantFilterSelection(null, selectedHostels), false);
+});
+
+test("hostel check-in filter includes only assigned participants with missing information", () => {
+  assert.equal(matchesParticipantHostelCheckInFilter("pending", "pending"), true);
+  assert.equal(matchesParticipantHostelCheckInFilter("completed", "pending"), false);
+  assert.equal(matchesParticipantHostelCheckInFilter("not_applicable", "pending"), false);
+  assert.equal(matchesParticipantHostelCheckInFilter("completed", "all"), true);
 });
