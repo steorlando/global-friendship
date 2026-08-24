@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   buildHostelCheckInGroupSummary,
+  buildHostelCheckInHostelSummary,
   canManageParticipantHostelCheckIn,
   normalizeHostelCheckInInput,
   participantMayNeedHostelCheckIn,
@@ -143,6 +144,26 @@ test("builds group statistics only from assigned hostel participants", () => {
   assert.deepEqual(buildHostelCheckInGroupSummary(participants, statuses), [
     { group: "Paris", completed: 0, pending: 1, total: 1 },
     { group: "Roma", completed: 1, pending: 1, total: 2 },
+  ]);
+});
+
+test("builds hostel statistics with completed and pending check-ins", () => {
+  const participants = [
+    { id: "a", hostel: "Wombat's" },
+    { id: "b", hostel: " Wombat's " },
+    { id: "c", hostel: "Maverick" },
+    { id: "d", hostel: "Hotel" },
+  ];
+  const statuses = new Map<string, HostelCheckInStatus>([
+    ["a", "completed"],
+    ["b", "pending"],
+    ["c", "pending"],
+    ["d", "not_applicable"],
+  ]);
+
+  assert.deepEqual(buildHostelCheckInHostelSummary(participants, statuses), [
+    { hostel: "Maverick", completed: 0, pending: 1 },
+    { hostel: "Wombat's", completed: 1, pending: 1 },
   ]);
 });
 

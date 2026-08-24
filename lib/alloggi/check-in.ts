@@ -32,6 +32,12 @@ export type HostelCheckInGroupRow = {
   total: number;
 };
 
+export type HostelCheckInHostelRow = {
+  hostel: string;
+  completed: number;
+  pending: number;
+};
+
 type HostelCheckInAccessInput = {
   accountEmail: string | null | undefined;
   participantEmail: string | null | undefined;
@@ -308,5 +314,33 @@ export function buildHostelCheckInGroupSummary(
     if (a.group === "-") return 1;
     if (b.group === "-") return -1;
     return a.group.localeCompare(b.group);
+  });
+}
+
+export function buildHostelCheckInHostelSummary(
+  participants: Array<{ id: string; hostel: string | null | undefined }>,
+  statusByParticipant: ReadonlyMap<string, HostelCheckInStatus>
+): HostelCheckInHostelRow[] {
+  const rowsByHostel = new Map<string, HostelCheckInHostelRow>();
+
+  for (const participant of participants) {
+    const status = statusByParticipant.get(participant.id) ?? "not_applicable";
+    if (status === "not_applicable") continue;
+
+    const hostel = participant.hostel?.trim() || "-";
+    const row = rowsByHostel.get(hostel) ?? {
+      hostel,
+      completed: 0,
+      pending: 0,
+    };
+    if (status === "completed") row.completed += 1;
+    if (status === "pending") row.pending += 1;
+    rowsByHostel.set(hostel, row);
+  }
+
+  return [...rowsByHostel.values()].sort((a, b) => {
+    if (a.hostel === "-") return 1;
+    if (b.hostel === "-") return -1;
+    return a.hostel.localeCompare(b.hostel);
   });
 }

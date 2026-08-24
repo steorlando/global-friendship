@@ -38,10 +38,12 @@ import {
 import { STATISTICS_GROUP_LEADER_ROLES } from "@/lib/statistics/group-leader-associations";
 import {
   buildHostelCheckInGroupSummary,
+  buildHostelCheckInHostelSummary,
   loadHostelCheckInStatuses,
   participantMayNeedHostelCheckIn,
-  type HostelCheckInStatus,
   type HostelCheckInGroupRow,
+  type HostelCheckInHostelRow,
+  type HostelCheckInStatus,
 } from "@/lib/alloggi/check-in";
 import { loadAssignedHostelNameByParticipant } from "@/lib/alloggi/assigned-hostels-server";
 import { ArrivalGroupSummaryTable } from "@/app/dashboard/_components/arrival-group-summary-table";
@@ -1070,9 +1072,11 @@ function ParticipationReportControl({
 
 function HostelCheckInStatisticsSection({
   rows,
+  hostelRows,
   t,
 }: {
   rows: HostelCheckInGroupRow[];
+  hostelRows: HostelCheckInHostelRow[];
   t: (key: string, values?: Record<string, string | number>) => string;
 }) {
   const completed = rows.reduce((sum, row) => sum + row.completed, 0);
@@ -1108,47 +1112,96 @@ function HostelCheckInStatisticsSection({
         </div>
       </div>
 
-      <div className="mt-5 overflow-x-auto rounded-lg border border-slate-200">
-        <table className="min-w-full border-collapse text-left text-sm">
-          <thead className="bg-slate-50 text-slate-700">
-            <tr>
-              <th className="px-4 py-3 font-semibold">
-                {t("manager.hostelCheckIn.group")}
-              </th>
-              <th className="px-4 py-3 text-center font-semibold text-emerald-800">
-                {t("manager.hostelCheckIn.completed")}
-              </th>
-              <th className="px-4 py-3 text-center font-semibold text-red-800">
-                {t("manager.hostelCheckIn.pending")}
-              </th>
-              <th className="px-4 py-3 text-center font-semibold">
-                {t("manager.hostelCheckIn.total")}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 ? (
+      <div className="mt-5">
+        <h4 className="text-sm font-semibold text-slate-800">
+          {t("manager.hostelCheckIn.groupTableTitle")}
+        </h4>
+        <div className="mt-2 overflow-x-auto rounded-lg border border-slate-200">
+          <table className="min-w-full border-collapse text-left text-sm">
+            <thead className="bg-slate-50 text-slate-700">
               <tr>
-                <td colSpan={4} className="px-4 py-4 text-slate-500">
-                  {t("manager.hostelCheckIn.empty")}
-                </td>
+                <th className="px-4 py-3 font-semibold">
+                  {t("manager.hostelCheckIn.group")}
+                </th>
+                <th className="px-4 py-3 text-center font-semibold text-emerald-800">
+                  {t("manager.hostelCheckIn.completed")}
+                </th>
+                <th className="px-4 py-3 text-center font-semibold text-red-800">
+                  {t("manager.hostelCheckIn.pending")}
+                </th>
+                <th className="px-4 py-3 text-center font-semibold">
+                  {t("manager.hostelCheckIn.total")}
+                </th>
               </tr>
-            ) : (
-              rows.map((row) => (
-                <tr key={row.group} className="border-t border-slate-100">
-                  <td className="px-4 py-3 font-medium text-slate-900">{row.group}</td>
-                  <td className="px-4 py-3 text-center font-semibold text-emerald-700">
-                    {row.completed}
+            </thead>
+            <tbody>
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-4 py-4 text-slate-500">
+                    {t("manager.hostelCheckIn.empty")}
                   </td>
-                  <td className="px-4 py-3 text-center font-semibold text-red-700">
-                    {row.pending}
-                  </td>
-                  <td className="px-4 py-3 text-center text-slate-700">{row.total}</td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                rows.map((row) => (
+                  <tr key={row.group} className="border-t border-slate-100">
+                    <td className="px-4 py-3 font-medium text-slate-900">{row.group}</td>
+                    <td className="px-4 py-3 text-center font-semibold text-emerald-700">
+                      {row.completed}
+                    </td>
+                    <td className="px-4 py-3 text-center font-semibold text-red-700">
+                      {row.pending}
+                    </td>
+                    <td className="px-4 py-3 text-center text-slate-700">{row.total}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <h4 className="text-sm font-semibold text-slate-800">
+          {t("manager.hostelCheckIn.hostelTableTitle")}
+        </h4>
+        <div className="mt-2 overflow-x-auto rounded-lg border border-slate-200">
+          <table className="min-w-full border-collapse text-left text-sm">
+            <thead className="bg-slate-50 text-slate-700">
+              <tr>
+                <th className="px-4 py-3 font-semibold">
+                  {t("manager.hostelCheckIn.hostel")}
+                </th>
+                <th className="px-4 py-3 text-center font-semibold text-emerald-800">
+                  {t("manager.hostelCheckIn.completed")}
+                </th>
+                <th className="px-4 py-3 text-center font-semibold text-red-800">
+                  {t("manager.hostelCheckIn.pending")}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {hostelRows.length === 0 ? (
+                <tr>
+                  <td colSpan={3} className="px-4 py-4 text-slate-500">
+                    {t("manager.hostelCheckIn.empty")}
+                  </td>
+                </tr>
+              ) : (
+                hostelRows.map((row) => (
+                  <tr key={row.hostel} className="border-t border-slate-100">
+                    <td className="px-4 py-3 font-medium text-slate-900">{row.hostel}</td>
+                    <td className="px-4 py-3 text-center font-semibold text-emerald-700">
+                      {row.completed}
+                    </td>
+                    <td className="px-4 py-3 text-center font-semibold text-red-700">
+                      {row.pending}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </section>
   );
@@ -1876,25 +1929,34 @@ export async function StatisticsDashboard({
   const foodNeedsSummary = buildFoodNeedsSummary(participants);
   let staffAvailabilitySummary = emptyStaffAvailabilitySummary();
   let hostelCheckInGroupSummary: HostelCheckInGroupRow[] = [];
+  let hostelCheckInHostelSummary: HostelCheckInHostelRow[] = [];
   let eventArrivalGroupSummary: ArrivalGroupSummaryRow[] = [];
   if (!publicView) {
     const shouldLoadStaffAvailability = showSection("staff-availability");
     const shouldLoadHostelCheckIn = showSection("hostel-check-in");
     const shouldLoadEventArrivals = showSection("event-arrivals");
-    const [staffAvailabilityResult, hostelCheckInStatuses, eventArrivalStatuses] = await Promise.all([
+    const hostelCheckInParticipantIds = shouldLoadHostelCheckIn
+      ? participants
+          .filter(participantMayNeedHostelCheckIn)
+          .map((participant) => participant.id)
+      : [];
+    const [
+      staffAvailabilityResult,
+      hostelCheckInStatuses,
+      hostelNamesByParticipant,
+      eventArrivalStatuses,
+    ] = await Promise.all([
       shouldLoadStaffAvailability
         ? service
             .from("participant_staff_availability")
             .select("participant_id,areas,band_role,social_media_tasks")
         : Promise.resolve({ data: [], error: null }),
       shouldLoadHostelCheckIn
-        ? loadHostelCheckInStatuses(
-            service,
-            participants
-              .filter(participantMayNeedHostelCheckIn)
-              .map((participant) => participant.id)
-          )
+        ? loadHostelCheckInStatuses(service, hostelCheckInParticipantIds)
         : Promise.resolve(new Map<string, HostelCheckInStatus>()),
+      shouldLoadHostelCheckIn
+        ? loadAssignedHostelNameByParticipant(service, hostelCheckInParticipantIds)
+        : Promise.resolve(new Map<string, string>()),
       shouldLoadEventArrivals
         ? loadParticipantArrivalStatuses(
             service,
@@ -1927,6 +1989,13 @@ export async function StatisticsDashboard({
         participants.map((participant) => ({
           id: participant.id,
           group: participantGroupValue(participant),
+        })),
+        hostelCheckInStatuses
+      );
+      hostelCheckInHostelSummary = buildHostelCheckInHostelSummary(
+        participants.map((participant) => ({
+          id: participant.id,
+          hostel: hostelNamesByParticipant.get(participant.id),
         })),
         hostelCheckInStatuses
       );
@@ -2242,7 +2311,11 @@ export async function StatisticsDashboard({
           )}
 
           {!publicView && showSection("hostel-check-in") && (
-            <HostelCheckInStatisticsSection rows={hostelCheckInGroupSummary} t={t} />
+            <HostelCheckInStatisticsSection
+              rows={hostelCheckInGroupSummary}
+              hostelRows={hostelCheckInHostelSummary}
+              t={t}
+            />
           )}
 
           {!publicView && !sectionedView && (

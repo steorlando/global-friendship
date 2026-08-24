@@ -463,10 +463,11 @@ Statistics currently implemented:
   city), preserves international characters, and reuses one compressed 300 dpi background so
   the complete PDF remains compact. The title is positioned for the top-center lanyard hole.
   The public statistics page does not expose this control.
-- Authenticated hostel check-in summary for manager/admin, grouped by participant group and
-  counting only active participants with an assigned hostel room. The public statistics page
-  does not expose this section. The shared participant table shows a narrow green/red status dot
-  for completed/pending hostel check-ins and a neutral dash when check-in is not applicable.
+- Authenticated hostel check-in summary for manager/admin, grouped in separate tables by participant
+  group and assigned hostel, and counting only active participants with an assigned hostel room.
+  The public statistics page does not expose this section. The shared participant table shows a
+  narrow green/red status dot for completed/pending hostel check-ins and a neutral dash when check-in
+  is not applicable.
 
 Registration type recoding used in stats:
 
