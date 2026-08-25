@@ -35,6 +35,8 @@ const nlBE: TranslationDictionary = {
   "auth.login.error": "Fout bij het verzenden van de magic link.",
   "auth.callback.title": "Aanmelden",
   "auth.callback.message": "Aanmelding wordt voltooid...",
+  "auth.callback.confirmMessage": "Selecteer Doorgaan om je aanmelding veilig te voltooien.",
+  "auth.callback.continue": "Doorgaan naar dashboard",
   "dashboard.manager.title": "Managerdashboard",
   "dashboard.manager.subtitle": "Beheer statistieken en deelnemersgegevens.",
   "dashboard.manager.tab.statistics": "Statistieken",

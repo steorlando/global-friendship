@@ -53,6 +53,8 @@ const en: TranslationDictionary = {
   "auth.login.viewTours": "View city tours",
   "auth.callback.title": "Signing in",
   "auth.callback.message": "Completing sign in...",
+  "auth.callback.confirmMessage": "Select Continue to securely complete your sign in.",
+  "auth.callback.continue": "Continue to dashboard",
 
   "dashboard.manager.title": "Manager Dashboard",
   "dashboard.manager.subtitle": "Manage statistics and participant data.",

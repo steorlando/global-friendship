@@ -45,6 +45,8 @@ const it: TranslationDictionary = {
   "auth.login.viewTours": "Scopri i tour in città",
   "auth.callback.title": "Accesso in corso",
   "auth.callback.message": "Completamento accesso...",
+  "auth.callback.confirmMessage": "Seleziona Continua per completare l'accesso in modo sicuro.",
+  "auth.callback.continue": "Continua alla dashboard",
   "dashboard.manager.title": "Dashboard Manager",
   "dashboard.manager.subtitle": "Gestisci statistiche e dati partecipanti.",
   "dashboard.manager.tab.statistics": "Statistiche",

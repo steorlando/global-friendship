@@ -35,6 +35,8 @@ const uk: TranslationDictionary = {
   "auth.login.error": "Помилка під час надсилання magic link-посилання.",
   "auth.callback.title": "Виконується вхід",
   "auth.callback.message": "Завершення входу...",
+  "auth.callback.confirmMessage": "Натисніть «Продовжити», щоб безпечно завершити вхід.",
+  "auth.callback.continue": "Продовжити до панелі",
   "dashboard.manager.title": "Панель менеджера",
   "dashboard.manager.subtitle": "Керуйте статистикою та даними учасників.",
   "dashboard.manager.tab.statistics": "Статистика",

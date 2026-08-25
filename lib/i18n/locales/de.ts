@@ -35,6 +35,8 @@ const de: TranslationDictionary = {
   "auth.login.error": "Fehler beim Senden des Magic Links.",
   "auth.callback.title": "Anmeldung läuft",
   "auth.callback.message": "Anmeldung wird abgeschlossen...",
+  "auth.callback.confirmMessage": "Wähle Weiter, um die Anmeldung sicher abzuschließen.",
+  "auth.callback.continue": "Weiter zum Dashboard",
   "dashboard.manager.title": "Manager-Dashboard",
   "dashboard.manager.subtitle": "Verwalte Statistiken und Teilnehmerdaten.",
   "dashboard.manager.tab.statistics": "Statistiken",

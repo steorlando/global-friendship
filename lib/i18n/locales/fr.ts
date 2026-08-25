@@ -35,6 +35,8 @@ const fr: TranslationDictionary = {
   "auth.login.error": "Erreur lors de l'envoi du lien magique.",
   "auth.callback.title": "Connexion en cours",
   "auth.callback.message": "Finalisation de la connexion...",
+  "auth.callback.confirmMessage": "Sélectionnez Continuer pour terminer la connexion en toute sécurité.",
+  "auth.callback.continue": "Continuer vers le tableau de bord",
   "dashboard.manager.title": "Tableau de bord Manager",
   "dashboard.manager.subtitle": "Gérez les statistiques et les données des participants.",
   "dashboard.manager.tab.statistics": "Statistiques",

@@ -35,6 +35,8 @@ const es: TranslationDictionary = {
   "auth.login.error": "Error al enviar el enlace mágico.",
   "auth.callback.title": "Iniciando sesión",
   "auth.callback.message": "Completando inicio de sesión...",
+  "auth.callback.confirmMessage": "Selecciona Continuar para completar el inicio de sesión de forma segura.",
+  "auth.callback.continue": "Continuar al panel",
   "dashboard.manager.title": "Panel de Manager",
   "dashboard.manager.subtitle": "Gestiona estadísticas y datos de participantes.",
   "dashboard.manager.tab.statistics": "Estadísticas",
