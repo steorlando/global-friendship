@@ -7,6 +7,12 @@ import {
 } from "@/lib/groups/display-names";
 import { sendGmailEmail } from "@/lib/email/gmail";
 import { loadEmailSenderRuntimeSettings } from "@/lib/email/settings";
+import {
+  createEmailSendStartThrottle,
+  getEmailDeliveryErrorDetails,
+  redactEmailAddresses,
+  sendEmailWithRetry,
+} from "@/lib/email/campaign-delivery";
 import { batchInFilterValues } from "@/lib/supabase/query-batching";
 import {
   htmlToText,
@@ -85,13 +91,17 @@ type SendLogInsertPayload = {
   recipientIds: string[];
 };
 
+export const maxDuration = 300;
+
 const SELECT_FIELDS =
   "id,personal_code,nome,cognome,email,telefono,tipo_iscrizione,paese_residenza,nazione,data_nascita,data_arrivo,data_partenza,alloggio,alloggio_short,allergie,esigenze_alimentari,disabilita_accessibilita,difficolta_accessibilita,quota_totale,gruppo_id,gruppo_label,deleted_at";
 const GROUP_LEADER_SELECT_FIELDS = "id,email,nome,cognome,ruolo,telefono,italia,roma";
 const MAX_ATTACHMENTS = 5;
 const MAX_ATTACHMENT_BASE64_LENGTH = 10 * 1024 * 1024;
 const MAX_TOTAL_BASE64_LENGTH = 20 * 1024 * 1024;
-const SEND_CONCURRENCY = 5;
+const SEND_CONCURRENCY = 2;
+const SEND_START_INTERVAL_MS = 1_100;
+const SEND_RETRY_DELAYS_MS = [5_000, 15_000] as const;
 
 const esigenzeSet = new Set<string>(ESIGENZE_ALIMENTARI_OPTIONS);
 
@@ -336,6 +346,7 @@ async function requireManagerOrAdmin() {
 }
 
 export async function POST(req: Request) {
+  const startedAt = Date.now();
   const auth = await requireManagerOrAdmin();
   if ("errorResponse" in auth) return auth.errorResponse;
 
@@ -380,6 +391,45 @@ export async function POST(req: Request) {
   const skipped: { id: string; reason: string }[] = [];
   const failed: { id: string; reason: string }[] = [];
   const senderSettings = await loadEmailSenderRuntimeSettings(auth.service);
+  const waitForSendStart = createEmailSendStartThrottle(SEND_START_INTERVAL_MS);
+
+  const deliverEmail = async (
+    recipientId: string,
+    input: Parameters<typeof sendGmailEmail>[0],
+  ) => {
+    try {
+      await sendEmailWithRetry(
+        () =>
+          sendGmailEmail(input, {
+            gmailUser: senderSettings.gmailUser,
+            gmailAppPassword: senderSettings.gmailAppPassword,
+            senderEmail: senderSettings.senderEmail,
+          }),
+        {
+          retryDelaysMs: SEND_RETRY_DELAYS_MS,
+          waitForStart: waitForSendStart,
+        },
+      );
+      return true;
+    } catch (sendError) {
+      const details = getEmailDeliveryErrorDetails(sendError);
+      failed.push({ id: recipientId, reason: details.message });
+      console.error(
+        JSON.stringify({
+          level: "error",
+          message: "Email campaign recipient failed",
+          route: "/api/manager/email-campaign",
+          recipientType,
+          recipientId,
+          error: redactEmailAddresses(details.message),
+          errorCode: details.code,
+          responseCode: details.responseCode,
+          transient: details.transient,
+        }),
+      );
+      return false;
+    }
+  };
 
   if (!senderSettings.gmailAppPassword) {
     return NextResponse.json(
@@ -463,19 +513,16 @@ export async function POST(req: Request) {
       const html = renderGroupLeaderTemplateHtml(htmlTemplate, groupLeader);
       const text = htmlToText(html);
 
-      try {
-        await sendGmailEmail(
-          { to, subject, html, text, attachments, from: senderSettings.senderEmail },
-          {
-            gmailUser: senderSettings.gmailUser,
-            gmailAppPassword: senderSettings.gmailAppPassword,
-            senderEmail: senderSettings.senderEmail,
-          }
-        );
+      const delivered = await deliverEmail(row.id, {
+        to,
+        subject,
+        html,
+        text,
+        attachments,
+        from: senderSettings.senderEmail,
+      });
+      if (delivered) {
         sentTo.push(row.id);
-      } catch (sendError) {
-        const reason = sendError instanceof Error ? sendError.message : "Send failed";
-        failed.push({ id: row.id, reason });
       }
     });
   } else {
@@ -517,19 +564,16 @@ export async function POST(req: Request) {
       const html = renderParticipantTemplateHtml(htmlTemplate, participant);
       const text = htmlToText(html);
 
-      try {
-        await sendGmailEmail(
-          { to, subject, html, text, attachments, from: senderSettings.senderEmail },
-          {
-            gmailUser: senderSettings.gmailUser,
-            gmailAppPassword: senderSettings.gmailAppPassword,
-            senderEmail: senderSettings.senderEmail,
-          }
-        );
+      const delivered = await deliverEmail(row.id, {
+        to,
+        subject,
+        html,
+        text,
+        attachments,
+        from: senderSettings.senderEmail,
+      });
+      if (delivered) {
         sentTo.push(row.id);
-      } catch (sendError) {
-        const reason = sendError instanceof Error ? sendError.message : "Send failed";
-        failed.push({ id: row.id, reason });
       }
     });
   }
@@ -551,6 +595,19 @@ export async function POST(req: Request) {
   }
 
   if (sentTo.length === 0 && failed.length > 0) {
+    console.error(
+      JSON.stringify({
+        level: "error",
+        message: "Email campaign completed without deliveries",
+        route: "/api/manager/email-campaign",
+        recipientType,
+        requested: recipientIds.length,
+        sent: sentTo.length,
+        failed: failed.length,
+        skipped: skipped.length,
+        durationMs: Date.now() - startedAt,
+      }),
+    );
     return NextResponse.json(
       {
         error: "No emails were sent.",
@@ -567,6 +624,20 @@ export async function POST(req: Request) {
       { status: 502 }
     );
   }
+
+  console.log(
+    JSON.stringify({
+      level: failed.length > 0 ? "warning" : "info",
+      message: "Email campaign completed",
+      route: "/api/manager/email-campaign",
+      recipientType,
+      requested: recipientIds.length,
+      sent: sentTo.length,
+      failed: failed.length,
+      skipped: skipped.length,
+      durationMs: Date.now() - startedAt,
+    }),
+  );
 
   return NextResponse.json({
     recipientType,

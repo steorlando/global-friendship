@@ -1213,12 +1213,23 @@ export function ParticipantEmailCampaign() {
       const sent = json.sent ?? 0;
       const failed = json.failed?.length ?? 0;
       const skipped = json.skipped?.length ?? 0;
+      const failureReasons = [
+        ...new Set(
+          (json.failed ?? [])
+            .map((failure) => failure.reason.trim())
+            .filter(Boolean),
+        ),
+      ];
+      const failureDetail =
+        failureReasons.length > 0 ? ` Reasons: ${failureReasons.join("; ")}.` : "";
       const logWarning =
         json.logSaved === false
           ? ` Warning: send log could not be saved${json.logError ? ` (${json.logError})` : ""}.`
           : "";
 
-      setSendResult(`Sent ${sent} email(s). Failed: ${failed}. Skipped: ${skipped}.${logWarning}`);
+      setSendResult(
+        `Sent ${sent} email(s). Failed: ${failed}. Skipped: ${skipped}.${failureDetail}${logWarning}`,
+      );
       setShowPreview(false);
     } catch (error) {
       const detail = error instanceof Error ? ` ${error.message}` : "";
