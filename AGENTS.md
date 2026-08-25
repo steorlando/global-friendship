@@ -770,6 +770,16 @@ Recent state:
   the participant hostel check-in. Document types are exported with localized readable
   labels; participants without a completed check-in and empty-bed rows keep those cells blank.
   CSV/PDF roster exports intentionally remain unchanged.
+- The temporary Maverick-specific XLSX export preserves the supplier's complete 70-room,
+  301-bed `Reservations` layout and explicit room order. It emits one row per physical bed,
+  including blank guest rows for unused beds and completely empty rooms; supplier columns F
+  (`Customer identification`) and H (`Email`) remain blank. The export fails closed when the
+  live room set, capacity, occupancy, or physical-number mapping differs from the supplier
+  contract.
+- Maverick physical room numbers and nullable ensuite flags were aligned to the supplier
+  booking windows on 2026-08-25 without changing participant-room assignments. The only
+  accepted room-availability warnings remain Musa/Sposaro and Di Giovanni/Grasso for their
+  temporary night of 27 August arrangement.
 - `stanze.bagno_in_camera` is a nullable boolean: `true` means a confirmed private ensuite,
   `false` means the hotel confirmed there is no ensuite, and `null` means the hotel has not
   provided the information. Room Excel imports normalize common values such as yes/no,

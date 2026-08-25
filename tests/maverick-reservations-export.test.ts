@@ -9,7 +9,9 @@ import type {
 } from "../lib/alloggi/operations.ts";
 import {
   MAVERICK_RESERVATION_BY_ROOM,
+  MAVERICK_RESERVATION_CAPACITY_BY_ROOM,
   MAVERICK_RESERVATION_COLUMNS,
+  MAVERICK_RESERVATION_ROOM_ORDER,
   buildMaverickReservationMatrix,
   buildMaverickReservationRows,
   buildMaverickReservationWorksheet,
@@ -55,19 +57,39 @@ function participant(
 function hotel(args: {
   name?: string;
   participants?: AccommodationOperationalParticipant[];
+  rooms?: AccommodationHotelRosterSection["rooms"];
 } = {}): AccommodationHotelRosterSection {
   const participants = args.participants ?? [participant()];
+  const rooms = args.rooms ?? completeMaverickRooms(participants);
   return {
     hotelId: "maverick",
     hotelName: args.name ?? "Maverick Atheneum",
     address: null,
     googleMapsUrl: null,
     participantCount: participants.length,
-    roomCount: 1,
+    roomCount: rooms.length,
     sharedRoomCount: 0,
     participants,
-    rooms: [],
+    rooms,
   };
+}
+
+function completeMaverickRooms(
+  participants: AccommodationOperationalParticipant[] = []
+): AccommodationHotelRosterSection["rooms"] {
+  return MAVERICK_RESERVATION_ROOM_ORDER.map((room, index) => ({
+    roomId: `room-${room}`,
+    internalCode: `MA-AUDIT-${String(index + 1).padStart(2, "0")}`,
+    realRoomNumber: room,
+    capacity: MAVERICK_RESERVATION_CAPACITY_BY_ROOM[room],
+    genderPolicy: "mixed",
+    availableFrom: "2026-08-27",
+    availableTo: "2026-08-31",
+    occupancyCount: participants.filter(
+      (participant) => participant.realRoomNumber === room
+    ).length,
+    assignedGroups: [],
+  }));
 }
 
 test("Maverick export keeps the supplier's 19-column contract and all 70 room bookings", () => {
@@ -112,16 +134,16 @@ test("Maverick export maps participant, stay and check-in fields into supplier v
     hotel({ name: "Baroque Hostel", participants: [participant()] }),
   ]);
 
-  assert.equal(rows.length, 1);
+  assert.equal(rows.length, 301);
   assert.deepEqual(rows[0], {
     confirmationNumber: "24198",
     spaceCategory: "10 Bed Mixed Dorm",
     room: "310",
     arrivalDate: (dateOnlyToExcelSerial("2026-08-27") ?? 0) + 15 / 24,
     departureDate: (dateOnlyToExcelSerial("2026-08-31") ?? 0) + 11 / 24,
-    customerIdentification: "0042",
+    customerIdentification: "",
     role: "Guest",
-    email: "anna@example.com",
+    email: "",
     lastName: "Rossi",
     firstName: "Anna",
     sex: "Female",
@@ -134,13 +156,46 @@ test("Maverick export maps participant, stay and check-in fields into supplier v
     identityDocumentIssueDate: dateOnlyToExcelSerial("2022-04-05"),
     identityDocumentExpiration: dateOnlyToExcelSerial("2032-04-05"),
   });
+  assert.equal(rows.filter((row) => row.lastName === "").length, 300);
+});
+
+test("Maverick export preserves all 301 supplier bed rows, including empty rooms", () => {
+  const rows = buildMaverickReservationRows([
+    hotel({ participants: [], rooms: completeMaverickRooms() }),
+  ]);
+
+  assert.equal(
+    Object.values(MAVERICK_RESERVATION_CAPACITY_BY_ROOM).reduce(
+      (sum, capacity) => sum + capacity,
+      0
+    ),
+    301
+  );
+  assert.equal(rows.length, 301);
+  assert.equal(rows.filter((row) => row.lastName === "").length, 301);
+  assert.equal(rows.filter((row) => row.room === "113").length, 2);
 });
 
 test("Maverick export fails closed when a physical room has no supplier booking", () => {
   assert.throws(
     () =>
       buildMaverickReservationRows([
-        hotel({ participants: [participant({ realRoomNumber: "999" })] }),
+        hotel({
+          participants: [participant({ realRoomNumber: "999" })],
+          rooms: [
+            {
+              roomId: "room-999",
+              internalCode: "MA-UNKNOWN",
+              realRoomNumber: "999",
+              capacity: 1,
+              genderPolicy: "mixed",
+              availableFrom: "2026-08-27",
+              availableTo: "2026-08-31",
+              occupancyCount: 1,
+              assignedGroups: [],
+            },
+          ],
+        }),
       ]),
     /mapping missing for: 999/
   );
@@ -159,12 +214,17 @@ test("Maverick export preserves the exceptional booking dates for room 113", () 
     }),
   ]);
 
+  const room113Participant = rows.find(
+    (row) => row.room === "113" && row.lastName === "Rossi"
+  );
+  assert.ok(room113Participant);
+
   assert.equal(
-    rows[0].arrivalDate,
+    room113Participant.arrivalDate,
     (dateOnlyToExcelSerial("2026-08-28") ?? 0) + 15 / 24
   );
   assert.equal(
-    rows[0].departureDate,
+    room113Participant.departureDate,
     (dateOnlyToExcelSerial("2026-08-30") ?? 0) + 11 / 24
   );
 });
@@ -174,7 +234,7 @@ test("Maverick worksheet uses real Excel date cells and the Reservations layout"
   const matrix = buildMaverickReservationMatrix(rows);
   const worksheet = buildMaverickReservationWorksheet(XLSX, rows);
 
-  assert.equal(matrix.length, 2);
+  assert.equal(matrix.length, 302);
   assert.equal(matrix[0].length, 19);
   assert.equal(worksheet.D2.t, "n");
   assert.equal(
@@ -183,7 +243,7 @@ test("Maverick worksheet uses real Excel date cells and the Reservations layout"
   );
   assert.equal(worksheet.D2.z, "yyyy\\. mm\\. dd\\.");
   assert.equal(worksheet.M2.t, "n");
-  assert.deepEqual(worksheet["!autofilter"], { ref: "A1:S2" });
+  assert.deepEqual(worksheet["!autofilter"], { ref: "A1:S302" });
 });
 
 test("Hotel roster exposes a deliberately small temporary Maverick button", () => {

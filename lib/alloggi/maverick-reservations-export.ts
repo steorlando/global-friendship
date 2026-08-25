@@ -263,8 +263,35 @@ export const MAVERICK_RESERVATION_BY_ROOM: Readonly<
   },
 };
 
-const MAVERICK_ROOM_ORDER = new Map(
-  Object.keys(MAVERICK_RESERVATION_BY_ROOM).map((room, index) => [room, index])
+// Physical room order from the supplier's 301-bed Reservations template.
+// Numeric-looking object keys are enumerated in numeric order by JavaScript,
+// so the workbook order must remain explicit.
+export const MAVERICK_RESERVATION_ROOM_ORDER = [
+  "310", "508", "408", "410", "308", "102", "208", "210", "114", "109",
+  "105", "106", "107", "419", "515", "415", "519", "514", "315", "414",
+  "215", "314", "313", "506", "214", "219", "319", "108", "417", "112",
+  "217", "317", "517", "403", "501", "303", "503", "401", "301", "201",
+  "203", "405", "305", "307", "306", "206", "110", "318", "406", "407",
+  "413", "218", "513", "416", "507", "418", "207", "213", "216", "516",
+  "316", "113", "409", "511", "509", "411", "311", "211", "309", "209",
+] as const;
+
+function maverickSpaceCategoryCapacity(spaceCategory: string): number {
+  const bedMatch = /^(\d+) Bed\b/.exec(spaceCategory);
+  if (bedMatch) return Number(bedMatch[1]);
+  if (spaceCategory.startsWith("Standard Double Room")) return 2;
+  if (spaceCategory.startsWith("Triple Room")) return 3;
+  if (spaceCategory.includes("Quadrouple Room")) return 4;
+  throw new Error(`Maverick capacity mapping missing for: ${spaceCategory}`);
+}
+
+export const MAVERICK_RESERVATION_CAPACITY_BY_ROOM: Readonly<
+  Record<string, number>
+> = Object.fromEntries(
+  Object.entries(MAVERICK_RESERVATION_BY_ROOM).map(([room, booking]) => [
+    room,
+    maverickSpaceCategoryCapacity(booking.spaceCategory),
+  ])
 );
 
 // Booking dates/times are reservation metadata from the supplier workbook.
@@ -345,14 +372,18 @@ function maverickBookingDepartureSerial(room: string): number {
 export function buildMaverickReservationRows(
   hotels: AccommodationHotelRosterSection[]
 ): MaverickReservationRow[] {
-  const participants = hotels
-    .filter((hotel) => isMaverickHotelName(hotel.hotelName))
-    .flatMap((hotel) => hotel.participants);
+  const maverickHotels = hotels.filter((hotel) =>
+    isMaverickHotelName(hotel.hotelName)
+  );
+  if (maverickHotels.length === 0) return [];
+
+  const participants = maverickHotels.flatMap((hotel) => hotel.participants);
+  const rooms = maverickHotels.flatMap((hotel) => hotel.rooms);
 
   const missingRoomMappings = [
     ...new Set(
-      participants
-        .map((participant) => normalizeText(participant.realRoomNumber))
+      rooms
+        .map((room) => normalizeText(room.realRoomNumber))
         .filter((room) => !room || !MAVERICK_RESERVATION_BY_ROOM[room])
         .map((room) => room || "(missing room number)")
     ),
@@ -364,10 +395,68 @@ export function buildMaverickReservationRows(
     );
   }
 
-  return participants
-    .map((participant) => {
-      const room = normalizeText(participant.realRoomNumber);
-      const booking = MAVERICK_RESERVATION_BY_ROOM[room];
+  const roomByNumber = new Map<string, (typeof rooms)[number]>();
+  for (const room of rooms) {
+    const physicalRoom = normalizeText(room.realRoomNumber);
+    if (roomByNumber.has(physicalRoom)) {
+      throw new Error(`Duplicate Maverick physical room: ${physicalRoom}`);
+    }
+    roomByNumber.set(physicalRoom, room);
+  }
+
+  const missingLiveRooms = MAVERICK_RESERVATION_ROOM_ORDER.filter(
+    (room) => !roomByNumber.has(room)
+  );
+  if (missingLiveRooms.length > 0) {
+    throw new Error(`Maverick live rooms missing for: ${missingLiveRooms.join(", ")}`);
+  }
+
+  const participantsByRoom = new Map<
+    string,
+    AccommodationHotelRosterSection["participants"]
+  >();
+  for (const participant of participants) {
+    const room = normalizeText(participant.realRoomNumber);
+    if (!MAVERICK_RESERVATION_BY_ROOM[room] || !roomByNumber.has(room)) {
+      throw new Error(`Maverick reservation mapping missing for: ${room || "(missing room number)"}`);
+    }
+    const roomParticipants = participantsByRoom.get(room) ?? [];
+    roomParticipants.push(participant);
+    participantsByRoom.set(room, roomParticipants);
+  }
+
+  return MAVERICK_RESERVATION_ROOM_ORDER.flatMap((room) => {
+    const booking = MAVERICK_RESERVATION_BY_ROOM[room];
+    const liveRoom = roomByNumber.get(room);
+    if (!liveRoom) return [];
+
+    const expectedCapacity = MAVERICK_RESERVATION_CAPACITY_BY_ROOM[room];
+    if (liveRoom.capacity !== expectedCapacity) {
+      throw new Error(
+        `Maverick capacity mismatch for room ${room}: expected ${expectedCapacity}, found ${liveRoom.capacity}`
+      );
+    }
+
+    const roomParticipants = [...(participantsByRoom.get(room) ?? [])].sort(
+      (a, b) => {
+        const byLastName = normalizeText(a.lastName).localeCompare(
+          normalizeText(b.lastName)
+        );
+        return byLastName !== 0
+          ? byLastName
+          : normalizeText(a.firstName).localeCompare(normalizeText(b.firstName));
+      }
+    );
+    if (
+      roomParticipants.length !== liveRoom.occupancyCount ||
+      roomParticipants.length > liveRoom.capacity
+    ) {
+      throw new Error(
+        `Maverick occupancy mismatch for room ${room}: participants ${roomParticipants.length}, occupancy ${liveRoom.occupancyCount}, capacity ${liveRoom.capacity}`
+      );
+    }
+
+    const participantRows = roomParticipants.map((participant) => {
       const checkIn = participant.hostelCheckIn ?? null;
 
       return {
@@ -376,9 +465,9 @@ export function buildMaverickReservationRows(
         room,
         arrivalDate: maverickBookingArrivalSerial(room),
         departureDate: maverickBookingDepartureSerial(room),
-        customerIdentification: normalizeText(participant.personalCode),
+        customerIdentification: "",
         role: "Guest" as const,
-        email: normalizeText(participant.email),
+        email: "",
         lastName: normalizeText(participant.lastName),
         firstName: normalizeText(participant.firstName),
         sex: normalizeMaverickSex(participant.sex),
@@ -399,16 +488,35 @@ export function buildMaverickReservationRows(
           checkIn?.identityDocumentExpirationDate
         ),
       };
-    })
-    .sort((a, b) => {
-      const roomOrder =
-        (MAVERICK_ROOM_ORDER.get(a.room) ?? Number.MAX_SAFE_INTEGER) -
-        (MAVERICK_ROOM_ORDER.get(b.room) ?? Number.MAX_SAFE_INTEGER);
-      if (roomOrder !== 0) return roomOrder;
-
-      const byLastName = a.lastName.localeCompare(b.lastName);
-      return byLastName !== 0 ? byLastName : a.firstName.localeCompare(b.firstName);
     });
+
+    const emptyBedRows = Array.from(
+      { length: liveRoom.capacity - roomParticipants.length },
+      (): MaverickReservationRow => ({
+        confirmationNumber: booking.confirmationNumber,
+        spaceCategory: booking.spaceCategory,
+        room,
+        arrivalDate: maverickBookingArrivalSerial(room),
+        departureDate: maverickBookingDepartureSerial(room),
+        customerIdentification: "",
+        role: "Guest",
+        email: "",
+        lastName: "",
+        firstName: "",
+        sex: "",
+        nationality: "",
+        dateOfBirth: null,
+        identityDocument: "",
+        identityDocumentNumber: "",
+        identityDocumentCountry: "",
+        identityDocumentIssuingCity: "",
+        identityDocumentIssueDate: null,
+        identityDocumentExpiration: null,
+      })
+    );
+
+    return [...participantRows, ...emptyBedRows];
+  });
 }
 
 export function buildMaverickReservationMatrix(
