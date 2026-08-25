@@ -868,6 +868,12 @@ const it: TranslationDictionary = {
     "Export temporaneo nel formato richiesto da Maverick",
   "accommodation.rosters.status.maverickEmpty":
     "Non ci sono partecipanti assegnati al Maverick da esportare.",
+  "accommodation.rosters.actions.exportWombat": "XLSX Wombat",
+  "accommodation.rosters.actions.exportWombatLoading": "Wombat…",
+  "accommodation.rosters.actions.exportWombatHint":
+    "Export nel formato definitivo della rooming list Wombat",
+  "accommodation.rosters.status.wombatEmpty":
+    "Non ci sono prenotazioni Wombat da esportare.",
   "accommodation.rosters.filters.search": "Cerca",
   "accommodation.rosters.filters.searchPlaceholder": "Cerca per partecipante, gruppo, stanza o hotel",
   "accommodation.rosters.filters.hotel": "Hotel",

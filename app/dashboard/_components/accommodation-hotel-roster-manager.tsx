@@ -20,6 +20,10 @@ import {
   buildMaverickReservationRows,
   exportMaverickReservationsToXlsx,
 } from "@/lib/alloggi/maverick-reservations-export";
+import {
+  buildWombatReservationRows,
+  exportWombatReservationsToXlsx,
+} from "@/lib/alloggi/wombat-reservations-export";
 
 type OperationalRosterResponse = {
   summary?: AccommodationOperationalSummary;
@@ -95,6 +99,7 @@ export function AccommodationHotelRosterManager() {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [maverickExporting, setMaverickExporting] = useState(false);
+  const [wombatExporting, setWombatExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const deferredSearchTerm = useDeferredValue(searchTerm);
 
@@ -334,6 +339,39 @@ export function AccommodationHotelRosterManager() {
     }
   }, [t]);
 
+  const handleWombatExport = useCallback(async () => {
+    setWombatExporting(true);
+    setError(null);
+
+    try {
+      const response = await fetch(
+        "/api/alloggi/operational-rosters?includeWombatExportFields=1",
+        { cache: "no-store" }
+      );
+      const json = (await response.json()) as OperationalRosterResponse;
+      if (!response.ok) {
+        throw new Error(json.error || t("accommodation.rosters.status.exportError"));
+      }
+
+      const rows = buildWombatReservationRows(json.hotels ?? []);
+      if (rows.length === 0) {
+        throw new Error(t("accommodation.rosters.status.wombatEmpty"));
+      }
+
+      const stamp = new Date().toISOString().slice(0, 10);
+      await exportWombatReservationsToXlsx({
+        fileName: `wombat-reservations-${stamp}.xlsx`,
+        rows,
+      });
+    } catch (exportError) {
+      setError(
+        (exportError as Error).message || t("accommodation.rosters.status.exportError")
+      );
+    } finally {
+      setWombatExporting(false);
+    }
+  }, [t]);
+
   return (
     <div className="space-y-6">
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -453,6 +491,17 @@ export function AccommodationHotelRosterManager() {
               {maverickExporting
                 ? t("accommodation.rosters.actions.exportMaverickLoading")
                 : t("accommodation.rosters.actions.exportMaverick")}
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleWombatExport()}
+              disabled={wombatExporting}
+              title={t("accommodation.rosters.actions.exportWombatHint")}
+              className="rounded-md border border-fuchsia-300 bg-fuchsia-50 px-2.5 py-1.5 text-xs font-medium text-fuchsia-800 transition hover:border-fuchsia-400 hover:bg-fuchsia-100 disabled:cursor-wait disabled:opacity-60"
+            >
+              {wombatExporting
+                ? t("accommodation.rosters.actions.exportWombatLoading")
+                : t("accommodation.rosters.actions.exportWombat")}
             </button>
           </div>
         </div>

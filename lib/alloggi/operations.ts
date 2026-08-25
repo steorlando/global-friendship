@@ -485,11 +485,12 @@ export async function loadAccommodationOperationalRosters(
   options: {
     includeCheckInDocuments?: boolean;
     includeMaverickExportFields?: boolean;
+    includeWombatExportFields?: boolean;
   } = {}
 ): Promise<AccommodationOperationalRosters> {
   const participantFields = [
     "id,nome,cognome,email,gruppo_id,gruppo_label,alloggio,alloggio_short,sesso,eta,data_arrivo,data_partenza",
-    options.includeMaverickExportFields
+    options.includeMaverickExportFields || options.includeWombatExportFields
       ? "personal_code,nazione,data_nascita"
       : null,
   ]

@@ -9,11 +9,15 @@ export async function GET(request: NextRequest) {
   try {
     const includeMaverickExportFields =
       request.nextUrl.searchParams.get("includeMaverickExportFields") === "1";
+    const includeWombatExportFields =
+      request.nextUrl.searchParams.get("includeWombatExportFields") === "1";
     const rosters = await loadAccommodationOperationalRosters(auth.service, {
       includeCheckInDocuments:
         request.nextUrl.searchParams.get("includeCheckInDocuments") === "1" ||
-        includeMaverickExportFields,
+        includeMaverickExportFields ||
+        includeWombatExportFields,
       includeMaverickExportFields,
+      includeWombatExportFields,
     });
 
     return NextResponse.json({
