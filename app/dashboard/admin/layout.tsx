@@ -55,6 +55,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       isActive: pathname.startsWith("/dashboard/admin/email-campaigns"),
     },
     {
+      href: "/dashboard/admin/discussion-meetings",
+      label: t("dashboard.admin.tab.discussionMeetings"),
+      isActive: pathname === "/dashboard/admin/discussion-meetings",
+    },
+    {
       href: "/dashboard/admin/settings/event",
       label: "Settings",
       isActive: pathname.startsWith("/dashboard/admin/settings"),

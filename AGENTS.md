@@ -129,6 +129,7 @@ Sections currently exposed:
 
 - Statistics
 - Participants
+- Discussion meetings
 - Participation Fees
 - Alloggi
 - Users & Profiles
@@ -138,6 +139,36 @@ Sections currently exposed:
 Important implementation detail:
 
 - `app/dashboard/admin/page.tsx` currently reuses the manager statistics page directly.
+
+### Admin Discussion Meetings
+
+Main files:
+
+- `app/dashboard/admin/discussion-meetings/page.tsx`
+- `app/dashboard/_components/admin-discussion-meetings-manager.tsx`
+- `app/api/admin/discussion-meetings/route.ts`
+- `app/api/admin/discussion-meetings/report/route.ts`
+- `lib/admin/discussion-meetings.ts`
+- `lib/admin/discussion-meetings-server.ts`
+- `lib/admin/discussion-meetings-report.ts`
+- `supabase/discussion_meeting_assignments_migration.sql`
+
+Current behavior:
+
+- The section is guarded for admin users in both the page and API routes.
+- It lists only groups with at least one counted participant, excludes the fake `Marconi` group,
+  and counts only active, non-driver participants as Higher students, University students/Workers,
+  and Operators. Group cards are ordered by total size descending and use red, amber, and green
+  backgrounds for unassigned, partially assigned, and fully assigned states.
+- A group can be assigned as a whole to one of 25 fixed meetings or split between its Higher
+  and University/Worker components. Operators are divided proportionally with deterministic
+  integer rounding, preserving the exact operator total.
+- Each participant category can be assigned to at most one meeting. Unassigned and partially
+  assigned people remain visible in the page totals.
+- The Word report includes only non-empty meetings in numeric order, with group/component
+  rows and category totals.
+- Before the migration is applied, local development falls back to a `.next/cache` JSON store
+  and displays an explicit local-preview warning; production never uses this fallback.
 
 ### Admin Users & Profiles
 
