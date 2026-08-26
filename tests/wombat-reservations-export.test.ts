@@ -220,6 +220,21 @@ test("Wombat export fills requested guest fields, alpha-2 countries and blank be
           identityDocumentExpirationDate: "2030-01-02",
         },
       }),
+      participant("WO-01-A", {
+        participantId: "participant-driver",
+        assignmentId: "assignment-driver",
+        firstName: "Driver",
+        lastName: "Test",
+        fullName: "Driver Test",
+        hostelCheckIn: {
+          identityDocumentType: "driving_license",
+          identityDocumentNumber: "DL123",
+          identityDocumentCountry: "Italia",
+          identityDocumentIssuingCity: "Roma",
+          identityDocumentIssueDate: "2021-03-04",
+          identityDocumentExpirationDate: "2031-03-04",
+        },
+      }),
     ]),
   ]);
 
@@ -236,6 +251,8 @@ test("Wombat export fills requested guest fields, alpha-2 countries and blank be
       identityDocument: room304Rows[0].identityDocument,
       identityDocumentNumber: room304Rows[0].identityDocumentNumber,
       identityDocumentCountry: room304Rows[0].identityDocumentCountry,
+      identityDocumentIssuingCity: room304Rows[0].identityDocumentIssuingCity,
+      identityDocumentIssueDate: room304Rows[0].identityDocumentIssueDate,
       identityDocumentExpiration: room304Rows[0].identityDocumentExpiration,
     },
     {
@@ -247,6 +264,8 @@ test("Wombat export fills requested guest fields, alpha-2 countries and blank be
       identityDocument: "IdentityCard",
       identityDocumentNumber: "CA123456",
       identityDocumentCountry: "IT",
+      identityDocumentIssuingCity: "Roma",
+      identityDocumentIssueDate: dateOnlyToWombatExcelSerial("2022-04-05"),
       identityDocumentExpiration: dateOnlyToWombatExcelSerial("2032-04-05"),
     }
   );
@@ -258,7 +277,18 @@ test("Wombat export fills requested guest fields, alpha-2 countries and blank be
   assert.equal(room224Rows[0].firstName, "Taras");
   assert.equal(room224Rows[0].nationality, "UA");
   assert.equal(room224Rows[0].identityDocumentCountry, "UA");
+  assert.equal(room224Rows[0].identityDocumentIssuingCity, "Kyiv");
+  assert.equal(
+    room224Rows[0].identityDocumentIssueDate,
+    dateOnlyToWombatExcelSerial("2020-01-02")
+  );
   assert.equal(room224Rows[1].firstName, "");
+
+  const drivingLicenseRow = rows.find((row) => row.firstName === "Driver");
+  assert.ok(drivingLicenseRow);
+  assert.equal(drivingLicenseRow.identityDocument, "");
+  assert.equal(drivingLicenseRow.identityDocumentIssuingCity, "");
+  assert.equal(drivingLicenseRow.identityDocumentIssueDate, null);
 });
 
 test("Wombat country conversion supports all current live roster values", () => {
@@ -315,6 +345,9 @@ test("Wombat worksheet uses supplier booking formats and DD/MM/YYYY guest dates"
   assert.equal(worksheet.D2.z, "yyyy\. mm\. dd\.");
   assert.equal(worksheet[`M${room304RowIndex}`].t, "n");
   assert.equal(worksheet[`M${room304RowIndex}`].z, "dd/mm/yyyy");
+  assert.equal(worksheet[`Q${room304RowIndex}`].v, "Roma");
+  assert.equal(worksheet[`R${room304RowIndex}`].t, "n");
+  assert.equal(worksheet[`R${room304RowIndex}`].z, "dd/mm/yyyy");
   assert.equal(worksheet[`S${room304RowIndex}`].t, "n");
   assert.equal(worksheet[`S${room304RowIndex}`].z, "dd/mm/yyyy");
 });

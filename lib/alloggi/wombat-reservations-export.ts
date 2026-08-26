@@ -476,6 +476,8 @@ function participantToReservationFields(
   | "identityDocument"
   | "identityDocumentNumber"
   | "identityDocumentCountry"
+  | "identityDocumentIssuingCity"
+  | "identityDocumentIssueDate"
   | "identityDocumentExpiration"
 > {
   if (!participant) {
@@ -488,6 +490,8 @@ function participantToReservationFields(
       identityDocument: "",
       identityDocumentNumber: "",
       identityDocumentCountry: "",
+      identityDocumentIssuingCity: "",
+      identityDocumentIssueDate: null,
       identityDocumentExpiration: null,
     };
   }
@@ -511,6 +515,12 @@ function participantToReservationFields(
     identityDocumentCountry: hasSupportedDocument
       ? normalizeWombatCountryCode(checkIn?.identityDocumentCountry)
       : "",
+    identityDocumentIssuingCity: hasSupportedDocument
+      ? normalizeText(checkIn?.identityDocumentIssuingCity)
+      : "",
+    identityDocumentIssueDate: hasSupportedDocument
+      ? dateOnlyToWombatExcelSerial(checkIn?.identityDocumentIssueDate)
+      : null,
     identityDocumentExpiration: hasSupportedDocument
       ? dateOnlyToWombatExcelSerial(checkIn?.identityDocumentExpirationDate)
       : null,
@@ -578,8 +588,6 @@ export function buildWombatReservationRows(
         role: "Guest" as const,
         email: "",
         ...participantFields,
-        identityDocumentIssuingCity: "",
-        identityDocumentIssueDate: null,
       };
     });
   });
