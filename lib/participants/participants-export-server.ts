@@ -27,7 +27,7 @@ export async function loadParticipantListExportRows(
     const { data, error } = await service
       .from("partecipanti")
       .select(
-        "id,nome,cognome,gruppo_label,gruppo_id,tipo_iscrizione,eta,sesso,data_arrivo,data_partenza,alloggio,alloggio_short,preferenza_alloggio_operatore",
+        "id,nome,cognome,email,gruppo_label,gruppo_id,tipo_iscrizione,eta,sesso,data_arrivo,data_partenza,alloggio,alloggio_short,preferenza_alloggio_operatore",
       )
       .is("deleted_at", null)
       .order("gruppo_label", { ascending: true })

@@ -9,6 +9,7 @@ export type ParticipantListExportRow = {
   id: string;
   nome: string | null;
   cognome: string | null;
+  email: string | null;
   gruppo_label: string | null;
   gruppo_id: string | null;
   tipo_iscrizione: string | null;
@@ -179,6 +180,7 @@ export function buildParticipantListWorkbook(rows: ParticipantListExportRow[]): 
     [
       "Nome",
       "Cognome",
+      "Email",
       "Gruppo di appartenenza",
       "Tipo iscrizione",
       "Età",
@@ -195,6 +197,7 @@ export function buildParticipantListWorkbook(rows: ParticipantListExportRow[]): 
       return [
         row.nome?.trim() ?? "",
         row.cognome?.trim() ?? "",
+        row.email?.trim() ?? "",
         row.gruppo_label?.trim() ?? row.gruppo_id?.trim() ?? "",
         participantRegistrationTypeLabel(row.tipo_iscrizione),
         row.eta ?? "",
@@ -215,16 +218,17 @@ export function buildParticipantListWorkbook(rows: ParticipantListExportRow[]): 
     dateNF: "dd/mm/yyyy",
   });
   for (let rowNumber = 2; rowNumber <= matrix.length; rowNumber += 1) {
-    for (const column of ["G", "H"]) {
+    for (const column of ["H", "I"]) {
       const cell = worksheet[`${column}${rowNumber}`];
       if (cell?.t === "d" || cell?.t === "n") cell.z = "dd/mm/yyyy";
     }
   }
-  worksheet["!autofilter"] = { ref: `A1:L${Math.max(1, matrix.length)}` };
+  worksheet["!autofilter"] = { ref: `A1:M${Math.max(1, matrix.length)}` };
   worksheet["!freeze"] = { xSplit: 0, ySplit: 1 };
   worksheet["!cols"] = [
     { wch: 20 },
     { wch: 24 },
+    { wch: 32 },
     { wch: 30 },
     { wch: 18 },
     { wch: 8 },

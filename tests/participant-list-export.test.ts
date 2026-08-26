@@ -14,6 +14,7 @@ const baseRow: ParticipantListExportRow = {
   id: "participant-one",
   nome: "Maria",
   cognome: "Rossi",
+  email: "maria.rossi@example.com",
   gruppo_label: "Roma",
   gruppo_id: null,
   tipo_iscrizione: "Higher student - liceale (14-18 years old)",
@@ -120,10 +121,11 @@ test("creates the complete participant Excel export with boolean assignment stat
     { header: 1, raw: true },
   );
 
-  assert.equal(worksheet["!autofilter"]?.ref, "A1:L5");
+  assert.equal(worksheet["!autofilter"]?.ref, "A1:M5");
   assert.deepEqual(matrix[0], [
     "Nome",
     "Cognome",
+    "Email",
     "Gruppo di appartenenza",
     "Tipo iscrizione",
     "Età",
@@ -135,16 +137,17 @@ test("creates the complete participant Excel export with boolean assignment stat
     "Stanza assegnata",
     "Da assegnare",
   ]);
-  assert.equal(matrix[1][8], "Ostello");
-  assert.equal(matrix[1][11], true);
-  assert.equal(matrix[2][3], "Driver");
-  assert.equal(matrix[2][9], "Maverick Hostel");
-  assert.equal(matrix[2][10], "203");
-  assert.equal(matrix[2][11], false);
-  assert.equal(matrix[3][8], "Hotel");
-  assert.equal(matrix[3][11], false);
-  assert.equal(matrix[4][8], "Propria");
-  assert.equal(matrix[4][11], false);
-  assert.ok(matrix[1][6] instanceof Date);
+  assert.equal(matrix[1][2], "maria.rossi@example.com");
+  assert.equal(matrix[1][9], "Ostello");
+  assert.equal(matrix[1][12], true);
+  assert.equal(matrix[2][4], "Driver");
+  assert.equal(matrix[2][10], "Maverick Hostel");
+  assert.equal(matrix[2][11], "203");
+  assert.equal(matrix[2][12], false);
+  assert.equal(matrix[3][9], "Hotel");
+  assert.equal(matrix[3][12], false);
+  assert.equal(matrix[4][9], "Propria");
+  assert.equal(matrix[4][12], false);
   assert.ok(matrix[1][7] instanceof Date);
+  assert.ok(matrix[1][8] instanceof Date);
 });
