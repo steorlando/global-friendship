@@ -14,12 +14,6 @@ export async function GET() {
     const dashboard = await loadDiscussionMeetingDashboard(
       createSupabaseServiceClient({ noStore: true }),
     );
-    if (!dashboard.meetings.some((meeting) => meeting.participantCount > 0)) {
-      return NextResponse.json(
-        { error: "Non ci sono riunioni assegnate da inserire nel report." },
-        { status: 409 },
-      );
-    }
 
     const generatedAt = new Date();
     const report = await buildDiscussionMeetingsReport(dashboard);

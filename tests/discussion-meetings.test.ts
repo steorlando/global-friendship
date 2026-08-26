@@ -8,7 +8,10 @@ import {
   type DiscussionMeetingAssignment,
   type DiscussionParticipantSource,
 } from "../lib/admin/discussion-meetings.ts";
-import { buildDiscussionMeetingsReport } from "../lib/admin/discussion-meetings-report.ts";
+import {
+  buildDiscussionMeetingsReport,
+  buildDiscussionMeetingUnassignedAllocations,
+} from "../lib/admin/discussion-meetings-report.ts";
 
 const GROUPS = [
   { id: "alpha", name: "Comunità Alpha" },
@@ -141,6 +144,43 @@ test("keeps the unassigned component visible after a partial assignment", () => 
   assert.equal(dashboard.meetings[3].participantCount, 4);
 });
 
+test("builds report rows for whole and partially unassigned groups", () => {
+  const dashboard = buildDiscussionMeetingDashboard(
+    GROUPS,
+    [
+      ...ALPHA_PARTICIPANTS,
+      ...participantsFor("beta", "Operator - Operatore", 20),
+    ],
+    [assignment(4, null)],
+  );
+  const unassigned = buildDiscussionMeetingUnassignedAllocations(dashboard.groups);
+
+  assert.deepEqual(unassigned, [
+    {
+      groupId: "beta",
+      groupName: "Comunità Beta",
+      scope: "whole",
+      higherStudents: 0,
+      universityWorkers: 0,
+      operators: 20,
+      total: 20,
+    },
+    {
+      groupId: "alpha",
+      groupName: "Comunità Alpha",
+      scope: "university-worker",
+      higherStudents: 0,
+      universityWorkers: 7,
+      operators: 2,
+      total: 9,
+    },
+  ]);
+  assert.equal(
+    unassigned.reduce((total, allocation) => total + allocation.total, 0),
+    dashboard.totals.unassignedParticipants,
+  );
+});
+
 test("orders groups from the largest to the smallest", () => {
   const dashboard = buildDiscussionMeetingDashboard(
     GROUPS,
@@ -197,6 +237,18 @@ test("creates a non-empty Word document from assigned meetings", async () => {
     GROUPS,
     ALPHA_PARTICIPANTS,
     [assignment(1, 2)],
+  );
+  const report = await buildDiscussionMeetingsReport(dashboard);
+
+  assert.equal(report.subarray(0, 2).toString("ascii"), "PK");
+  assert.ok(report.length > 5_000);
+});
+
+test("creates the Word report before any meeting has been assigned", async () => {
+  const dashboard = buildDiscussionMeetingDashboard(
+    GROUPS,
+    ALPHA_PARTICIPANTS,
+    [],
   );
   const report = await buildDiscussionMeetingsReport(dashboard);
 

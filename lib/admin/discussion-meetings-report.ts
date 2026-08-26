@@ -18,6 +18,7 @@ import {
   WidthType,
 } from "docx";
 import type {
+  DiscussionGroupSummary,
   DiscussionMeetingAllocation,
   DiscussionMeetingDashboard,
 } from "./discussion-meetings";
@@ -171,10 +172,76 @@ function meetingTable(allocations: DiscussionMeetingAllocation[]) {
   });
 }
 
+export function buildDiscussionMeetingUnassignedAllocations(
+  groups: DiscussionGroupSummary[],
+): DiscussionMeetingAllocation[] {
+  const allocations: DiscussionMeetingAllocation[] = [];
+
+  for (const group of groups) {
+    if (group.unassignedParticipants <= 0) continue;
+
+    if (group.assignedParticipants === 0) {
+      allocations.push({
+        groupId: group.id,
+        groupName: group.name,
+        scope: "whole",
+        higherStudents: group.higherStudents,
+        universityWorkers: group.universityWorkers,
+        operators: group.operators,
+        total: group.total,
+      });
+      continue;
+    }
+
+    if (group.assignment.higherMeetingNumber === null) {
+      const total = group.higherStudents + group.operatorDistribution.higher;
+      if (total > 0) {
+        allocations.push({
+          groupId: group.id,
+          groupName: group.name,
+          scope: "higher",
+          higherStudents: group.higherStudents,
+          universityWorkers: 0,
+          operators: group.operatorDistribution.higher,
+          total,
+        });
+      }
+    }
+
+    if (group.assignment.universityWorkerMeetingNumber === null) {
+      const total =
+        group.universityWorkers + group.operatorDistribution.universityWorker;
+      if (total > 0) {
+        allocations.push({
+          groupId: group.id,
+          groupName: group.name,
+          scope: "university-worker",
+          higherStudents: 0,
+          universityWorkers: group.universityWorkers,
+          operators: group.operatorDistribution.universityWorker,
+          total,
+        });
+      }
+    }
+  }
+
+  return allocations;
+}
+
 export async function buildDiscussionMeetingsReport(
   dashboard: DiscussionMeetingDashboard,
 ): Promise<Buffer> {
   const meetings = dashboard.meetings.filter((meeting) => meeting.participantCount > 0);
+  const unassignedAllocations = buildDiscussionMeetingUnassignedAllocations(
+    dashboard.groups,
+  );
+  const unassignedParticipants = unassignedAllocations.reduce(
+    (total, allocation) => total + allocation.total,
+    0,
+  );
+  const unassignedGroupCount = new Set(
+    unassignedAllocations.map((allocation) => allocation.groupId),
+  ).size;
 
   const children: (Paragraph | Table)[] = [
     new Paragraph({
@@ -186,6 +253,45 @@ export async function buildDiscussionMeetingsReport(
       children: [new TextRun(`Riunioni incluse: ${meetings.length}`)],
     }),
   ];
+
+  if (unassignedAllocations.length > 0) {
+    children.push(
+      new Paragraph({
+        heading: HeadingLevel.HEADING_1,
+        keepNext: true,
+        children: [
+          new TextRun({
+            text: "Gruppi ancora da assegnare",
+            color: COLORS.heading,
+            bold: true,
+          }),
+          new TextRun({
+            text: " - ",
+            color: COLORS.muted,
+            bold: false,
+          }),
+          new TextRun({
+            text: `${unassignedParticipants} partecipanti`,
+            color: COLORS.participantAccent,
+            bold: true,
+          }),
+        ],
+      }),
+      new Paragraph({
+        style: "MeetingSummary",
+        keepNext: true,
+        children: [
+          new TextRun(
+            `${unassignedGroupCount} ${
+              unassignedGroupCount === 1 ? "gruppo" : "gruppi"
+            } su cui decidere`,
+          ),
+        ],
+      }),
+      meetingTable(unassignedAllocations),
+      new Paragraph({ spacing: { before: 0, after: 80 }, children: [] }),
+    );
+  }
 
   for (const meeting of meetings) {
     children.push(

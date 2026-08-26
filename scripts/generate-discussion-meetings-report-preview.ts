@@ -50,12 +50,18 @@ for (const [index, group] of groups.entries()) {
   addParticipants(registrationTypes.universityWorker, 6 + (index % 7));
   addParticipants(registrationTypes.operator, 1 + (index % 4));
 
+  if (index >= groups.length - 2) continue;
+
   const firstMeeting = (index % 8) + 1;
   assignments.push({
     groupId: group.id,
     higherMeetingNumber: firstMeeting,
     universityWorkerMeetingNumber:
-      index % 3 === 0 ? Math.min(10, firstMeeting + 1) : firstMeeting,
+      index === 0
+        ? null
+        : index % 3 === 0
+          ? Math.min(10, firstMeeting + 1)
+          : firstMeeting,
     updatedAt: null,
   });
 }

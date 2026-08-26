@@ -165,8 +165,10 @@ Current behavior:
   integer rounding, preserving the exact operator total.
 - Each participant category can be assigned to at most one meeting. Unassigned and partially
   assigned people remain visible in the page totals.
-- The Word report includes only non-empty meetings in numeric order, with group/component
-  rows and category totals.
+- The Word report opens with a decision table for every fully or partially unassigned group,
+  using the same group/component and category-total format as the meeting tables. It remains
+  downloadable before any meeting has been assigned, then includes only non-empty meetings
+  in numeric order.
 - Before the migration is applied, local development falls back to a `.next/cache` JSON store
   and displays an explicit local-preview warning; production never uses this fallback.
 
