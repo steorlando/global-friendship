@@ -367,6 +367,7 @@ export function TourManagementDashboard({ participantsHref }: { participantsHref
                     <h3 className="font-semibold text-slate-900 md:truncate">{tour.title}</h3>
                     {!tour.isActive ? <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-600">{t("tours.staff.inactive")}</span> : null}
                   </div>
+                  <p className="mt-1.5 text-xs leading-5 text-slate-500">{tour.description}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-xs md:justify-end">
                   <button type="button" onClick={() => void openParticipants(tour.id)} className="rounded-lg bg-indigo-50 px-2.5 py-1.5 font-semibold text-indigo-800 hover:bg-indigo-100">{t("tours.staff.bookedCount", { count: tour.bookedCount })}</button>
