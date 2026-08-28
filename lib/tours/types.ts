@@ -3,6 +3,11 @@ export type TourSettings = {
   participantChangesEnabled: boolean;
 };
 
+export type TourBookingSummary = {
+  bookedParticipants: number;
+  totalParticipants: number;
+};
+
 export type TourOverview = {
   id: string;
   tourNumber: number;

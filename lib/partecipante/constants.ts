@@ -18,12 +18,14 @@ export const OPERATOR_ACCOMMODATION_PREFERENCE_OPTIONS = [
   "Hotel",
 ] as const;
 
+export const DRIVER_REGISTRATION_TYPE = "Driver - Autista";
+
 export const REGISTRATION_TYPE_OPTIONS = [
   "Higher student - liceale (14-18 years old)",
   "Undergraduate - universitario(18-25 years old)",
   "Worker - lavoratore (18-25 years old)",
   "Operator - Operatore",
-  "Driver - Autista",
+  DRIVER_REGISTRATION_TYPE,
 ] as const;
 
 const ALLOGGIO_SHORT_TO_LONG_MAP: Record<string, (typeof ALLOGGIO_OPTIONS)[number]> = {

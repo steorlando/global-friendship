@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { requireTourStaffUser } from "@/lib/tours/auth";
-import { loadTourSettings, loadToursOverview } from "@/lib/tours/server";
+import {
+  loadTourBookingSummary,
+  loadTourSettings,
+  loadToursOverview,
+} from "@/lib/tours/server";
 import { parseTourInput, tourApiErrorCode } from "@/lib/tours/validation";
 
 export const dynamic = "force-dynamic";
@@ -12,11 +16,12 @@ export async function GET() {
 
   try {
     const service = createSupabaseServiceClient({ noStore: true });
-    const [settings, tours] = await Promise.all([
+    const [settings, tours, bookingSummary] = await Promise.all([
       loadTourSettings(service),
       loadToursOverview({ service, includeInactive: true }),
+      loadTourBookingSummary(service),
     ]);
-    return NextResponse.json({ settings, tours, role: auth.role });
+    return NextResponse.json({ settings, tours, bookingSummary, role: auth.role });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to load tours" },

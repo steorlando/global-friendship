@@ -3,7 +3,12 @@
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/lib/i18n/provider";
-import type { TourOverview, TourParticipantSummary, TourSettings } from "@/lib/tours/types";
+import type {
+  TourBookingSummary,
+  TourOverview,
+  TourParticipantSummary,
+  TourSettings,
+} from "@/lib/tours/types";
 
 type TourDraft = {
   title: string;
@@ -44,6 +49,7 @@ export function TourManagementDashboard({ participantsHref }: { participantsHref
     return /^TOUR_[A-Z_]+$/.test(code) ? t(`tours.error.${code}`) : t(fallbackKey);
   }, [t]);
   const [settings, setSettings] = useState<TourSettings | null>(null);
+  const [bookingSummary, setBookingSummary] = useState<TourBookingSummary | null>(null);
   const [tours, setTours] = useState<TourOverview[]>([]);
   const [drafts, setDrafts] = useState<Record<string, TourDraft>>({});
   const [newDraft, setNewDraft] = useState<TourDraft>(EMPTY_DRAFT);
@@ -68,6 +74,7 @@ export function TourManagementDashboard({ participantsHref }: { participantsHref
       if (!response.ok) throw new Error(apiErrorMessage(json.error, "tours.error.load"));
       const loadedTours = Array.isArray(json.tours) ? (json.tours as TourOverview[]) : [];
       setSettings(json.settings);
+      setBookingSummary(json.bookingSummary ?? null);
       setTours(loadedTours);
       setDrafts(Object.fromEntries(loadedTours.map((tour) => [tour.id, toDraft(tour)])));
     } catch (reason) {
@@ -324,6 +331,19 @@ export function TourManagementDashboard({ participantsHref }: { participantsHref
 
       {error ? <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div> : null}
       {success ? <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">{success}</div> : null}
+
+      {bookingSummary ? (
+        <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-indigo-200 bg-indigo-50 px-5 py-4 shadow-sm">
+          <div>
+            <h2 className="text-sm font-semibold text-indigo-950">{t("tours.staff.bookingProgress")}</h2>
+            <p className="mt-1 text-xs text-indigo-700">{t("tours.staff.bookingProgressHelp")}</p>
+          </div>
+          <div className="shrink-0 text-right" aria-label={t("tours.staff.bookingProgressCount", bookingSummary)}>
+            <span className="text-3xl font-bold tabular-nums text-indigo-950">{bookingSummary.bookedParticipants}</span>
+            <span className="ml-2 text-base font-semibold tabular-nums text-indigo-700">/ {bookingSummary.totalParticipants}</span>
+          </div>
+        </section>
+      ) : null}
 
       {settings ? (
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">

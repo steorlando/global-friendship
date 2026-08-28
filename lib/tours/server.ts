@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { DRIVER_REGISTRATION_TYPE } from "@/lib/partecipante/constants";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import type { TourOverview, TourSettings } from "@/lib/tours/types";
+import type { TourBookingSummary, TourOverview, TourSettings } from "@/lib/tours/types";
 
 type TourRow = {
   id: string;
@@ -37,6 +38,33 @@ export async function loadTourSettings(
   return {
     publicEnabled: Boolean(data.public_enabled),
     participantChangesEnabled: Boolean(data.participant_changes_enabled),
+  };
+}
+
+export async function loadTourBookingSummary(
+  service: SupabaseClient = createSupabaseServiceClient({ noStore: true })
+): Promise<TourBookingSummary> {
+  const nonDriverFilter =
+    `tipo_iscrizione.is.null,tipo_iscrizione.neq.${DRIVER_REGISTRATION_TYPE}`;
+  const [participantsResult, bookingsResult] = await Promise.all([
+    service
+      .from("partecipanti")
+      .select("id", { count: "exact", head: true })
+      .is("deleted_at", null)
+      .or(nonDriverFilter),
+    service
+      .from("tour_bookings")
+      .select("participant:partecipanti!inner(id,tipo_iscrizione)", { count: "exact", head: true })
+      .is("partecipanti.deleted_at", null)
+      .or(nonDriverFilter, { referencedTable: "partecipanti" }),
+  ]);
+
+  if (participantsResult.error) throw new Error(participantsResult.error.message);
+  if (bookingsResult.error) throw new Error(bookingsResult.error.message);
+
+  return {
+    bookedParticipants: bookingsResult.count ?? 0,
+    totalParticipants: participantsResult.count ?? 0,
   };
 }
 
