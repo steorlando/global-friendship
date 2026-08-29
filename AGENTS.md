@@ -368,6 +368,9 @@ Business rules:
 
 - `tour_manager` can see only tour data and participant name, phone, email, group, and tour assignment.
 - Admin and manager share the same tour-management components and server-side role guard.
+- The shared management dashboard includes an authenticated Excel export beside the booking
+  counter. It lists every confirmed booking for an active participant with first name, last
+  name, phone, group, and stable tour number/title; admin, manager, and tour manager share it.
 - A participant can hold one confirmed booking and one active waitlist position for a different full tour.
 - An offered waitlist place is reserved for 30 minutes and counts against availability.
 - A free place cannot bypass an existing waiting queue, including in the interval between an offer expiring and the next cron run.

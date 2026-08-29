@@ -338,9 +338,17 @@ export function TourManagementDashboard({ participantsHref }: { participantsHref
             <h2 className="text-sm font-semibold text-indigo-950">{t("tours.staff.bookingProgress")}</h2>
             <p className="mt-1 text-xs text-indigo-700">{t("tours.staff.bookingProgressHelp")}</p>
           </div>
-          <div className="shrink-0 text-right" aria-label={t("tours.staff.bookingProgressCount", bookingSummary)}>
-            <span className="text-3xl font-bold tabular-nums text-indigo-950">{bookingSummary.bookedParticipants}</span>
-            <span className="ml-2 text-base font-semibold tabular-nums text-indigo-700">/ {bookingSummary.totalParticipants}</span>
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-3">
+            <a
+              href="/api/tours/manage/export"
+              className="rounded-lg border border-indigo-300 bg-white px-3 py-2 text-xs font-semibold text-indigo-800 shadow-sm transition hover:bg-indigo-100"
+            >
+              {t("tours.staff.exportBookings")}
+            </a>
+            <div className="text-right" aria-label={t("tours.staff.bookingProgressCount", bookingSummary)}>
+              <span className="text-3xl font-bold tabular-nums text-indigo-950">{bookingSummary.bookedParticipants}</span>
+              <span className="ml-2 text-base font-semibold tabular-nums text-indigo-700">/ {bookingSummary.totalParticipants}</span>
+            </div>
           </div>
         </section>
       ) : null}

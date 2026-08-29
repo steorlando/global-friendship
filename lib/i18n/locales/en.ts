@@ -230,6 +230,7 @@ const en: TranslationDictionary = {
   "tours.staff.bookingProgress": "Participants with a booked tour",
   "tours.staff.bookingProgressHelp": "Confirmed bookings out of all active registered participants, excluding drivers.",
   "tours.staff.bookingProgressCount": "{bookedParticipants} participants booked out of {totalParticipants} registered, excluding drivers",
+  "tours.staff.exportBookings": "Export bookings to Excel",
   "tours.staff.bookedParticipants": "Booked participants",
   "tours.staff.noBookings": "No participants are booked for this tour.",
   "tours.staff.assignParticipants": "Search and assign participants",
