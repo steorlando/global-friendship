@@ -16,6 +16,23 @@ type TourExportSourceRow = {
   created_at: string;
 };
 
+const PARTICIPANT_QUERY_CHUNK_SIZE = 100;
+
+export function chunkTourParticipantIds(
+  participantIds: string[],
+  chunkSize = PARTICIPANT_QUERY_CHUNK_SIZE,
+): string[][] {
+  if (!Number.isInteger(chunkSize) || chunkSize < 1) {
+    throw new Error("Chunk size must be a positive integer");
+  }
+
+  const chunks: string[][] = [];
+  for (let index = 0; index < participantIds.length; index += chunkSize) {
+    chunks.push(participantIds.slice(index, index + chunkSize));
+  }
+  return chunks;
+}
+
 export async function loadTourBookingExportRows(
   service: SupabaseClient,
 ): Promise<TourBookingExportRow[]> {
@@ -46,15 +63,21 @@ export async function loadTourBookingExportRows(
   );
   if (participantIds.length === 0) return [];
 
-  const participantsResult = await service
-    .from("partecipanti")
-    .select("id,nome,cognome,telefono,gruppo_id,gruppo_label")
-    .in("id", participantIds)
-    .is("deleted_at", null);
-  if (participantsResult.error) throw new Error(participantsResult.error.message);
+  const participantResults = await Promise.all(
+    chunkTourParticipantIds(participantIds).map((participantIdChunk) =>
+      service
+        .from("partecipanti")
+        .select("id,nome,cognome,telefono,gruppo_id,gruppo_label")
+        .in("id", participantIdChunk)
+        .is("deleted_at", null),
+    ),
+  );
+  const participantError = participantResults.find((result) => result.error)?.error;
+  if (participantError) throw new Error(participantError.message);
+  const participantRows = participantResults.flatMap((result) => result.data ?? []);
 
   const participantById = new Map(
-    (participantsResult.data ?? []).map((participant) => [
+    participantRows.map((participant) => [
       String(participant.id),
       {
         firstName: String(participant.nome ?? ""),

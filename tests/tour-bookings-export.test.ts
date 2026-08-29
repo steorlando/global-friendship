@@ -2,7 +2,19 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import * as XLSX from "xlsx";
 
-import { buildTourBookingsWorkbook } from "../lib/tours/bookings-export.ts";
+import {
+  buildTourBookingsWorkbook,
+  chunkTourParticipantIds,
+} from "../lib/tours/bookings-export.ts";
+
+test("splits participant IDs into bounded queries to avoid oversized Supabase URLs", () => {
+  const participantIds = Array.from({ length: 205 }, (_, index) => `participant-${index + 1}`);
+
+  const chunks = chunkTourParticipantIds(participantIds);
+
+  assert.deepEqual(chunks.map((chunk) => chunk.length), [100, 100, 5]);
+  assert.deepEqual(chunks.flat(), participantIds);
+});
 
 test("creates the tour bookings Excel export with the requested columns", () => {
   const file = buildTourBookingsWorkbook([
