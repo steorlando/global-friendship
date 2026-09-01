@@ -5,7 +5,7 @@ import { Fragment, useState } from "react";
 import { useI18n } from "@/lib/i18n/provider";
 
 type EnrollmentBucket = "Higher students" | "University-Worker" | "Operator";
-type RegistrationsTab = "country" | "group" | "italian-cities";
+type RegistrationsTab = "country" | "group";
 
 type PivotRow = {
   label: string;
@@ -21,7 +21,6 @@ type RegistrationsTabsSectionProps = {
   buckets: EnrollmentBucket[];
   countryRows: CountryPivotRow[];
   groupRows: PivotRow[];
-  italianCityRows: PivotRow[];
 };
 const ENROLLMENT_BUCKET_LABEL_KEYS: Record<EnrollmentBucket, string> = {
   "Higher students": "enrollment.bucket.higherStudents",
@@ -61,7 +60,6 @@ export function RegistrationsTabsSection({
   buckets,
   countryRows,
   groupRows,
-  italianCityRows,
 }: RegistrationsTabsSectionProps) {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<RegistrationsTab>("country");
@@ -106,17 +104,6 @@ export function RegistrationsTabsSection({
           >
             {t("manager.registrations.byGroup")}
           </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("italian-cities")}
-            className={`rounded-md px-3 py-1.5 text-sm ${
-              activeTab === "italian-cities"
-                ? "bg-white text-slate-900 shadow-sm"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            {t("manager.registrations.italianCities")}
-          </button>
         </div>
       </div>
 
@@ -126,58 +113,7 @@ export function RegistrationsTabsSection({
             {t("manager.registrations.countryCitiesHint")}
           </p>
         )}
-        {activeTab === "italian-cities" ? (
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50/50 text-left text-slate-700">
-              <tr>
-                <th className="px-4 py-3 font-semibold">{t("manager.registrations.city")}</th>
-                {buckets.map((bucket) => (
-                  <th key={bucket} className="px-4 py-3 font-semibold">
-                    {t(ENROLLMENT_BUCKET_LABEL_KEYS[bucket])}
-                  </th>
-                ))}
-                <th className="px-4 py-3 font-semibold">{t("manager.registrations.total")}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {italianCityRows.length === 0 ? (
-                <tr>
-                  <td colSpan={buckets.length + 2} className="px-3 py-3 text-slate-500">
-                    {t("common.noData")}
-                  </td>
-                </tr>
-              ) : (
-                italianCityRows.map((row) => (
-                  <tr key={row.label}>
-                    <td className="px-4 py-3 text-slate-900">{row.label}</td>
-                    {buckets.map((bucket) => (
-                      <td key={`${row.label}-${bucket}`} className="px-4 py-3 text-slate-700">
-                        <CountLink
-                          count={row.counts[bucket]}
-                          href={participantsHref({
-                            statCity: row.label,
-                            statItalyOnly: "1",
-                            enrollmentBucket: bucket,
-                          })}
-                        />
-                      </td>
-                    ))}
-                    <td className="px-4 py-3 font-medium text-slate-900">
-                      <CountLink
-                        count={row.total}
-                        href={participantsHref({
-                          statCity: row.label,
-                          statItalyOnly: "1",
-                        })}
-                      />
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        ) : (
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
+        <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50/50 text-left text-slate-700">
               <tr>
                 <th className="px-4 py-3 font-semibold">
@@ -325,8 +261,7 @@ export function RegistrationsTabsSection({
                 })
               )}
             </tbody>
-          </table>
-        )}
+        </table>
       </div>
     </section>
   );

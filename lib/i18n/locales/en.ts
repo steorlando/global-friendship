@@ -631,7 +631,6 @@ const en: TranslationDictionary = {
   "manager.statistics.subtitle": "Participant overview dashboard. Registration-type statistics exclude \"Driver - Autista\".",
   "manager.registrations.byCountry": "By country",
   "manager.registrations.byGroup": "By group",
-  "manager.registrations.italianCities": "Italian cities",
   "manager.registrations.country": "Country",
   "manager.registrations.city": "City",
   "manager.registrations.countryCitiesHint":

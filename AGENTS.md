@@ -462,9 +462,12 @@ Statistics currently implemented:
   current Hotel-preferring operators. The export is generated live by
   `app/api/manager/statistics/operator-hotel-export/route.ts` and is available to manager
   and admin roles.
-- Registrations by country
+- Registrations by country, with inline expandable city rows. City aggregation and the
+  linked participant filter share `lib/statistics/registration-cities.ts`: accents, casing,
+  punctuation, and whitespace are ignored for matching, while the explicit canonical aliases
+  currently merge Liege variants as `Liège`, Innsbruck variants as `Innsbruck`, and
+  Kiev/Kyiv as `Kyiv` without changing the stored participant record.
 - Registrations by group
-- Registrations by Italian city
 - Daily presence table with accommodation filter
 - Registration trend chart
 - Duplicate candidates and unassigned-group participants

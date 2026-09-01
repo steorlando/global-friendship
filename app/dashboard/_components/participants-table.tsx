@@ -17,6 +17,7 @@ import {
 } from "@/lib/partecipante/constants";
 import { useI18n } from "@/lib/i18n/provider";
 import type { StaffAvailabilityFilter } from "@/lib/statistics/staff-availability";
+import { registrationCitiesMatch } from "@/lib/statistics/registration-cities";
 import type { ParticipantStaffAvailability } from "@/lib/partecipante/staff-availability";
 import { HostelCheckInSection } from "../partecipante/hostel-check-in-section";
 
@@ -497,7 +498,7 @@ export function ParticipantsTable({
       }
       if (
         statCityFilter &&
-        normalizeFilterText(participant.citta) !== normalizeFilterText(statCityFilter)
+        !registrationCitiesMatch(participant.citta, statCityFilter)
       ) {
         return false;
       }

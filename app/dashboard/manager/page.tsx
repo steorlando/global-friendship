@@ -37,6 +37,10 @@ import {
 } from "@/lib/statistics/food-needs";
 import { STATISTICS_GROUP_LEADER_ROLES } from "@/lib/statistics/group-leader-associations";
 import {
+  normalizeRegistrationCityLabel,
+  registrationCityKey,
+} from "@/lib/statistics/registration-cities";
+import {
   buildHostelCheckInGroupSummary,
   buildHostelCheckInHostelSummary,
   loadHostelCheckInStatuses,
@@ -117,6 +121,11 @@ type FalsePositiveRow = {
 };
 
 type EnrollmentBucket = "Higher students" | "University-Worker" | "Operator";
+
+type CityBucketEntry = {
+  label: string;
+  counts: Record<EnrollmentBucket, number>;
+};
 
 const ENROLLMENT_BUCKETS: EnrollmentBucket[] = [
   "Higher students",
@@ -203,17 +212,29 @@ function createEmptyBucketCounts(): Record<EnrollmentBucket, number> {
   };
 }
 
-function sortedLabels(values: Set<string>): string[] {
-  return [...values].sort((a, b) => {
-    if (a === "-") return 1;
-    if (b === "-") return -1;
-    return a.localeCompare(b);
-  });
+function compareLabels(a: string, b: string): number {
+  if (a === "-") return 1;
+  if (b === "-") return -1;
+  return a.localeCompare(b);
 }
 
-function isItalyCountry(value: string | null | undefined): boolean {
-  const normalized = (value ?? "").trim().toLowerCase();
-  return normalized === "italia" || normalized === "italy";
+function sortedLabels(values: Set<string>): string[] {
+  return [...values].sort(compareLabels);
+}
+
+function incrementCityBucket(
+  cityBuckets: Map<string, CityBucketEntry>,
+  rawCity: string | null | undefined,
+  bucket: EnrollmentBucket,
+): void {
+  const key = registrationCityKey(rawCity) || "-";
+  const label = normalizeRegistrationCityLabel(rawCity) ?? "-";
+  const current = cityBuckets.get(key) ?? {
+    label,
+    counts: createEmptyBucketCounts(),
+  };
+  current.counts[bucket] += 1;
+  cityBuckets.set(key, current);
 }
 
 function normalizeTallyValue(value: unknown): string {
@@ -2058,7 +2079,7 @@ export async function StatisticsDashboard({
   const byCountry = new Map<string, Record<EnrollmentBucket, number>>();
   const byCountryCity = new Map<
     string,
-    Map<string, Record<EnrollmentBucket, number>>
+    Map<string, CityBucketEntry>
   >();
   const byGroup = new Map<string, Record<EnrollmentBucket, number>>();
 
@@ -2073,11 +2094,8 @@ export async function StatisticsDashboard({
     currentCountry[bucket] += 1;
     byCountry.set(country, currentCountry);
 
-    const city = (participant.citta ?? "").trim() || "-";
     const countryCities = byCountryCity.get(country) ?? new Map();
-    const currentCity = countryCities.get(city) ?? createEmptyBucketCounts();
-    currentCity[bucket] += 1;
-    countryCities.set(city, currentCity);
+    incrementCityBucket(countryCities, participant.citta, bucket);
     byCountryCity.set(country, countryCities);
 
     const group = (participant.gruppo_label ?? participant.gruppo_id ?? "").trim() || "-";
@@ -2099,44 +2117,25 @@ export async function StatisticsDashboard({
       label,
       counts,
       total: ENROLLMENT_BUCKETS.reduce((acc, bucket) => acc + counts[bucket], 0),
-      cityRows: sortedLabels(new Set(cityCounts.keys())).map((city) => {
-        const countsForCity = cityCounts.get(city) ?? createEmptyBucketCounts();
-        return {
-          label: city,
-          counts: countsForCity,
-          total: ENROLLMENT_BUCKETS.reduce(
-            (acc, bucket) => acc + countsForCity[bucket],
-            0
-          ),
-        };
-      }),
+      cityRows: [...cityCounts.values()]
+        .sort((a, b) => compareLabels(a.label, b.label))
+        .map((city) => {
+          const countsForCity = city.counts;
+          return {
+            label: city.label,
+            counts: countsForCity,
+            total: ENROLLMENT_BUCKETS.reduce(
+              (acc, bucket) => acc + countsForCity[bucket],
+              0
+            ),
+          };
+        }),
     };
   });
   const groupRows = groupLabels.map((label) => {
     const counts = byGroup.get(label) ?? createEmptyBucketCounts();
     return {
       label,
-      counts,
-      total: ENROLLMENT_BUCKETS.reduce((acc, bucket) => acc + counts[bucket], 0),
-    };
-  });
-  const italianParticipants = participants.filter((participant) =>
-    isItalyCountry(participant.paese_residenza)
-  );
-  const byItalianCity = new Map<string, Record<EnrollmentBucket, number>>();
-  for (const participant of italianParticipants) {
-    const city = (participant.citta ?? "").trim();
-    if (!city) continue;
-    const bucket = mapEnrollmentBucket(participant.tipo_iscrizione);
-    if (!bucket) continue;
-    const current = byItalianCity.get(city) ?? createEmptyBucketCounts();
-    current[bucket] += 1;
-    byItalianCity.set(city, current);
-  }
-  const italianCityRows = sortedLabels(new Set(byItalianCity.keys())).map((city) => {
-    const counts = byItalianCity.get(city) ?? createEmptyBucketCounts();
-    return {
-      label: city,
       counts,
       total: ENROLLMENT_BUCKETS.reduce((acc, bucket) => acc + counts[bucket], 0),
     };
@@ -2297,7 +2296,6 @@ export async function StatisticsDashboard({
                 buckets={ENROLLMENT_BUCKETS}
                 countryRows={countryRows}
                 groupRows={groupRows}
-                italianCityRows={italianCityRows}
               />
               <DailyPresenceSection
                 participants={dailyPresenceParticipants}
@@ -2314,7 +2312,6 @@ export async function StatisticsDashboard({
                   buckets={ENROLLMENT_BUCKETS}
                   countryRows={countryRows}
                   groupRows={groupRows}
-                  italianCityRows={italianCityRows}
                 />
               )}
               {showSection("daily-presence") && (
