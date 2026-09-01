@@ -183,6 +183,11 @@ const fr: TranslationDictionary = {
   "manager.registrations.byCountry": "Par pays",
   "manager.registrations.byGroup": "Par groupe",
   "manager.registrations.country": "Pays",
+  "manager.registrations.countryCitiesHint":
+    "Sélectionnez un pays pour afficher le détail par ville.",
+  "manager.registrations.showCountryCities": "Afficher les villes de {country}",
+  "manager.registrations.hideCountryCities": "Masquer les villes de {country}",
+  "manager.registrations.cityNotSpecified": "Ville non renseignée",
   "manager.registrations.group": "Groupe",
   "manager.registrations.total": "Total",
   "manager.trend.title": "Tendance des inscriptions",

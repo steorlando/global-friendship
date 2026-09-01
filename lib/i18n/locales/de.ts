@@ -169,6 +169,11 @@ const de: TranslationDictionary = {
   "manager.registrations.byCountry": "Nach Land",
   "manager.registrations.byGroup": "Nach Gruppe",
   "manager.registrations.country": "Land",
+  "manager.registrations.countryCitiesHint":
+    "Wähle ein Land aus, um die Aufschlüsselung nach Städten anzuzeigen.",
+  "manager.registrations.showCountryCities": "Städte in {country} anzeigen",
+  "manager.registrations.hideCountryCities": "Städte in {country} ausblenden",
+  "manager.registrations.cityNotSpecified": "Stadt nicht angegeben",
   "manager.registrations.group": "Gruppe",
   "manager.registrations.total": "Gesamt",
   "manager.trend.title": "Registrierungstrend",

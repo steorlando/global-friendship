@@ -169,6 +169,11 @@ const es: TranslationDictionary = {
   "manager.registrations.byCountry": "Por país",
   "manager.registrations.byGroup": "Por grupo",
   "manager.registrations.country": "País",
+  "manager.registrations.countryCitiesHint":
+    "Selecciona un país para ver el detalle por ciudad.",
+  "manager.registrations.showCountryCities": "Mostrar ciudades de {country}",
+  "manager.registrations.hideCountryCities": "Ocultar ciudades de {country}",
+  "manager.registrations.cityNotSpecified": "Ciudad no indicada",
   "manager.registrations.group": "Grupo",
   "manager.registrations.total": "Total",
   "manager.trend.title": "Tendencia de registros",

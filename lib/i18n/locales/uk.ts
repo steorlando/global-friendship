@@ -169,6 +169,11 @@ const uk: TranslationDictionary = {
   "manager.registrations.byCountry": "За країною",
   "manager.registrations.byGroup": "За групою",
   "manager.registrations.country": "Країна",
+  "manager.registrations.countryCitiesHint":
+    "Виберіть країну, щоб переглянути розподіл за містами.",
+  "manager.registrations.showCountryCities": "Показати міста в {country}",
+  "manager.registrations.hideCountryCities": "Приховати міста в {country}",
+  "manager.registrations.cityNotSpecified": "Місто не вказано",
   "manager.registrations.group": "Група",
   "manager.registrations.total": "Усього",
   "manager.trend.title": "Тренд реєстрацій",

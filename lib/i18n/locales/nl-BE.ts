@@ -169,6 +169,11 @@ const nlBE: TranslationDictionary = {
   "manager.registrations.byCountry": "Per land",
   "manager.registrations.byGroup": "Per groep",
   "manager.registrations.country": "Land",
+  "manager.registrations.countryCitiesHint":
+    "Selecteer een land om de verdeling per stad te bekijken.",
+  "manager.registrations.showCountryCities": "Steden in {country} tonen",
+  "manager.registrations.hideCountryCities": "Steden in {country} verbergen",
+  "manager.registrations.cityNotSpecified": "Stad niet opgegeven",
   "manager.registrations.group": "Groep",
   "manager.registrations.total": "Totaal",
   "manager.trend.title": "Registratietrend",

@@ -2056,6 +2056,10 @@ export async function StatisticsDashboard({
 
   const counters = createEmptyBucketCounts();
   const byCountry = new Map<string, Record<EnrollmentBucket, number>>();
+  const byCountryCity = new Map<
+    string,
+    Map<string, Record<EnrollmentBucket, number>>
+  >();
   const byGroup = new Map<string, Record<EnrollmentBucket, number>>();
 
   for (const participant of participants) {
@@ -2068,6 +2072,13 @@ export async function StatisticsDashboard({
     const currentCountry = byCountry.get(country) ?? createEmptyBucketCounts();
     currentCountry[bucket] += 1;
     byCountry.set(country, currentCountry);
+
+    const city = (participant.citta ?? "").trim() || "-";
+    const countryCities = byCountryCity.get(country) ?? new Map();
+    const currentCity = countryCities.get(city) ?? createEmptyBucketCounts();
+    currentCity[bucket] += 1;
+    countryCities.set(city, currentCity);
+    byCountryCity.set(country, countryCities);
 
     const group = (participant.gruppo_label ?? participant.gruppo_id ?? "").trim() || "-";
     const currentGroup = byGroup.get(group) ?? createEmptyBucketCounts();
@@ -2083,10 +2094,22 @@ export async function StatisticsDashboard({
   );
   const countryRows = countryLabels.map((label) => {
     const counts = byCountry.get(label) ?? createEmptyBucketCounts();
+    const cityCounts = byCountryCity.get(label) ?? new Map();
     return {
       label,
       counts,
       total: ENROLLMENT_BUCKETS.reduce((acc, bucket) => acc + counts[bucket], 0),
+      cityRows: sortedLabels(new Set(cityCounts.keys())).map((city) => {
+        const countsForCity = cityCounts.get(city) ?? createEmptyBucketCounts();
+        return {
+          label: city,
+          counts: countsForCity,
+          total: ENROLLMENT_BUCKETS.reduce(
+            (acc, bucket) => acc + countsForCity[bucket],
+            0
+          ),
+        };
+      }),
     };
   });
   const groupRows = groupLabels.map((label) => {

@@ -611,6 +611,11 @@ const it: TranslationDictionary = {
   "manager.registrations.italianCities": "Città italiane",
   "manager.registrations.country": "Paese",
   "manager.registrations.city": "Città",
+  "manager.registrations.countryCitiesHint":
+    "Clicca su un paese per vedere il dettaglio delle città.",
+  "manager.registrations.showCountryCities": "Mostra le città di {country}",
+  "manager.registrations.hideCountryCities": "Nascondi le città di {country}",
+  "manager.registrations.cityNotSpecified": "Città non indicata",
   "manager.registrations.group": "Gruppo",
   "manager.registrations.type": "Tipo",
   "manager.trend.title": "Andamento registrazioni",
